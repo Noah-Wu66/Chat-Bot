@@ -19,12 +19,14 @@ const nextConfig = {
     };
     return config;
   },
-  // Docker 部署配置
-  output: 'standalone',
+  // Zeabur 部署配置
   // 环境变量
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
+  // 优化配置
+  swcMinify: true,
+  compress: true,
 }
 
 module.exports = nextConfig

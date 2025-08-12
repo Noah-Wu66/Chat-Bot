@@ -5,15 +5,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "echo 'Build completed successfully'",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
     "setup": "chmod +x scripts/setup.sh && ./scripts/setup.sh",
-    "docker:build": "docker build -t ai-chat-bot .",
-    "docker:run": "docker run -p 3000:3000 ai-chat-bot",
-    "docker:compose": "docker-compose up -d",
-    "docker:down": "docker-compose down",
     "clean": "rm -rf .next node_modules package-lock.json && npm install"
   },
   "dependencies": {

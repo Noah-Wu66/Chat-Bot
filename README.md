@@ -209,24 +209,21 @@ src/
     └── helpers.ts        # 辅助函数
 ```
 
-## 部署说明
+## Zeabur 部署说明
 
-### Vercel 部署
-1. 连接 GitHub 仓库到 Vercel
-2. 配置环境变量
-3. 自动部署
+### 快速部署
+1. 推送代码到 Git 仓库
+2. 在 Zeabur 控制台连接仓库
+3. 设置环境变量（见上方配置）
+4. 点击部署
 
-### Docker 部署
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-RUN npm run build
-EXPOSE 3000
-CMD ["npm", "start"]
-```
+### 部署配置
+项目已针对 Zeabur 优化，包含：
+- 简化的 Dockerfile
+- 优化的构建配置
+- 完整的环境变量支持
+
+详细部署指南请查看 `DEPLOYMENT.md` 文件。
 
 ## 贡献指南
 
