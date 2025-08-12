@@ -69,17 +69,40 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // 创建新对话
-      const title = typeof input === 'string' 
-        ? input.substring(0, 50) + (input.length > 50 ? '...' : '')
-        : '新对话';
+      let title = '新对话';
+      if (typeof input === 'string') {
+        title = input.substring(0, 50) + (input.length > 50 ? '...' : '');
+      } else if (Array.isArray(input)) {
+        const textInput = input.find(item => item.type === 'input_text');
+        if (textInput && textInput.text) {
+          title = textInput.text.substring(0, 50) + (textInput.text.length > 50 ? '...' : '');
+        }
+      }
       conversation = await createConversation(title, modelId, settings);
     }
 
     // 添加用户消息到数据库
+    let userContent: string;
+    let userImages: string[] = [];
+
+    if (typeof input === 'string') {
+      userContent = input;
+    } else if (Array.isArray(input)) {
+      // 处理数组格式的输入（包含文本和图像）
+      const textInput = input.find(item => item.type === 'input_text');
+      const imageInputs = input.filter(item => item.type === 'input_image');
+
+      userContent = textInput ? textInput.text : '';
+      userImages = imageInputs.map(item => item.image_url);
+    } else {
+      userContent = JSON.stringify(input);
+    }
+
     const userMessage: Omit<Message, 'id' | 'timestamp'> = {
       role: 'user',
-      content: typeof input === 'string' ? input : JSON.stringify(input),
+      content: userContent,
       model: modelId,
+      ...(userImages.length > 0 && { images: userImages }),
     };
 
     await addMessageToConversation(conversation.id, userMessage);
