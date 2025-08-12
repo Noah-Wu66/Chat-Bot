@@ -74,17 +74,50 @@ export default function ChatInterface() {
 
       // 准备 API 请求
       const apiEndpoint = modelConfig.type === 'responses' ? '/api/responses' : '/api/chat';
-      const requestBody = {
-        conversationId,
-        [modelConfig.type === 'responses' ? 'input' : 'message']: {
-          content,
-          images,
-        },
-        model: currentModel,
-        settings,
-        useTools: true,
-        stream: settings.stream !== false,
-      };
+
+      let requestBody: any;
+      if (modelConfig.type === 'responses') {
+        // 对于 Responses API，需要正确格式化 input 参数
+        let input: string | any[];
+        if (images && images.length > 0) {
+          // 如果有图像，使用数组格式
+          input = [
+            {
+              type: 'input_text',
+              text: content,
+            },
+            ...images.map(imageUrl => ({
+              type: 'input_image',
+              image_url: imageUrl,
+            })),
+          ];
+        } else {
+          // 如果只有文本，使用字符串格式
+          input = content;
+        }
+
+        requestBody = {
+          conversationId,
+          input,
+          model: currentModel,
+          settings,
+          useTools: true,
+          stream: settings.stream !== false,
+        };
+      } else {
+        // 对于 Chat API，保持原有格式
+        requestBody = {
+          conversationId,
+          message: {
+            content,
+            images,
+          },
+          model: currentModel,
+          settings,
+          useTools: true,
+          stream: settings.stream !== false,
+        };
+      }
 
       // 发送请求
       const response = await fetch(apiEndpoint, {
