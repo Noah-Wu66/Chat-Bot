@@ -53,7 +53,7 @@ export interface ConversationSettings {
 }
 
 // 支持的模型列表
-export const MODELS = {
+export const MODELS: Record<string, ModelConfig> = {
   // GPT-4o 系列
   'gpt-4o': {
     name: 'GPT-4o',
@@ -146,9 +146,28 @@ export const MODELS = {
     supportsVerbosity: true,
     maxTokens: 2048,
   },
-} as const;
+};
 
 export type ModelId = keyof typeof MODELS;
+
+// 模型配置类型
+export interface ModelConfig {
+  name: string;
+  description: string;
+  type: 'chat' | 'responses';
+  supportsVision?: boolean;
+  supportsSearch?: boolean;
+  supportsTools?: boolean;
+  supportsReasoning?: boolean;
+  supportsVerbosity?: boolean;
+  supportsTemperature?: boolean;
+  maxTokens: number;
+}
+
+// 类型安全的模型配置获取函数
+export function getModelConfig(model: ModelId): ModelConfig {
+  return MODELS[model] as ModelConfig;
+}
 
 // API 响应类型
 export interface ChatCompletionResponse {

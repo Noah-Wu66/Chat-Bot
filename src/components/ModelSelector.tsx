@@ -3,17 +3,17 @@
 import { useState } from 'react';
 import { ChevronDown, Zap, Search, Brain, MessageSquare } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
-import { MODELS, ModelId } from '@/lib/types';
+import { MODELS, ModelId, getModelConfig } from '@/lib/types';
 import { cn } from '@/utils/helpers';
 
 export default function ModelSelector() {
   const [isOpen, setIsOpen] = useState(false);
   const { currentModel, setCurrentModel } = useChatStore();
 
-  const currentModelConfig = MODELS[currentModel];
+  const currentModelConfig = getModelConfig(currentModel);
 
   const getModelIcon = (model: ModelId) => {
-    const config = MODELS[model];
+    const config = getModelConfig(model);
     if (config.supportsSearch) return Search;
     if (config.supportsReasoning) return Brain;
     if (config.type === 'responses') return Zap;
@@ -21,7 +21,7 @@ export default function ModelSelector() {
   };
 
   const getModelBadgeClass = (model: ModelId) => {
-    const config = MODELS[model];
+    const config = getModelConfig(model);
     if (config.supportsSearch) return 'model-badge search';
     if (config.supportsReasoning) return 'model-badge responses';
     return 'model-badge chat';
@@ -74,7 +74,7 @@ export default function ModelSelector() {
                   </div>
                   {models.map((modelId) => {
                     const model = modelId as ModelId;
-                    const config = MODELS[model];
+                    const config = getModelConfig(model);
                     const Icon = getModelIcon(model);
                     const isSelected = currentModel === model;
 

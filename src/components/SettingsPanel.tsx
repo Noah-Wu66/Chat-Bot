@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Settings, X, RotateCcw, Info } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
-import { MODELS, ConversationSettings } from '@/lib/types';
+import { MODELS, ConversationSettings, getModelConfig } from '@/lib/types';
 import { cn } from '@/utils/helpers';
 import { validateModelFeature } from '@/lib/openai';
 
@@ -16,7 +16,7 @@ export default function SettingsPanel() {
     currentModel 
   } = useChatStore();
 
-  const modelConfig = MODELS[currentModel];
+  const modelConfig = getModelConfig(currentModel);
 
   // 重置设置
   const resetSettings = () => {

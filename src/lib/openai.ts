@@ -91,7 +91,7 @@ export async function createResponse({
   stream?: boolean;
 }) {
   const modelConfig = MODELS[model];
-  
+
   // 基础参数
   const params: any = {
     model,
