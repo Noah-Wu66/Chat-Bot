@@ -117,7 +117,71 @@
   }
   
   .message-content {
-    @apply prose prose-sm max-w-none dark:prose-invert;
+    @apply max-w-none text-sm leading-relaxed;
+  }
+
+  .message-content h1,
+  .message-content h2,
+  .message-content h3,
+  .message-content h4,
+  .message-content h5,
+  .message-content h6 {
+    @apply font-semibold mt-6 mb-4 text-foreground;
+  }
+
+  .message-content h1 { @apply text-2xl; }
+  .message-content h2 { @apply text-xl; }
+  .message-content h3 { @apply text-lg; }
+  .message-content h4 { @apply text-base; }
+
+  .message-content p {
+    @apply mb-4 text-foreground;
+  }
+
+  .message-content ul,
+  .message-content ol {
+    @apply mb-4 pl-6;
+  }
+
+  .message-content li {
+    @apply mb-1;
+  }
+
+  .message-content ul li {
+    @apply list-disc;
+  }
+
+  .message-content ol li {
+    @apply list-decimal;
+  }
+
+  .message-content blockquote {
+    @apply border-l-4 border-border pl-4 italic text-muted-foreground;
+  }
+
+  .message-content a {
+    @apply text-primary underline hover:text-primary/80;
+  }
+
+  .message-content strong {
+    @apply font-semibold;
+  }
+
+  .message-content em {
+    @apply italic;
+  }
+
+  .message-content table {
+    @apply w-full border-collapse border border-border;
+  }
+
+  .message-content th,
+  .message-content td {
+    @apply border border-border px-3 py-2 text-left;
+  }
+
+  .message-content th {
+    @apply bg-muted font-semibold;
   }
   
   .message-content pre {
