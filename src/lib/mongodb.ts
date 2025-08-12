@@ -108,6 +108,22 @@ export const ConversationModel = mongoose.models.Conversation ||
 
 // 数据库操作函数
 
+// 辅助函数：转换 MongoDB 文档为 Conversation 类型
+function transformConversation(doc: any): Conversation {
+  const { _id, __v, ...rest } = doc;
+  return {
+    ...rest,
+    // 确保所有必需字段存在
+    id: rest.id,
+    title: rest.title,
+    messages: rest.messages || [],
+    createdAt: rest.createdAt,
+    updatedAt: rest.updatedAt,
+    model: rest.model,
+    settings: rest.settings || {},
+  };
+}
+
 // 创建新对话
 export async function createConversation(
   title: string, 
@@ -132,25 +148,25 @@ export async function createConversation(
 // 获取对话列表
 export async function getConversations(limit = 50): Promise<Conversation[]> {
   await connectToDatabase();
-  
+
   const conversations = await ConversationModel
     .find({})
     .sort({ updatedAt: -1 })
     .limit(limit)
     .lean();
-  
-  return conversations;
+
+  return conversations.map(transformConversation);
 }
 
 // 获取单个对话
 export async function getConversation(id: string): Promise<Conversation | null> {
   await connectToDatabase();
-  
+
   const conversation = await ConversationModel
     .findOne({ id })
     .lean();
-  
-  return conversation;
+
+  return conversation ? transformConversation(conversation) : null;
 }
 
 // 添加消息到对话
@@ -223,11 +239,11 @@ export async function deleteConversation(conversationId: string): Promise<void> 
 
 // 搜索对话
 export async function searchConversations(
-  query: string, 
+  query: string,
   limit = 20
 ): Promise<Conversation[]> {
   await connectToDatabase();
-  
+
   const conversations = await ConversationModel
     .find({
       $or: [
@@ -238,8 +254,8 @@ export async function searchConversations(
     .sort({ updatedAt: -1 })
     .limit(limit)
     .lean();
-  
-  return conversations;
+
+  return conversations.map(transformConversation);
 }
 
 // 获取对话统计信息
