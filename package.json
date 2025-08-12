@@ -1,0 +1,47 @@
+{
+  "name": "ai-chat-bot",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "type-check": "tsc --noEmit",
+    "setup": "chmod +x scripts/setup.sh && ./scripts/setup.sh",
+    "docker:build": "docker build -t ai-chat-bot .",
+    "docker:run": "docker run -p 3000:3000 ai-chat-bot",
+    "docker:compose": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "clean": "rm -rf .next node_modules package-lock.json && npm install"
+  },
+  "dependencies": {
+    "next": "^14.0.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.3.3",
+    "openai": "^4.24.1",
+    "mongoose": "^8.0.3",
+    "zustand": "^4.4.7",
+    "react-markdown": "^9.0.1",
+    "react-hook-form": "^7.48.2",
+    "lucide-react": "^0.300.0",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.2.0",
+    "remark-gfm": "^4.0.0",
+    "react-syntax-highlighter": "^15.5.0",
+    "framer-motion": "^10.16.16"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
+    "@types/react-syntax-highlighter": "^15.5.11",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.4.0",
+    "eslint": "^8.56.0",
+    "eslint-config-next": "^14.0.4"
+  }
+}
