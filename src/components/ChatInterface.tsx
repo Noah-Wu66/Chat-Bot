@@ -257,11 +257,16 @@ export default function ChatInterface() {
       }
     } catch (error) {
       console.error('❌ [ChatInterface] 发送消息失败:', error);
-      console.error('❌ [ChatInterface] 错误详情:', {
+      const errInfo = error instanceof Error ? {
         name: error.name,
         message: error.message,
         stack: error.stack
-      });
+      } : {
+        name: 'Unknown',
+        message: String(error),
+        stack: undefined
+      };
+      console.error('❌ [ChatInterface] 错误详情:', errInfo);
       setError(error instanceof Error ? error.message : '发送消息失败');
     } finally {
       console.log('🔄 [ChatInterface] 清理状态');

@@ -176,14 +176,22 @@ export async function createResponse({
     return response;
   } catch (error) {
     console.error('❌ [GPT-5 Debug] API 请求失败:', error);
-    console.error('❌ [GPT-5 Debug] 错误详情:', {
+    const errInfo = error instanceof Error ? {
       name: error.name,
       message: error.message,
-      status: error.status,
-      code: error.code,
-      type: error.type,
+      status: (error as any).status,
+      code: (error as any).code,
+      type: (error as any).type,
       stack: error.stack
-    });
+    } : {
+      name: 'Unknown',
+      message: String(error),
+      status: undefined,
+      code: undefined,
+      type: undefined,
+      stack: undefined
+    };
+    console.error('❌ [GPT-5 Debug] 错误详情:', errInfo);
     throw error;
   }
 }
