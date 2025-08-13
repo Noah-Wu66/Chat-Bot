@@ -272,16 +272,21 @@ export async function POST(request: NextRequest) {
             console.log(`🔚 [Responses API ${requestId}] 事件迭代结束，总计 ${eventCount} 个事件`);
           } catch (error) {
             console.error(`❌ [Responses API ${requestId}] 流处理错误:`, error);
-            console.error(`❌ [Responses API ${requestId}] 错误详情:`, {
+            const errInfo = error instanceof Error ? {
               name: error.name,
               message: error.message,
               stack: error.stack
-            });
+            } : {
+              name: 'Unknown',
+              message: String(error),
+              stack: undefined
+            };
+            console.error(`❌ [Responses API ${requestId}] 错误详情:`, errInfo);
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({
                 type: 'error',
                 error: '处理响应时出错',
-                details: error.message
+                details: errInfo.message
               })}\n\n`)
             );
             controller.close();
