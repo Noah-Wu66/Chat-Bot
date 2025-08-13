@@ -28,9 +28,7 @@ export default function ModelSelector() {
   };
 
   const modelGroups = {
-    'GPT-4o 系列': ['gpt-4o', 'gpt-4o-mini'],
-    '搜索模型': ['gpt-4o-search-preview', 'gpt-4o-mini-search-preview'],
-    'GPT-5 系列': ['gpt-5', 'gpt-5-chat-latest', 'gpt-5-mini', 'gpt-5-nano'],
+    '可用模型': ['gpt-4o', 'gpt-5'],
   };
 
   return (

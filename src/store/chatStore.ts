@@ -76,7 +76,7 @@ export const useChatStore = create<ChatState>()(
       // 初始状态
       currentConversation: null,
       conversations: [],
-      currentModel: 'gpt-4o-mini',
+      currentModel: 'gpt-4o',
       settings: defaultSettings,
       isLoading: false,
       isStreaming: false,
@@ -128,16 +128,11 @@ export const useChatStore = create<ChatState>()(
         const modelConfig = MODELS[model];
         const newSettings = { ...get().settings };
         
-        // GPT-5 系列默认不支持 temperature
+        // GPT-5 默认不支持 temperature
         if (modelConfig.supportsTemperature === false) {
           delete newSettings.temperature;
         } else if (!newSettings.temperature) {
           newSettings.temperature = 0.8;
-        }
-        
-        // 搜索模型默认启用网络搜索
-        if (modelConfig.supportsSearch) {
-          newSettings.webSearch = true;
         }
         
         set({ settings: newSettings });
@@ -213,7 +208,7 @@ export const useChatStore = create<ChatState>()(
         set({
           currentConversation: null,
           conversations: [],
-          currentModel: 'gpt-4o-mini',
+          currentModel: 'gpt-4o',
           settings: defaultSettings,
           isLoading: false,
           isStreaming: false,

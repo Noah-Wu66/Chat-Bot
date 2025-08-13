@@ -54,7 +54,7 @@ export interface ConversationSettings {
 
 // 支持的模型列表
 export const MODELS: Record<string, ModelConfig> = {
-  // GPT-4o 系列
+  // GPT-4o
   'gpt-4o': {
     name: 'GPT-4o',
     description: '最新的多模态模型，支持文本和图像',
@@ -66,41 +66,7 @@ export const MODELS: Record<string, ModelConfig> = {
     supportsVerbosity: false,
     maxTokens: 4096,
   },
-  'gpt-4o-mini': {
-    name: 'GPT-4o Mini',
-    description: '轻量级多模态模型，性价比高',
-    type: 'chat',
-    supportsVision: true,
-    supportsSearch: false,
-    supportsTools: true,
-    supportsReasoning: false,
-    supportsVerbosity: false,
-    maxTokens: 4096,
-  },
-  // 搜索模型
-  'gpt-4o-search-preview': {
-    name: 'GPT-4o Search',
-    description: '支持网络搜索的 GPT-4o',
-    type: 'chat',
-    supportsVision: true,
-    supportsSearch: true,
-    supportsTools: true,
-    supportsReasoning: false,
-    supportsVerbosity: false,
-    maxTokens: 4096,
-  },
-  'gpt-4o-mini-search-preview': {
-    name: 'GPT-4o Mini Search',
-    description: '支持网络搜索的 GPT-4o Mini',
-    type: 'chat',
-    supportsVision: true,
-    supportsSearch: true,
-    supportsTools: true,
-    supportsReasoning: false,
-    supportsVerbosity: false,
-    maxTokens: 4096,
-  },
-  // GPT-5 系列
+  // GPT-5
   'gpt-5': {
     name: 'GPT-5',
     description: '最新的推理模型，支持深度思考',
@@ -110,41 +76,8 @@ export const MODELS: Record<string, ModelConfig> = {
     supportsTools: true,
     supportsReasoning: true,
     supportsVerbosity: true,
+    supportsTemperature: false, // 手册：GPT-5 默认不支持 temperature/top_p
     maxTokens: 8192,
-  },
-  'gpt-5-chat-latest': {
-    name: 'GPT-5 Chat Latest',
-    description: '支持 temperature 的 GPT-5 聊天模型',
-    type: 'responses',
-    supportsVision: false,
-    supportsSearch: false,
-    supportsTools: true,
-    supportsReasoning: true,
-    supportsVerbosity: true,
-    supportsTemperature: true,
-    maxTokens: 8192,
-  },
-  'gpt-5-mini': {
-    name: 'GPT-5 Mini',
-    description: '轻量级推理模型',
-    type: 'responses',
-    supportsVision: false,
-    supportsSearch: false,
-    supportsTools: true,
-    supportsReasoning: true,
-    supportsVerbosity: true,
-    maxTokens: 4096,
-  },
-  'gpt-5-nano': {
-    name: 'GPT-5 Nano',
-    description: '超轻量级推理模型',
-    type: 'responses',
-    supportsVision: false,
-    supportsSearch: false,
-    supportsTools: true,
-    supportsReasoning: true,
-    supportsVerbosity: true,
-    maxTokens: 2048,
   },
 };
 

@@ -247,49 +247,55 @@ export default function SettingsPanel() {
                   />
                 )}
 
-                {/* Max Tokens */}
+                {/* Max Tokens / Max Output Tokens */}
                 <Slider
-                  label="最大 Token 数"
+                  label={modelConfig.type === 'chat' ? '最大 Token 数' : '最大输出 Token 数'}
                   value={settings.maxTokens || 4096}
                   onChange={(value) => setSettings({ maxTokens: Math.round(value) })}
                   min={1}
                   max={modelConfig.maxTokens}
                   step={1}
-                  description="限制回复的最大长度"
+                  description={modelConfig.type === 'chat' ? '限制回复的最大长度' : '限制回复的最大输出长度（Responses）'}
                 />
 
-                {/* Top P */}
-                <Slider
-                  label="Top P"
-                  value={settings.topP || 1}
-                  onChange={(value) => setSettings({ topP: value })}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  description="核采样参数，控制词汇选择的多样性"
-                />
+                {/* Top P - 仅 Chat 可用 */}
+                {modelConfig.type === 'chat' && (
+                  <Slider
+                    label="Top P"
+                    value={settings.topP || 1}
+                    onChange={(value) => setSettings({ topP: value })}
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    description="核采样参数，控制词汇选择的多样性"
+                  />
+                )}
 
-                {/* Frequency Penalty */}
-                <Slider
-                  label="频率惩罚"
-                  value={settings.frequencyPenalty || 0}
-                  onChange={(value) => setSettings({ frequencyPenalty: value })}
-                  min={-2}
-                  max={2}
-                  step={0.1}
-                  description="减少重复内容的出现"
-                />
+                {/* Frequency Penalty - 仅 Chat 可用 */}
+                {modelConfig.type === 'chat' && (
+                  <Slider
+                    label="频率惩罚"
+                    value={settings.frequencyPenalty || 0}
+                    onChange={(value) => setSettings({ frequencyPenalty: value })}
+                    min={-2}
+                    max={2}
+                    step={0.1}
+                    description="减少重复内容的出现"
+                  />
+                )}
 
-                {/* Presence Penalty */}
-                <Slider
-                  label="存在惩罚"
-                  value={settings.presencePenalty || 0}
-                  onChange={(value) => setSettings({ presencePenalty: value })}
-                  min={-2}
-                  max={2}
-                  step={0.1}
-                  description="鼓励谈论新话题"
-                />
+                {/* Presence Penalty - 仅 Chat 可用 */}
+                {modelConfig.type === 'chat' && (
+                  <Slider
+                    label="存在惩罚"
+                    value={settings.presencePenalty || 0}
+                    onChange={(value) => setSettings({ presencePenalty: value })}
+                    min={-2}
+                    max={2}
+                    step={0.1}
+                    description="鼓励谈论新话题"
+                  />
+                )}
               </div>
             </div>
 

@@ -1,23 +1,21 @@
 # AI Chat Bot - 智能对话应用
 
-基于 Aihubmix OpenAI API 构建的现代化 AI 对话应用，支持 GPT-4o 和 GPT-5 系列模型。
+基于 Aihubmix OpenAI API 构建的现代化 AI 对话应用，支持 GPT-4o 和 GPT-5 模型。
 
 ## 功能特性
 
 ### 🤖 多模型支持
-- **GPT-4o 系列**: `gpt-4o`, `gpt-4o-mini`
-- **搜索模型**: `gpt-4o-search-preview`, `gpt-4o-mini-search-preview`
-- **GPT-5 系列**: `gpt-5`, `gpt-5-chat-latest`, `gpt-5-mini`, `gpt-5-nano`
+- **GPT-4o**: `gpt-4o` - 最新的多模态模型，支持文本和图像
+- **GPT-5**: `gpt-5` - 最新的推理模型，支持深度思考
 
 ### 🎯 核心功能
-- **Chat Completions API**: 标准对话模式
-- **Responses API**: 高级多功能接口
+- **Chat Completions API**: 标准对话模式（GPT-4o）
+- **Responses API**: 高级多功能接口（GPT-5）
 - **流式输出**: 实时显示回复内容
-- **图像识别**: 支持图片上传和分析（Vision 功能）
-- **网络搜索**: 获取最新信息
+- **图像识别**: 支持图片上传和分析（GPT-4o 专属）
 - **函数调用**: 内置工具函数（天气查询、数学计算、时间获取）
-- **推理深度控制**: GPT-5 系列专属功能
-- **输出篇幅控制**: 可调节回复详细程度
+- **推理深度控制**: GPT-5 专属功能
+- **输出篇幅控制**: 可调节回复详细程度（GPT-5 专属）
 
 ### 🎨 用户界面
 - **现代化设计**: 基于 Tailwind CSS 的响应式界面
@@ -87,7 +85,7 @@ npm start
 ## API 使用说明
 
 ### Chat Completions API
-适用于 GPT-4o 系列模型的标准对话：
+适用于 GPT-4o 模型的标准对话：
 
 ```typescript
 // 基本对话
@@ -96,7 +94,7 @@ const response = await fetch('/api/chat', {
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     message: { content: '你好' },
-    model: 'gpt-4o-mini',
+    model: 'gpt-4o',
     settings: {
       temperature: 0.8,
       maxTokens: 4096,
@@ -110,7 +108,7 @@ const response = await fetch('/api/chat', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    message: { 
+    message: {
       content: '这张图片里有什么？',
       images: ['data:image/jpeg;base64,...']
     },
@@ -121,7 +119,7 @@ const response = await fetch('/api/chat', {
 ```
 
 ### Responses API
-适用于 GPT-5 系列模型的高级功能：
+适用于 GPT-5 模型的高级功能：
 
 ```typescript
 // GPT-5 推理模式
@@ -138,31 +136,14 @@ const response = await fetch('/api/responses', {
     }
   })
 });
-
-// 网络搜索
-const response = await fetch('/api/chat', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    message: { content: '今天有什么新闻？' },
-    model: 'gpt-4o-search-preview',
-    settings: { webSearch: true }
-  })
-});
 ```
 
 ## 模型特性对比
 
-| 模型 | API 类型 | 视觉 | 搜索 | 工具 | 推理 | 最大 Token |
-|------|----------|------|------|------|------|------------|
-| gpt-4o | Chat | ✅ | ❌ | ✅ | ❌ | 4096 |
-| gpt-4o-mini | Chat | ✅ | ❌ | ✅ | ❌ | 4096 |
-| gpt-4o-search-preview | Chat | ✅ | ✅ | ✅ | ❌ | 4096 |
-| gpt-4o-mini-search-preview | Chat | ✅ | ✅ | ✅ | ❌ | 4096 |
-| gpt-5 | Responses | ❌ | ❌ | ✅ | ✅ | 8192 |
-| gpt-5-chat-latest | Responses | ❌ | ❌ | ✅ | ✅ | 8192 |
-| gpt-5-mini | Responses | ❌ | ❌ | ✅ | ✅ | 4096 |
-| gpt-5-nano | Responses | ❌ | ❌ | ✅ | ✅ | 2048 |
+| 模型 | API 类型 | 视觉 | 工具 | 推理 | 最大 Token |
+|------|----------|------|------|------|------------|
+| gpt-4o | Chat | ✅ | ✅ | ❌ | 4096 |
+| gpt-5 | Responses | ❌ | ✅ | ✅ | 8192 |
 
 ## 内置工具函数
 

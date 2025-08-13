@@ -37,16 +37,21 @@ export async function createChatCompletion({
   if (settings.temperature !== undefined && modelConfig.supportsTemperature !== false) {
     params.temperature = settings.temperature;
   }
+  // max tokens: chat 用 max_tokens；responses（如 gpt-5）用 max_output_tokens
   if (settings.maxTokens) {
-    params.max_tokens = settings.maxTokens;
+    if (modelConfig.type === 'chat') {
+      params.max_tokens = settings.maxTokens;
+    } else {
+      params.max_output_tokens = settings.maxTokens;
+    }
   }
-  if (settings.topP !== undefined) {
+  if (settings.topP !== undefined && modelConfig.type === 'chat') {
     params.top_p = settings.topP;
   }
-  if (settings.frequencyPenalty !== undefined) {
+  if (settings.frequencyPenalty !== undefined && modelConfig.type === 'chat') {
     params.frequency_penalty = settings.frequencyPenalty;
   }
-  if (settings.presencePenalty !== undefined) {
+  if (settings.presencePenalty !== undefined && modelConfig.type === 'chat') {
     params.presence_penalty = settings.presencePenalty;
   }
   if (settings.seed !== undefined) {
@@ -108,9 +113,14 @@ export async function createResponse({
   if (modelConfig.supportsReasoning && settings.reasoning) {
     params.reasoning = settings.reasoning;
   }
-  
+
   if (modelConfig.supportsVerbosity && settings.text) {
     params.text = settings.text;
+  }
+
+  // 最大输出 Token（推理/Responses API 使用）
+  if (settings.maxTokens) {
+    params.max_output_tokens = settings.maxTokens;
   }
 
   // 添加工具支持
