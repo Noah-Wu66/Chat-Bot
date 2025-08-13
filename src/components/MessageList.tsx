@@ -8,6 +8,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Message } from '@/lib/types';
 import { formatTime, copyToClipboard, cn } from '@/utils/helpers';
+import LoadingSpinner from './LoadingSpinner';
 
 interface MessageListProps {
   messages: Message[];
@@ -16,11 +17,11 @@ interface MessageListProps {
   reasoningContent?: string;
 }
 
-export default function MessageList({ 
-  messages, 
-  isStreaming, 
+export default function MessageList({
+  messages,
+  isStreaming,
   streamingContent,
-  reasoningContent 
+  reasoningContent
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -227,7 +228,26 @@ export default function MessageList({
       ) : (
         <div className="group">
           {messages.map(renderMessage)}
-          
+
+          {/* 等待模型响应时的占位加载 */
+          {isStreaming && !streamingContent && (
+            <div className="chat-message flex gap-3 p-4">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
+                <Bot className="h-4 w-4" />
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="font-medium">AI助手</span>
+                  <span className="loading-dots">AI正在思考中</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <LoadingSpinner size="sm" />
+                  <span>模型处理中...</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 流式输出 */}
           {isStreaming && streamingContent && (
             <div className="chat-message flex gap-3 p-4">
@@ -239,7 +259,7 @@ export default function MessageList({
                   <span className="font-medium">AI助手</span>
                   <span className="loading-dots">正在回复</span>
                 </div>
-                
+
                 {/* 推理过程 */}
                 {reasoningContent && (
                   <div className="reasoning-panel">
@@ -253,7 +273,7 @@ export default function MessageList({
                     </div>
                   </div>
                 )}
-                
+
                 <div className="message-content">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
@@ -271,7 +291,7 @@ export default function MessageList({
           )}
         </div>
       )}
-      
+
       <div ref={messagesEndRef} />
     </div>
   );

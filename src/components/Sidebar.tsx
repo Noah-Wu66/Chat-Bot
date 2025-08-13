@@ -1,16 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  MessageSquare, 
-  Search, 
-  Settings, 
-  Trash2, 
+import {
+  Plus,
+  MessageSquare,
+  Search,
+  Settings,
+  Trash2,
   Edit3,
   Menu,
   X,
-  MoreHorizontal
+  MoreHorizontal,
+  LogOut
 } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { Conversation } from '@/lib/types';
@@ -314,13 +315,28 @@ export default function Sidebar() {
       </div>
 
       {/* 底部设置 */}
-      <div className="border-t border-border p-4">
+      <div className="border-t border-border p-4 space-y-2">
         <button
           onClick={() => setSettingsOpen(true)}
           className="sidebar-item w-full"
         >
           <Settings className="h-4 w-4" />
           设置
+        </button>
+        <button
+          onClick={async () => {
+            try {
+              const res = await fetch('/api/auth/logout', { method: 'POST' });
+              const data = await res.json();
+              window.location.href = data.redirect || '/login';
+            } catch (e) {
+              console.error('退出失败', e);
+            }
+          }}
+          className="sidebar-item w-full text-red-600 hover:text-red-700"
+        >
+          <LogOut className="h-4 w-4" />
+          退出登录
         </button>
       </div>
     </div>

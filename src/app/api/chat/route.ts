@@ -12,6 +12,7 @@ import {
 } from '@/lib/mongodb';
 import { ModelId, MODELS, Message } from '@/lib/types';
 import { generateId, validateEnvVars } from '@/utils/helpers';
+import { getAuthUserFromRequest } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,10 +56,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 身份校验
+    const auth = getAuthUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: '未授权' }, { status: 401 });
+    }
+
     // 获取或创建对话
     let conversation;
     if (conversationId) {
-      conversation = await getConversation(conversationId);
+      conversation = await getConversation(conversationId, auth.sub);
       if (!conversation) {
         return NextResponse.json(
           { error: '对话不存在' },
@@ -68,7 +75,7 @@ export async function POST(request: NextRequest) {
     } else {
       // 创建新对话
       const title = message.content.substring(0, 50) + (message.content.length > 50 ? '...' : '');
-      conversation = await createConversation(title, modelId, settings);
+      conversation = await createConversation(title, modelId, settings, auth.sub);
     }
 
     // 添加用户消息到数据库
@@ -79,7 +86,7 @@ export async function POST(request: NextRequest) {
       images: message.images || [],
     };
 
-    await addMessageToConversation(conversation.id, userMessage);
+    await addMessageToConversation(conversation.id, userMessage, auth.sub);
 
     // 准备消息历史
     const messages = [
@@ -156,7 +163,7 @@ export async function POST(request: NextRequest) {
                   model: modelId,
                 };
 
-                await addMessageToConversation(conversation.id, assistantMsg);
+                await addMessageToConversation(conversation.id, assistantMsg, auth.sub);
 
                 controller.enqueue(
                   encoder.encode(`data: ${JSON.stringify({ 
@@ -236,7 +243,7 @@ export async function POST(request: NextRequest) {
         },
       };
 
-      await addMessageToConversation(conversation.id, assistantMessage);
+      await addMessageToConversation(conversation.id, assistantMessage, auth.sub);
 
       return NextResponse.json({
         message: assistantMessage,

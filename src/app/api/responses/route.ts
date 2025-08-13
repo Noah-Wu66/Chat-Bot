@@ -13,6 +13,7 @@ import {
 } from '@/lib/mongodb';
 import { ModelId, MODELS, Message } from '@/lib/types';
 import { generateId, validateEnvVars } from '@/utils/helpers';
+import { getAuthUserFromRequest } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   const requestId = Math.random().toString(36).substring(7);
@@ -77,10 +78,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 身份校验
+    const auth = getAuthUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: '未授权' }, { status: 401 });
+    }
+
     // 获取或创建对话
     let conversation;
     if (conversationId) {
-      conversation = await getConversation(conversationId);
+      conversation = await getConversation(conversationId, auth.sub);
       if (!conversation) {
         return NextResponse.json(
           { error: '对话不存在' },
@@ -98,7 +105,7 @@ export async function POST(request: NextRequest) {
           title = textInput.text.substring(0, 50) + (textInput.text.length > 50 ? '...' : '');
         }
       }
-      conversation = await createConversation(title, modelId, settings);
+      conversation = await createConversation(title, modelId, settings, auth.sub);
     }
 
     // 添加用户消息到数据库
@@ -125,7 +132,7 @@ export async function POST(request: NextRequest) {
       ...(userImages.length > 0 && { images: userImages }),
     };
 
-    await addMessageToConversation(conversation.id, userMessage);
+    await addMessageToConversation(conversation.id, userMessage, auth.sub);
 
     // 准备工具
     const tools = useTools && validateModelFeature(modelId, 'tools') ? PREDEFINED_TOOLS : undefined;
@@ -259,7 +266,7 @@ export async function POST(request: NextRequest) {
                 };
 
                 console.log(`💾 [Responses API ${requestId}] 保存助手消息到数据库...`);
-                await addMessageToConversation(conversation.id, assistantMsg);
+                await addMessageToConversation(conversation.id, assistantMsg, auth.sub);
                 console.log(`✅ [Responses API ${requestId}] 消息保存成功`);
 
                 controller.enqueue(
@@ -342,7 +349,7 @@ export async function POST(request: NextRequest) {
       };
 
       console.log(`💾 [Responses API ${requestId}] 保存助手消息到数据库...`);
-      await addMessageToConversation(conversation.id, assistantMessage);
+      await addMessageToConversation(conversation.id, assistantMessage, auth.sub);
       console.log(`✅ [Responses API ${requestId}] 消息保存成功`);
 
       const responseData = {

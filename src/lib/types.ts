@@ -26,6 +26,7 @@ export interface Message {
 // 对话会话类型
 export interface Conversation {
   id: string;
+  userId: string; // 新增：所属用户
   title: string;
   messages: Message[];
   createdAt: Date;

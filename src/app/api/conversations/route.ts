@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  getConversations, 
-  getConversation, 
+import {
+  getConversations,
+  getConversation,
   createConversation,
   deleteConversation,
   updateConversationTitle,
@@ -10,6 +10,7 @@ import {
   getConversationStats
 } from '@/lib/mongodb';
 import { validateEnvVars } from '@/utils/helpers';
+import { getAuthUserFromRequest } from '@/lib/auth';
 
 // GET - 获取对话列表或单个对话
 export async function GET(request: NextRequest) {
@@ -22,15 +23,20 @@ export async function GET(request: NextRequest) {
     const stats = searchParams.get('stats');
     const limit = parseInt(searchParams.get('limit') || '50');
 
+    const auth = getAuthUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: '未授权' }, { status: 401 });
+    }
+
     if (stats === 'true') {
       // 获取统计信息
-      const statistics = await getConversationStats();
+      const statistics = await getConversationStats(auth.sub);
       return NextResponse.json(statistics);
     }
 
     if (id) {
       // 获取单个对话
-      const conversation = await getConversation(id);
+      const conversation = await getConversation(id, auth.sub);
       if (!conversation) {
         return NextResponse.json(
           { error: '对话不存在' },
@@ -42,12 +48,12 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       // 搜索对话
-      const conversations = await searchConversations(search, limit);
+      const conversations = await searchConversations(auth.sub, search, limit);
       return NextResponse.json(conversations);
     }
 
     // 获取对话列表
-    const conversations = await getConversations(limit);
+    const conversations = await getConversations(auth.sub, limit);
     return NextResponse.json(conversations);
   } catch (error) {
     console.error('Get conversations error:', error);
@@ -63,6 +69,11 @@ export async function POST(request: NextRequest) {
   try {
     validateEnvVars();
 
+    const auth = getAuthUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: '未授权' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { title, model, settings = {} } = body;
 
@@ -73,7 +84,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const conversation = await createConversation(title, model, settings);
+    const conversation = await createConversation(title, model, settings, auth.sub);
     return NextResponse.json(conversation, { status: 201 });
   } catch (error) {
     console.error('Create conversation error:', error);
@@ -89,6 +100,11 @@ export async function PUT(request: NextRequest) {
   try {
     validateEnvVars();
 
+    const auth = getAuthUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: '未授权' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { id, title, settings } = body;
 
@@ -100,7 +116,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // 检查对话是否存在
-    const conversation = await getConversation(id);
+    const conversation = await getConversation(id, auth.sub);
     if (!conversation) {
       return NextResponse.json(
         { error: '对话不存在' },
@@ -110,12 +126,12 @@ export async function PUT(request: NextRequest) {
 
     // 更新标题
     if (title !== undefined) {
-      await updateConversationTitle(id, title);
+      await updateConversationTitle(id, title, auth.sub);
     }
 
     // 更新设置
     if (settings !== undefined) {
-      await updateConversationSettings(id, settings);
+      await updateConversationSettings(id, settings, auth.sub);
     }
 
     // 返回更新后的对话
@@ -135,6 +151,11 @@ export async function DELETE(request: NextRequest) {
   try {
     validateEnvVars();
 
+    const auth = getAuthUserFromRequest(request);
+    if (!auth) {
+      return NextResponse.json({ error: '未授权' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
@@ -146,7 +167,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // 检查对话是否存在
-    const conversation = await getConversation(id);
+    const conversation = await getConversation(id, auth.sub);
     if (!conversation) {
       return NextResponse.json(
         { error: '对话不存在' },
@@ -154,7 +175,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await deleteConversation(id);
+    await deleteConversation(id, auth.sub);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Delete conversation error:', error);

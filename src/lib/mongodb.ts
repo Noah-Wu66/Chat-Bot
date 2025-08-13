@@ -24,13 +24,24 @@ export async function connectToDatabase() {
   }
 }
 
+// 用户 Schema
+const UserSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  username: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true },
+  passwordHash: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+});
+
+export const UserModel = mongoose.models.User || mongoose.model('User', UserSchema);
+
 // 消息 Schema
 const MessageSchema = new mongoose.Schema({
   id: { type: String, required: true },
-  role: { 
-    type: String, 
-    required: true, 
-    enum: ['system', 'user', 'assistant', 'function'] 
+  role: {
+    type: String,
+    required: true,
+    enum: ['system', 'user', 'assistant', 'function']
   },
   content: { type: String, required: true },
   timestamp: { type: Date, default: Date.now },
@@ -46,13 +57,13 @@ const MessageSchema = new mongoose.Schema({
   },
   metadata: {
     reasoning: { type: String },
-    verbosity: { 
-      type: String, 
-      enum: ['low', 'medium', 'high'] 
+    verbosity: {
+      type: String,
+      enum: ['low', 'medium', 'high']
     },
-    effort: { 
-      type: String, 
-      enum: ['minimal', 'low', 'medium', 'high'] 
+    effort: {
+      type: String,
+      enum: ['minimal', 'low', 'medium', 'high']
     },
     searchUsed: { type: Boolean },
     tokensUsed: { type: Number },
@@ -68,15 +79,15 @@ const ConversationSettingsSchema = new mongoose.Schema({
   presencePenalty: { type: Number, min: -2, max: 2 },
   seed: { type: Number },
   reasoning: {
-    effort: { 
-      type: String, 
+    effort: {
+      type: String,
       enum: ['minimal', 'low', 'medium', 'high'],
       default: 'medium'
     },
   },
   text: {
-    verbosity: { 
-      type: String, 
+    verbosity: {
+      type: String,
       enum: ['low', 'medium', 'high'],
       default: 'medium'
     },
@@ -88,6 +99,7 @@ const ConversationSettingsSchema = new mongoose.Schema({
 // 对话 Schema
 const ConversationSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
+  userId: { type: String, required: true, index: true },
   title: { type: String, required: true },
   messages: [MessageSchema],
   createdAt: { type: Date, default: Date.now },
@@ -103,7 +115,7 @@ ConversationSchema.pre('save', function(next) {
 });
 
 // 模型定义
-export const ConversationModel = mongoose.models.Conversation || 
+export const ConversationModel = mongoose.models.Conversation ||
   mongoose.model('Conversation', ConversationSchema);
 
 // 数据库操作函数
@@ -115,6 +127,7 @@ function transformConversation(doc: any): Conversation {
     ...rest,
     // 确保所有必需字段存在
     id: rest.id,
+    userId: rest.userId,
     title: rest.title,
     messages: rest.messages || [],
     createdAt: rest.createdAt,
@@ -126,31 +139,33 @@ function transformConversation(doc: any): Conversation {
 
 // 创建新对话
 export async function createConversation(
-  title: string, 
-  model: string, 
-  settings: ConversationSettings = {}
+  title: string,
+  model: string,
+  settings: ConversationSettings = {},
+  userId: string
 ): Promise<Conversation> {
   await connectToDatabase();
-  
+
   const conversationId = new mongoose.Types.ObjectId().toString();
   const conversation = new ConversationModel({
     id: conversationId,
+    userId,
     title,
     model,
     messages: [],
     settings,
   });
-  
+
   await conversation.save();
   return conversation.toObject();
 }
 
 // 获取对话列表
-export async function getConversations(limit = 50): Promise<Conversation[]> {
+export async function getConversations(userId: string, limit = 50): Promise<Conversation[]> {
   await connectToDatabase();
 
   const conversations = await ConversationModel
-    .find({})
+    .find({ userId })
     .sort({ updatedAt: -1 })
     .limit(limit)
     .lean();
@@ -159,11 +174,11 @@ export async function getConversations(limit = 50): Promise<Conversation[]> {
 }
 
 // 获取单个对话
-export async function getConversation(id: string): Promise<Conversation | null> {
+export async function getConversation(id: string, userId: string): Promise<Conversation | null> {
   await connectToDatabase();
 
   const conversation = await ConversationModel
-    .findOne({ id })
+    .findOne({ id, userId })
     .lean();
 
   return conversation ? transformConversation(conversation) : null;
@@ -171,40 +186,42 @@ export async function getConversation(id: string): Promise<Conversation | null> 
 
 // 添加消息到对话
 export async function addMessageToConversation(
-  conversationId: string, 
-  message: Omit<Message, 'id' | 'timestamp'>
+  conversationId: string,
+  message: Omit<Message, 'id' | 'timestamp'>,
+  userId: string
 ): Promise<Message> {
   await connectToDatabase();
-  
+
   const messageId = new mongoose.Types.ObjectId().toString();
   const newMessage: Message = {
     ...message,
     id: messageId,
     timestamp: new Date(),
   };
-  
+
   await ConversationModel.updateOne(
-    { id: conversationId },
-    { 
+    { id: conversationId, userId },
+    {
       $push: { messages: newMessage },
       $set: { updatedAt: new Date() }
     }
   );
-  
+
   return newMessage;
 }
 
 // 更新对话标题
 export async function updateConversationTitle(
-  conversationId: string, 
-  title: string
+  conversationId: string,
+  title: string,
+  userId: string
 ): Promise<void> {
   await connectToDatabase();
-  
+
   await ConversationModel.updateOne(
-    { id: conversationId },
-    { 
-      $set: { 
+    { id: conversationId, userId },
+    {
+      $set: {
         title,
         updatedAt: new Date()
       }
@@ -214,15 +231,16 @@ export async function updateConversationTitle(
 
 // 更新对话设置
 export async function updateConversationSettings(
-  conversationId: string, 
-  settings: ConversationSettings
+  conversationId: string,
+  settings: ConversationSettings,
+  userId: string
 ): Promise<void> {
   await connectToDatabase();
-  
+
   await ConversationModel.updateOne(
-    { id: conversationId },
-    { 
-      $set: { 
+    { id: conversationId, userId },
+    {
+      $set: {
         settings,
         updatedAt: new Date()
       }
@@ -231,14 +249,15 @@ export async function updateConversationSettings(
 }
 
 // 删除对话
-export async function deleteConversation(conversationId: string): Promise<void> {
+export async function deleteConversation(conversationId: string, userId: string): Promise<void> {
   await connectToDatabase();
-  
-  await ConversationModel.deleteOne({ id: conversationId });
+
+  await ConversationModel.deleteOne({ id: conversationId, userId });
 }
 
 // 搜索对话
 export async function searchConversations(
+  userId: string,
   query: string,
   limit = 20
 ): Promise<Conversation[]> {
@@ -246,6 +265,7 @@ export async function searchConversations(
 
   const conversations = await ConversationModel
     .find({
+      userId,
       $or: [
         { title: { $regex: query, $options: 'i' } },
         { 'messages.content': { $regex: query, $options: 'i' } }
@@ -259,10 +279,11 @@ export async function searchConversations(
 }
 
 // 获取对话统计信息
-export async function getConversationStats() {
+export async function getConversationStats(userId: string) {
   await connectToDatabase();
-  
+
   const stats = await ConversationModel.aggregate([
+    { $match: { userId } },
     {
       $group: {
         _id: null,
@@ -272,10 +293,49 @@ export async function getConversationStats() {
       }
     }
   ]);
-  
+
   return stats[0] || {
     totalConversations: 0,
     totalMessages: 0,
     modelsUsed: [],
   };
+}
+
+
+// ========== 用户相关操作 ==========
+export interface CreateUserInput {
+  username: string;
+  email: string;
+  passwordHash: string;
+}
+
+export async function findUserByUsername(username: string) {
+  await connectToDatabase();
+  return UserModel.findOne({ username }).lean();
+}
+
+export async function findUserByEmail(email: string) {
+  await connectToDatabase();
+  return UserModel.findOne({ email }).lean();
+}
+
+export async function findUserByUsernameOrEmail(identifier: string) {
+  await connectToDatabase();
+  return UserModel.findOne({
+    $or: [{ username: identifier }, { email: identifier }]
+  }).lean();
+}
+
+export async function createUser(input: CreateUserInput) {
+  await connectToDatabase();
+  const id = new mongoose.Types.ObjectId().toString();
+  const user = new UserModel({ id, ...input });
+  await user.save();
+  return user.toObject();
+}
+
+export async function isUsernameOrEmailTaken(username: string, email: string) {
+  await connectToDatabase();
+  const exists = await UserModel.exists({ $or: [{ username }, { email }] });
+  return !!exists;
 }
