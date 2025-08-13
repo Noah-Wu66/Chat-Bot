@@ -45,25 +45,35 @@ export async function GET() {
 
   } catch (error) {
     console.error(`❌ [API Test ${testId}] 连接测试失败:`, error);
-    console.error(`❌ [API Test ${testId}] 错误详情:`, {
+
+    const errorInfo = error instanceof Error ? {
       name: error.name,
       message: error.message,
-      status: error.status,
-      code: error.code,
-      type: error.type,
+      status: (error as any).status,
+      code: (error as any).code,
+      type: (error as any).type,
       stack: error.stack
-    });
+    } : {
+      name: 'Unknown',
+      message: String(error),
+      status: undefined,
+      code: undefined,
+      type: undefined,
+      stack: undefined
+    };
+
+    console.error(`❌ [API Test ${testId}] 错误详情:`, errorInfo);
 
     return NextResponse.json(
       {
         status: 'error',
         testId,
         error: {
-          name: error.name,
-          message: error.message,
-          status: error.status,
-          code: error.code,
-          type: error.type
+          name: errorInfo.name,
+          message: errorInfo.message,
+          status: errorInfo.status,
+          code: errorInfo.code,
+          type: errorInfo.type
         },
         message: 'GPT-5 连接测试失败'
       },

@@ -21,9 +21,9 @@ export async function GET() {
   } catch (error) {
     console.error('❌ [Debug] 环境变量检查失败:', error);
     return NextResponse.json(
-      { 
+      {
         status: 'error',
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         message: '环境变量检查失败'
       },
       { status: 500 }

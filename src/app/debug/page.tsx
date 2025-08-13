@@ -75,7 +75,7 @@ export default function DebugPage() {
       
     } catch (error) {
       console.error('❌ [Debug] 测试失败:', error);
-      setResponse(`错误: ${error.message}`);
+      setResponse(`错误: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setLoading(false);
     }
@@ -94,7 +94,7 @@ export default function DebugPage() {
       console.log('✅ [Debug] 环境检查完成:', data);
     } catch (error) {
       console.error('❌ [Debug] 环境检查失败:', error);
-      setEnvStatus({ status: 'error', error: error.message });
+      setEnvStatus({ status: 'error', error: error instanceof Error ? error.message : String(error) });
     }
   };
 
@@ -107,7 +107,7 @@ export default function DebugPage() {
       console.log('✅ [Debug] 连接测试完成:', data);
     } catch (error) {
       console.error('❌ [Debug] 连接测试失败:', error);
-      setConnectionStatus({ status: 'error', error: error.message });
+      setConnectionStatus({ status: 'error', error: error instanceof Error ? error.message : String(error) });
     }
   };
 
