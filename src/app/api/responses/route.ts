@@ -363,19 +363,29 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error(`❌ [Responses API ${requestId}] 总体错误:`, error);
-    console.error(`❌ [Responses API ${requestId}] 错误详情:`, {
+
+    const errInfo = error instanceof Error ? {
       name: error.name,
       message: error.message,
-      status: error.status,
-      code: error.code,
-      type: error.type,
+      status: (error as any).status,
+      code: (error as any).code,
+      type: (error as any).type,
       stack: error.stack
-    });
+    } : {
+      name: 'Unknown',
+      message: String(error),
+      status: undefined,
+      code: undefined,
+      type: undefined,
+      stack: undefined
+    };
+
+    console.error(`❌ [Responses API ${requestId}] 错误详情:`, errInfo);
 
     return NextResponse.json(
       {
         error: '处理请求时出错，请稍后重试',
-        details: error.message,
+        details: errInfo.message,
         requestId
       },
       { status: 500 }
