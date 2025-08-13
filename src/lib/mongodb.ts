@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { Message, Conversation, ConversationSettings } from './types';
+import { Message, Conversation, ConversationSettings, User } from './types';
 
 // MongoDB 连接
 let isConnected = false;
@@ -134,6 +134,18 @@ function transformConversation(doc: any): Conversation {
     updatedAt: rest.updatedAt,
     model: rest.model,
     settings: rest.settings || {},
+  };
+}
+
+// 辅助函数：转换 MongoDB 文档为 User 类型
+function transformUser(doc: any): User {
+  const { _id, __v, ...rest } = doc;
+  return {
+    id: rest.id,
+    username: rest.username,
+    email: rest.email,
+    passwordHash: rest.passwordHash,
+    createdAt: rest.createdAt,
   };
 }
 
@@ -309,29 +321,32 @@ export interface CreateUserInput {
   passwordHash: string;
 }
 
-export async function findUserByUsername(username: string) {
+export async function findUserByUsername(username: string): Promise<User | null> {
   await connectToDatabase();
-  return UserModel.findOne({ username }).lean();
+  const user = await UserModel.findOne({ username }).lean();
+  return user ? transformUser(user) : null;
 }
 
-export async function findUserByEmail(email: string) {
+export async function findUserByEmail(email: string): Promise<User | null> {
   await connectToDatabase();
-  return UserModel.findOne({ email }).lean();
+  const user = await UserModel.findOne({ email }).lean();
+  return user ? transformUser(user) : null;
 }
 
-export async function findUserByUsernameOrEmail(identifier: string) {
+export async function findUserByUsernameOrEmail(identifier: string): Promise<User | null> {
   await connectToDatabase();
-  return UserModel.findOne({
+  const user = await UserModel.findOne({
     $or: [{ username: identifier }, { email: identifier }]
   }).lean();
+  return user ? transformUser(user) : null;
 }
 
-export async function createUser(input: CreateUserInput) {
+export async function createUser(input: CreateUserInput): Promise<User> {
   await connectToDatabase();
   const id = new mongoose.Types.ObjectId().toString();
   const user = new UserModel({ id, ...input });
   await user.save();
-  return user.toObject();
+  return transformUser(user.toObject());
 }
 
 export async function isUsernameOrEmailTaken(username: string, email: string) {

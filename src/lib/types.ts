@@ -175,6 +175,15 @@ export interface TextInput {
 // 混合输入类型
 export type ContentInput = TextInput | ImageInput;
 
+// 用户类型定义
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  passwordHash: string;
+  createdAt: Date;
+}
+
 // 错误类型
 export interface APIError {
   message: string;
