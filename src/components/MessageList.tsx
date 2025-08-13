@@ -229,7 +229,7 @@ export default function MessageList({
         <div className="group">
           {messages.map(renderMessage)}
 
-          {/* 等待模型响应时的占位加载 */
+          {/* 等待模型响应时的占位加载 */}
           {isStreaming && !streamingContent && (
             <div className="chat-message flex gap-3 p-4">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
