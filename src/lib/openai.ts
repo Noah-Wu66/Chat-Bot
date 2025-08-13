@@ -97,18 +97,6 @@ export async function createResponse({
 }) {
   const modelConfig = MODELS[model];
 
-  console.log('🚀 [GPT-5 Debug] 开始创建 Responses API 请求');
-  console.log('📋 [GPT-5 Debug] 请求参数:', {
-    model,
-    inputType: typeof input,
-    inputLength: typeof input === 'string' ? input.length : Array.isArray(input) ? input.length : 0,
-    hasInstructions: !!instructions,
-    settings,
-    toolsCount: tools?.length || 0,
-    stream,
-    modelConfig
-  });
-
   // 基础参数
   const params: any = {
     model,
@@ -119,81 +107,40 @@ export async function createResponse({
   // 添加指令
   if (instructions) {
     params.instructions = instructions;
-    console.log('📝 [GPT-5 Debug] 添加指令:', instructions.substring(0, 100) + (instructions.length > 100 ? '...' : ''));
   }
 
   // GPT-5 系列特有参数
   if (modelConfig.supportsReasoning && settings.reasoning) {
     params.reasoning = settings.reasoning;
-    console.log('🧠 [GPT-5 Debug] 启用推理模式:', settings.reasoning);
   }
 
   if (modelConfig.supportsVerbosity && settings.text) {
     params.text = settings.text;
-    console.log('💬 [GPT-5 Debug] 设置文本详细度:', settings.text);
   }
 
   // 最大输出 Token（推理/Responses API 使用）
   if (settings.maxTokens) {
     params.max_output_tokens = settings.maxTokens;
-    console.log('🔢 [GPT-5 Debug] 设置最大输出 Token:', settings.maxTokens);
   }
 
   // 添加工具支持
   if (tools && tools.length > 0 && modelConfig.supportsTools) {
     params.tools = tools;
     params.tool_choice = 'auto';
-    console.log('🔧 [GPT-5 Debug] 启用工具支持，工具数量:', tools.length);
-    console.log('🔧 [GPT-5 Debug] 工具列表:', tools.map(t => t.function.name));
+    try {
+      console.log('🔧 [GPT-5 Debug] 启用工具支持，工具数量:', tools.length);
+      console.log('🔧 [GPT-5 Debug] 工具列表:', tools.map(t => t.name));
+    } catch (e) {
+      // 日志保护，避免构建时类型问题
+    }
   }
 
   // 添加网络搜索支持
   if (settings.webSearch && modelConfig.supportsSearch) {
     params.web_search_options = {};
-    console.log('🌐 [GPT-5 Debug] 启用网络搜索');
   }
 
-  console.log('📤 [GPT-5 Debug] 最终请求参数:', JSON.stringify(params, null, 2));
-
-  try {
-    console.log('⏳ [GPT-5 Debug] 发送请求到 OpenAI Responses API...');
-    const startTime = Date.now();
-
-    const response = await (openai as any).responses.create(params);
-
-    const endTime = Date.now();
-    console.log('✅ [GPT-5 Debug] API 请求成功，耗时:', endTime - startTime, 'ms');
-    console.log('📥 [GPT-5 Debug] 响应类型:', typeof response);
-    console.log('📥 [GPT-5 Debug] 响应对象键:', Object.keys(response || {}));
-
-    if (stream) {
-      console.log('🌊 [GPT-5 Debug] 返回流式响应');
-    } else {
-      console.log('📄 [GPT-5 Debug] 返回非流式响应');
-      console.log('📄 [GPT-5 Debug] 响应内容预览:', JSON.stringify(response, null, 2).substring(0, 500) + '...');
-    }
-
-    return response;
-  } catch (error) {
-    console.error('❌ [GPT-5 Debug] API 请求失败:', error);
-    const errInfo = error instanceof Error ? {
-      name: error.name,
-      message: error.message,
-      status: (error as any).status,
-      code: (error as any).code,
-      type: (error as any).type,
-      stack: error.stack
-    } : {
-      name: 'Unknown',
-      message: String(error),
-      status: undefined,
-      code: undefined,
-      type: undefined,
-      stack: undefined
-    };
-    console.error('❌ [GPT-5 Debug] 错误详情:', errInfo);
-    throw error;
-  }
+  return await (openai as any).responses.create(params);
 }
 
 // 预定义的工具函数
