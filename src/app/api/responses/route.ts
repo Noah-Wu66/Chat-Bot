@@ -165,76 +165,80 @@ export async function POST(request: NextRequest) {
                 eventKeys: Object.keys(event)
               });
 
-              // 处理不同类型的事件
-              if (event.type === 'content.start') {
-                console.log(`🎬 [Responses API ${requestId}] 内容开始`);
+              // 处理不同类型的事件（兼容 OpenAI Responses API 各版本命名）
+              // 开始类事件
+              if (
+                event.type === 'content.start' ||
+                event.type === 'response.created' ||
+                event.type === 'response.in_progress' ||
+                event.type === 'response.output_item.added'
+              ) {
+                console.log(`🎬 [Responses API ${requestId}] 内容开始/进行中:`, event.type);
                 controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({
-                    type: 'start'
-                  })}\n\n`)
+                  encoder.encode(`data: ${JSON.stringify({ type: 'start' })}\n\n`)
                 );
               }
 
-              if (event.type === 'content.delta') {
-                assistantMessage += event.delta;
-                console.log(`📝 [Responses API ${requestId}] 内容增量:`, event.delta.substring(0, 50) + '...');
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({
-                    type: 'content',
-                    content: event.delta
-                  })}\n\n`)
-                );
+              // 文本增量事件
+              if (
+                event.type === 'content.delta' ||
+                event.type === 'response.output_text.delta'
+              ) {
+                const piece = typeof event.delta === 'string'
+                  ? event.delta
+                  : (event?.delta?.text ?? event?.delta?.content ?? '');
+                if (piece) {
+                  assistantMessage += piece;
+                  console.log(`📝 [Responses API ${requestId}] 内容增量(${event.type}):`, piece.substring(0, 50) + '...');
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ type: 'content', content: piece })}\n\n`)
+                  );
+                }
               }
 
-              if (event.type === 'reasoning.start') {
-                console.log(`🧠 [Responses API ${requestId}] 推理开始`);
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({
-                    type: 'reasoning_start'
-                  })}\n\n`)
-                );
+              // 推理增量事件
+              if (
+                event.type === 'reasoning.delta' ||
+                event.type === 'response.reasoning.delta'
+              ) {
+                const r = typeof event.delta === 'string'
+                  ? event.delta
+                  : (event?.delta?.text ?? event?.delta?.content ?? '');
+                if (r) {
+                  reasoning += r;
+                  console.log(`🤔 [Responses API ${requestId}] 推理增量(${event.type}):`, r.substring(0, 50) + '...');
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ type: 'reasoning', content: r })}\n\n`)
+                  );
+                }
               }
 
-              if (event.type === 'reasoning.delta') {
-                reasoning += event.delta;
-                console.log(`🤔 [Responses API ${requestId}] 推理增量:`, event.delta.substring(0, 50) + '...');
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({
-                    type: 'reasoning',
-                    content: event.delta
-                  })}\n\n`)
-                );
-              }
-
+              // 工具调用事件（向后兼容）
               if (event.type === 'tool_call.start') {
-                console.log(`🔧 [Responses API ${requestId}] 工具调用开始:`, event.tool_call.name);
+                console.log(`🔧 [Responses API ${requestId}] 工具调用开始:`, event.tool_call?.name);
                 controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({
-                    type: 'tool_call_start',
-                    tool: event.tool_call.name
-                  })}\n\n`)
+                  encoder.encode(`data: ${JSON.stringify({ type: 'tool_call_start', tool: event.tool_call?.name })}\n\n`)
                 );
               }
 
               if (event.type === 'tool_call.result') {
-                console.log(`🔧 [Responses API ${requestId}] 执行工具:`, event.tool_call.name, '参数:', event.tool_call.arguments);
+                console.log(`🔧 [Responses API ${requestId}] 执行工具:`, event.tool_call?.name, '参数:', event.tool_call?.arguments);
                 const result = await executeFunction(
-                  event.tool_call.name,
-                  event.tool_call.arguments
+                  event.tool_call?.name,
+                  event.tool_call?.arguments
                 );
                 console.log(`✅ [Responses API ${requestId}] 工具执行结果:`, result);
-
                 controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({
-                    type: 'tool_result',
-                    tool: event.tool_call.name,
-                    result
-                  })}\n\n`)
+                  encoder.encode(`data: ${JSON.stringify({ type: 'tool_result', tool: event.tool_call?.name, result })}\n\n`)
                 );
               }
 
-              if (event.type === 'done') {
-                console.log(`🏁 [Responses API ${requestId}] 流式响应完成`);
+              // 结束类事件
+              if (
+                event.type === 'done' ||
+                event.type === 'response.completed'
+              ) {
+                console.log(`🏁 [Responses API ${requestId}] 流式响应完成:`, event.type);
                 console.log(`📊 [Responses API ${requestId}] 最终统计:`, {
                   totalEvents: eventCount,
                   messageLength: assistantMessage.length,
@@ -259,11 +263,7 @@ export async function POST(request: NextRequest) {
                 console.log(`✅ [Responses API ${requestId}] 消息保存成功`);
 
                 controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({
-                    type: 'done',
-                    conversationId: conversation.id,
-                    reasoning: reasoning || undefined
-                  })}\n\n`)
+                  encoder.encode(`data: ${JSON.stringify({ type: 'done', conversationId: conversation.id, reasoning: reasoning || undefined })}\n\n`)
                 );
                 controller.close();
               }
