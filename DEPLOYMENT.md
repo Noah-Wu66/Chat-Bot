@@ -20,7 +20,7 @@
    AIHUBMIX_API_KEY=sk-your-aihubmix-api-key-here
    AIHUBMIX_BASE_URL=https://aihubmix.com/v1
    MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/ai-chat-bot
-  NEXTAUTH_SECRET=your-nextauth-secret-here # 可选，未设置时使用内置默认值
+   NEXTAUTH_SECRET=your-nextauth-secret-here
    NEXTAUTH_URL=https://your-app.zeabur.app
    NODE_ENV=production
    ```
@@ -78,15 +78,6 @@ experimental: {
 3. 设置数据库用户
 4. 获取连接字符串
 5. 将连接字符串设置为 `MONGODB_URI`
-
-### 本地 MongoDB
-```bash
-# 启动 MongoDB
-mongod
-
-# 连接字符串
-MONGODB_URI=mongodb://localhost:27017/ai-chat-bot
-```
 
 ## 性能优化
 

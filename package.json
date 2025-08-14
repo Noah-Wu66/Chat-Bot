@@ -3,15 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
     "build": "next build",
     "postbuild": "echo 'Build completed successfully'",
-    "start": "next start",
-    "lint": "next lint",
-    "lint:fix": "next lint --fix",
-    "type-check": "tsc --noEmit",
-    "setup": "chmod +x scripts/setup.sh && ./scripts/setup.sh",
-    "clean": "rm -rf .next node_modules package-lock.json && npm install"
+    "start": "next start"
   },
   "dependencies": {
     "next": "^14.0.4",

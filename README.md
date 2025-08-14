@@ -53,35 +53,23 @@ npm install
 ```
 
 ### 3. 环境配置
-复制 `.env.local.example` 为 `.env.local` 并配置：
+在部署平台中设置以下环境变量：
 
 ```env
-# Aihubmix OpenAI API 配置
 AIHUBMIX_API_KEY=sk-your-aihubmix-api-key-here
 AIHUBMIX_BASE_URL=https://aihubmix.com/v1
-
-# MongoDB 配置
-MONGODB_URI=mongodb://localhost:27017/ai-chat-bot
-# 或使用 MongoDB Atlas:
-# MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/ai-chat-bot
-
-# Next.js 配置
-# NEXTAUTH_SECRET 可选，未设置时使用内置默认值（仅供开发使用）
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/ai-chat-bot
 NEXTAUTH_SECRET=your-nextauth-secret-here
-NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_URL=https://your-app.example.com
 ```
 
 ### 4. 启动应用
 ```bash
-# 开发模式
-npm run dev
-
-# 生产构建
 npm run build
 npm start
 ```
 
-访问 `http://localhost:3000` 开始使用。
+部署完成后访问你的云端地址开始使用。
 
 ## API 使用说明
 
