@@ -97,6 +97,7 @@ async function routeGpt5Model(input: string | any[]): Promise<ModelId> {
   const selected = valid.includes(choice as ModelId) ? (choice as ModelId) : 'gpt-5-nano';
   console.log('🛣️ [GPT-5 Router] 路由到:', selected);
   return selected;
+
 }
 
 // Responses API 调用（支持 gpt-5 系列模型自动路由）
