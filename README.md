@@ -6,7 +6,7 @@
 
 ### 🤖 多模型支持
 - **GPT-4o**: `gpt-4o` - 最新的多模态模型，支持文本和图像
-- **GPT-5**: `gpt-5` - 最新的推理模型，支持深度思考
+- **GPT-5**: `gpt-5` - 外部统一入口，内部通过 `gpt-5-nano` 自动路由到 `gpt-5`、`gpt-5-mini` 或 `gpt-5-nano`，按问题难度选择最合适的推理模型
 
 ### 🎯 核心功能
 - **Chat Completions API**: 标准对话模式（GPT-4o）
@@ -133,6 +133,8 @@ const response = await fetch('/api/responses', {
 |------|----------|------|------|------|------------|
 | gpt-4o | Chat | ✅ | ✅ | ❌ | 4096 |
 | gpt-5 | Responses | ❌ | ✅ | ✅ | 8192 |
+| gpt-5-mini | Responses | ❌ | ✅ | ✅ | 4096 |
+| gpt-5-nano | Responses | ❌ | ✅ | ✅ | 2048 |
 
 ## 内置工具函数
 

@@ -147,7 +147,8 @@ export async function POST(request: NextRequest) {
       tools,
       stream,
     });
-    console.log(`✅ [Responses API ${requestId}] createResponse 调用完成`);
+    const actualModel = (response as any).model || modelId;
+    console.log(`✅ [Responses API ${requestId}] createResponse 调用完成，实际模型: ${actualModel}`);
 
     if (stream) {
       console.log(`🌊 [Responses API ${requestId}] 开始处理流式响应`);
@@ -257,7 +258,7 @@ export async function POST(request: NextRequest) {
                 const assistantMsg: Omit<Message, 'id' | 'timestamp'> = {
                   role: 'assistant',
                   content: assistantMessage,
-                  model: modelId,
+                  model: actualModel,
                   metadata: {
                     reasoning: reasoning || undefined,
                     verbosity: settings.text?.verbosity,
@@ -339,7 +340,7 @@ export async function POST(request: NextRequest) {
       const assistantMessage: Omit<Message, 'id' | 'timestamp'> = {
         role: 'assistant',
         content: assistantContent,
-        model: modelId,
+        model: actualModel,
         metadata: {
           reasoning: reasoning || undefined,
           verbosity: settings.text?.verbosity,

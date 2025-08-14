@@ -79,7 +79,25 @@ export async function createChatCompletion({
   return await openai.chat.completions.create(params);
 }
 
-// Responses API 调用
+// 使用 gpt-5-nano 判断应路由到的具体模型
+async function routeGpt5Model(input: string | any[]): Promise<ModelId> {
+  const content = typeof input === 'string' ? input : JSON.stringify(input);
+  const router = await (openai as any).responses.create({
+    model: 'gpt-5-nano',
+    input: content,
+    instructions:
+      '你是模型路由器，根据用户问题难度在 gpt-5、gpt-5-mini、gpt-5-nano 中选择，直接返回模型名称。',
+    reasoning: { effort: 'high' },
+  });
+  const choice =
+    (router as any).output_text?.trim() ||
+    (router as any).content?.trim() ||
+    '';
+  const valid: ModelId[] = ['gpt-5', 'gpt-5-mini', 'gpt-5-nano'];
+  return valid.includes(choice as ModelId) ? (choice as ModelId) : 'gpt-5-nano';
+}
+
+// Responses API 调用（支持 gpt-5 系列模型自动路由）
 export async function createResponse({
   model,
   input,
@@ -95,11 +113,16 @@ export async function createResponse({
   tools?: Tool[];
   stream?: boolean;
 }) {
-  const modelConfig = MODELS[model];
+  let finalModel: ModelId = model;
+  if (model === 'gpt-5') {
+    finalModel = await routeGpt5Model(input);
+  }
+
+  const modelConfig = MODELS[finalModel];
 
   // 基础参数
   const params: any = {
-    model,
+    model: finalModel,
     input,
     stream,
   };
