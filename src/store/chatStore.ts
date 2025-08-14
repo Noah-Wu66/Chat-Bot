@@ -60,9 +60,6 @@ const defaultSettings: ConversationSettings = {
   topP: 1,
   frequencyPenalty: 0,
   presencePenalty: 0,
-  reasoning: {
-    effort: 'medium',
-  },
   text: {
     verbosity: 'medium',
   },

@@ -14,7 +14,6 @@
 - **流式输出**: 实时显示回复内容
 - **图像识别**: 支持图片上传和分析（GPT-4o 专属）
 - **函数调用**: 内置工具函数（天气查询、数学计算、时间获取）
-- **推理深度控制**: GPT-5 专属功能
 - **输出篇幅控制**: 可调节回复详细程度（GPT-5 专属）
 
 ### 🎨 用户界面
@@ -111,7 +110,7 @@ const response = await fetch('/api/chat', {
 适用于 GPT-5 模型的高级功能：
 
 ```typescript
-// GPT-5 推理模式
+// GPT-5 自动路由示例
 const response = await fetch('/api/responses', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -119,7 +118,6 @@ const response = await fetch('/api/responses', {
     input: '解释量子计算的基本原理',
     model: 'gpt-5',
     settings: {
-      reasoning: { effort: 'high' },
       text: { verbosity: 'medium' },
       stream: true
     }

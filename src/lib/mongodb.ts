@@ -61,10 +61,6 @@ const MessageSchema = new mongoose.Schema({
       type: String,
       enum: ['low', 'medium', 'high']
     },
-    effort: {
-      type: String,
-      enum: ['minimal', 'low', 'medium', 'high']
-    },
     searchUsed: { type: Boolean },
     tokensUsed: { type: Number },
   },
@@ -78,13 +74,6 @@ const ConversationSettingsSchema = new mongoose.Schema({
   frequencyPenalty: { type: Number, min: -2, max: 2 },
   presencePenalty: { type: Number, min: -2, max: 2 },
   seed: { type: Number },
-  reasoning: {
-    effort: {
-      type: String,
-      enum: ['minimal', 'low', 'medium', 'high'],
-      default: 'medium'
-    },
-  },
   text: {
     verbosity: {
       type: String,

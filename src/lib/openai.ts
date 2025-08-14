@@ -94,7 +94,10 @@ async function routeGpt5Model(input: string | any[]): Promise<ModelId> {
     (router as any).content?.trim() ||
     '';
   const valid: ModelId[] = ['gpt-5', 'gpt-5-mini', 'gpt-5-nano'];
-  return valid.includes(choice as ModelId) ? (choice as ModelId) : 'gpt-5-nano';
+  const selected = valid.includes(choice as ModelId) ? (choice as ModelId) : 'gpt-5-nano';
+  console.log('🛣️ [GPT-5 Router] 路由到:', selected);
+  return selected;
+
 }
 
 // Responses API 调用（支持 gpt-5 系列模型自动路由）
@@ -132,11 +135,6 @@ export async function createResponse({
     params.instructions = instructions;
   }
 
-  // GPT-5 系列特有参数
-  if (modelConfig.supportsReasoning && settings.reasoning) {
-    params.reasoning = settings.reasoning;
-  }
-
   if (modelConfig.supportsVerbosity && settings.text) {
     params.text = settings.text;
   }
@@ -150,12 +148,6 @@ export async function createResponse({
   if (tools && tools.length > 0 && modelConfig.supportsTools) {
     params.tools = tools;
     params.tool_choice = 'auto';
-    try {
-      console.log('🔧 [GPT-5 Debug] 启用工具支持，工具数量:', tools.length);
-      console.log('🔧 [GPT-5 Debug] 工具列表:', tools.map(t => t.name));
-    } catch (e) {
-      // 日志保护，避免构建时类型问题
-    }
   }
 
   // 添加网络搜索支持

@@ -119,22 +119,11 @@ export default function ChatInterface() {
         };
       }
 
-      // 发送请求
-      console.log('🚀 [ChatInterface] 发送请求:', {
-        apiEndpoint,
-        model: currentModel,
-        requestBodyKeys: Object.keys(requestBody),
-        stream: settings.stream !== false
-      });
-      console.log('📋 [ChatInterface] 请求体:', JSON.stringify(requestBody, null, 2));
-
       const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
       });
-
-      console.log('📡 [ChatInterface] 响应状态:', response.status, response.statusText);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -143,7 +132,6 @@ export default function ChatInterface() {
       }
 
       if (settings.stream !== false) {
-        console.log('🌊 [ChatInterface] 开始处理流式响应');
         // 处理流式响应
         const reader = response.body?.getReader();
         const decoder = new TextDecoder();
@@ -160,13 +148,11 @@ export default function ChatInterface() {
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
-            console.log('🏁 [ChatInterface] 流式响应结束，总计处理', chunkCount, '个数据块');
             break;
           }
 
           chunkCount++;
           const chunk = decoder.decode(value);
-          console.log(`📦 [ChatInterface] 数据块 #${chunkCount}:`, chunk.substring(0, 100) + '...');
 
           const lines = chunk.split('\n');
 
@@ -174,34 +160,25 @@ export default function ChatInterface() {
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6));
-                console.log(`📨 [ChatInterface] 解析事件:`, data.type, data);
 
                 switch (data.type) {
                   case 'content':
                     assistantContent += data.content;
                     setStreamingContent(assistantContent);
-                    console.log(`📝 [ChatInterface] 内容更新，总长度:`, assistantContent.length);
                     break;
 
                   case 'reasoning':
                     reasoning += data.content;
                     setReasoningContent(reasoning);
-                    console.log(`🧠 [ChatInterface] 推理更新，总长度:`, reasoning.length);
                     break;
 
                   case 'function_result':
                   case 'tool_result':
-                    console.log(`🔧 [ChatInterface] 工具调用结果:`, data.tool || data.function, data.result);
                     assistantContent += `\n\n**工具调用结果 (${data.tool || data.function}):**\n${data.result}`;
                     setStreamingContent(assistantContent);
                     break;
 
                   case 'done':
-                    console.log(`🏁 [ChatInterface] 响应完成:`, {
-                      contentLength: assistantContent.length,
-                      reasoningLength: reasoning.length,
-                      conversationId: data.conversationId
-                    });
                     // 添加助手消息到界面
                     const assistantMessage = {
                       id: generateId(),
@@ -212,10 +189,10 @@ export default function ChatInterface() {
                       metadata: {
                         reasoning: reasoning || undefined,
                         verbosity: settings.text?.verbosity,
-                        effort: settings.reasoning?.effort,
                       },
                     };
                     addMessage(assistantMessage);
+                    console.log('✅ [ChatInterface] 使用模型:', assistantMessage.model);
                     setStreamingContent('');
                     setReasoningContent('');
                     break;
@@ -225,7 +202,7 @@ export default function ChatInterface() {
                     throw new Error(data.error);
 
                   default:
-                    console.log(`❓ [ChatInterface] 未知事件类型:`, data.type, data);
+                    console.warn(`❓ [ChatInterface] 未知事件类型:`, data.type, data);
                 }
               } catch (parseError) {
                 console.error('❌ [ChatInterface] JSON 解析错误:', parseError, '原始行:', line);
@@ -235,24 +212,16 @@ export default function ChatInterface() {
           }
         }
       } else {
-        console.log('📄 [ChatInterface] 处理非流式响应');
         // 处理非流式响应
         const data = await response.json();
-        console.log('📥 [ChatInterface] 非流式响应数据:', data);
 
         if (data.message) {
-          console.log('✅ [ChatInterface] 添加助手消息:', {
-            contentLength: data.message.content.length,
-            hasReasoning: !!data.message.metadata?.reasoning,
-            tokensUsed: data.message.metadata?.tokensUsed
-          });
           addMessage({
             ...data.message,
             id: generateId(),
             timestamp: new Date(),
           });
-        } else {
-          console.warn('⚠️ [ChatInterface] 响应中没有消息数据');
+          console.log('✅ [ChatInterface] 使用模型:', data.message.model);
         }
       }
     } catch (error) {
@@ -269,7 +238,6 @@ export default function ChatInterface() {
       console.error('❌ [ChatInterface] 错误详情:', errInfo);
       setError(error instanceof Error ? error.message : '发送消息失败');
     } finally {
-      console.log('🔄 [ChatInterface] 清理状态');
       setStreaming(false);
       setStreamingContent('');
       setReasoningContent('');

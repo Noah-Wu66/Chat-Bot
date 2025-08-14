@@ -17,7 +17,6 @@ export interface Message {
   metadata?: {
     reasoning?: string;
     verbosity?: 'low' | 'medium' | 'high';
-    effort?: 'minimal' | 'low' | 'medium' | 'high';
     searchUsed?: boolean;
     tokensUsed?: number;
   };
@@ -43,9 +42,6 @@ export interface ConversationSettings {
   frequencyPenalty?: number;
   presencePenalty?: number;
   seed?: number;
-  reasoning?: {
-    effort: 'minimal' | 'low' | 'medium' | 'high';
-  };
   text?: {
     verbosity: 'low' | 'medium' | 'high';
   };
