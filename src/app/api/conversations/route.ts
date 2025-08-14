@@ -135,7 +135,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // 返回更新后的对话
-    const updatedConversation = await getConversation(id);
+    const updatedConversation = await getConversation(id, auth.sub);
     return NextResponse.json(updatedConversation);
   } catch (error) {
     console.error('Update conversation error:', error);

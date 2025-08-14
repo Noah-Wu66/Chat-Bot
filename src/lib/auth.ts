@@ -28,7 +28,10 @@ export interface JWTPayload {
   exp?: number;
 }
 
-export function signJWT(payload: JWTPayload, expiresInSec?: number) {
+export function signJWT(
+  payload: Omit<JWTPayload, 'iat' | 'exp'>,
+  expiresInSec?: number
+) {
   const header = { alg: ALG, typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
   const body: JWTPayload = { ...payload, iat: now };
