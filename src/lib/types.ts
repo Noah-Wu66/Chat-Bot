@@ -80,6 +80,32 @@ export const MODELS: Record<string, ModelConfig> = {
     supportsTemperature: false, // 手册：GPT-5 默认不支持 temperature/top_p
     maxTokens: 8192,
   },
+  // GPT-5 Mini
+  'gpt-5-mini': {
+    name: 'GPT-5 Mini',
+    description: '轻量级推理模型，适合中等复杂度任务',
+    type: 'responses',
+    supportsVision: false,
+    supportsSearch: false,
+    supportsTools: true,
+    supportsReasoning: true,
+    supportsVerbosity: true,
+    supportsTemperature: false,
+    maxTokens: 4096,
+  },
+  // GPT-5 Nano（隐藏模型，用于路由和处理简单任务）
+  'gpt-5-nano': {
+    name: 'GPT-5 Nano',
+    description: '超轻量推理模型，主要用于路由判断和简单问题',
+    type: 'responses',
+    supportsVision: false,
+    supportsSearch: false,
+    supportsTools: true,
+    supportsReasoning: true,
+    supportsVerbosity: true,
+    supportsTemperature: false,
+    maxTokens: 2048,
+  },
 };
 
 export type ModelId = keyof typeof MODELS;
