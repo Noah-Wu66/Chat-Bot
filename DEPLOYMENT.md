@@ -20,7 +20,7 @@
    AIHUBMIX_API_KEY=sk-your-aihubmix-api-key-here
    AIHUBMIX_BASE_URL=https://aihubmix.com/v1
    MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/ai-chat-bot
-   NEXTAUTH_SECRET=your-nextauth-secret-here
+  NEXTAUTH_SECRET=your-nextauth-secret-here # 可选，未设置时使用内置默认值
    NEXTAUTH_URL=https://your-app.zeabur.app
    NODE_ENV=production
    ```
@@ -131,7 +131,7 @@ export default function handler(req, res) {
 
 ### 环境变量安全
 - 永远不要在代码中硬编码 API 密钥
-- 使用强随机字符串作为 `NEXTAUTH_SECRET`
+- 建议在生产环境设置强随机字符串作为 `NEXTAUTH_SECRET`
 - 定期轮换 API 密钥
 
 ### CORS 配置

@@ -66,6 +66,7 @@ MONGODB_URI=mongodb://localhost:27017/ai-chat-bot
 # MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/ai-chat-bot
 
 # Next.js 配置
+# NEXTAUTH_SECRET 可选，未设置时使用内置默认值（仅供开发使用）
 NEXTAUTH_SECRET=your-nextauth-secret-here
 NEXTAUTH_URL=http://localhost:3000
 ```
