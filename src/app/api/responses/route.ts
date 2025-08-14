@@ -22,10 +22,8 @@ export async function POST(request: NextRequest) {
   try {
     // 验证环境变量
     validateEnvVars();
-    console.log(`✅ [Responses API ${requestId}] 环境变量验证通过`);
 
     const body = await request.json();
-    console.log(`📋 [Responses API ${requestId}] 请求体:`, JSON.stringify(body, null, 2));
 
     const {
       conversationId,
@@ -37,19 +35,8 @@ export async function POST(request: NextRequest) {
       stream = false
     } = body;
 
-    console.log(`🔍 [Responses API ${requestId}] 解析参数:`, {
-      conversationId,
-      inputType: typeof input,
-      inputPreview: typeof input === 'string' ? input.substring(0, 100) + '...' : input,
-      model,
-      settings,
-      useTools,
-      stream
-    });
-
     // 验证必需参数
     if (!input || !model) {
-      console.log(`❌ [Responses API ${requestId}] 缺少必需参数`);
       return NextResponse.json(
         { error: '缺少必需参数：input 和 model' },
         { status: 400 }
@@ -58,7 +45,6 @@ export async function POST(request: NextRequest) {
 
     // 验证模型
     if (!MODELS[model as ModelId]) {
-      console.log(`❌ [Responses API ${requestId}] 不支持的模型: ${model}`);
       return NextResponse.json(
         { error: `不支持的模型：${model}` },
         { status: 400 }
@@ -67,11 +53,9 @@ export async function POST(request: NextRequest) {
 
     const modelId = model as ModelId;
     const modelConfig = MODELS[modelId];
-    console.log(`✅ [Responses API ${requestId}] 模型验证通过:`, { modelId, modelConfig });
 
     // 检查模型类型
     if (modelConfig.type !== 'responses') {
-      console.log(`❌ [Responses API ${requestId}] 模型类型不匹配: ${modelConfig.type}`);
       return NextResponse.json(
         { error: `模型 ${model} 不支持 Responses API，请使用 Chat Completions API` },
         { status: 400 }
@@ -138,7 +122,6 @@ export async function POST(request: NextRequest) {
     const tools = useTools && validateModelFeature(modelId, 'tools') ? PREDEFINED_TOOLS : undefined;
 
     // 调用 OpenAI Responses API
-    console.log(`🚀 [Responses API ${requestId}] 调用 createResponse...`);
     const response = await createResponse({
       model: modelId,
       input,
@@ -147,10 +130,10 @@ export async function POST(request: NextRequest) {
       tools,
       stream,
     });
-    console.log(`✅ [Responses API ${requestId}] createResponse 调用完成`);
+    const actualModel = (response as any).model || modelId;
+    console.log(`🛣️ [Responses API ${requestId}] 使用模型: ${actualModel}`);
 
     if (stream) {
-      console.log(`🌊 [Responses API ${requestId}] 开始处理流式响应`);
       // 流式响应
       const encoder = new TextEncoder();
       const readable = new ReadableStream({
@@ -158,20 +141,8 @@ export async function POST(request: NextRequest) {
           try {
             let assistantMessage = '';
             let reasoning = '';
-            let functionCalls: any[] = [];
-            let eventCount = 0;
-
-            console.log(`🔄 [Responses API ${requestId}] 开始迭代响应事件`);
 
             for await (const event of response as any) {
-              eventCount++;
-              console.log(`📨 [Responses API ${requestId}] 事件 #${eventCount}:`, {
-                type: event.type,
-                hasContent: !!event.content,
-                hasDelta: !!event.delta,
-                eventKeys: Object.keys(event)
-              });
-
               // 处理不同类型的事件（兼容 OpenAI Responses API 各版本命名）
               // 开始类事件
               if (
@@ -180,7 +151,6 @@ export async function POST(request: NextRequest) {
                 event.type === 'response.in_progress' ||
                 event.type === 'response.output_item.added'
               ) {
-                console.log(`🎬 [Responses API ${requestId}] 内容开始/进行中:`, event.type);
                 controller.enqueue(
                   encoder.encode(`data: ${JSON.stringify({ type: 'start' })}\n\n`)
                 );
@@ -196,7 +166,6 @@ export async function POST(request: NextRequest) {
                   : (event?.delta?.text ?? event?.delta?.content ?? '');
                 if (piece) {
                   assistantMessage += piece;
-                  console.log(`📝 [Responses API ${requestId}] 内容增量(${event.type}):`, piece.substring(0, 50) + '...');
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ type: 'content', content: piece })}\n\n`)
                   );
@@ -213,7 +182,6 @@ export async function POST(request: NextRequest) {
                   : (event?.delta?.text ?? event?.delta?.content ?? '');
                 if (r) {
                   reasoning += r;
-                  console.log(`🤔 [Responses API ${requestId}] 推理增量(${event.type}):`, r.substring(0, 50) + '...');
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify({ type: 'reasoning', content: r })}\n\n`)
                   );
@@ -222,19 +190,16 @@ export async function POST(request: NextRequest) {
 
               // 工具调用事件（向后兼容）
               if (event.type === 'tool_call.start') {
-                console.log(`🔧 [Responses API ${requestId}] 工具调用开始:`, event.tool_call?.name);
                 controller.enqueue(
                   encoder.encode(`data: ${JSON.stringify({ type: 'tool_call_start', tool: event.tool_call?.name })}\n\n`)
                 );
               }
 
               if (event.type === 'tool_call.result') {
-                console.log(`🔧 [Responses API ${requestId}] 执行工具:`, event.tool_call?.name, '参数:', event.tool_call?.arguments);
                 const result = await executeFunction(
                   event.tool_call?.name,
                   event.tool_call?.arguments
                 );
-                console.log(`✅ [Responses API ${requestId}] 工具执行结果:`, result);
                 controller.enqueue(
                   encoder.encode(`data: ${JSON.stringify({ type: 'tool_result', tool: event.tool_call?.name, result })}\n\n`)
                 );
@@ -245,29 +210,17 @@ export async function POST(request: NextRequest) {
                 event.type === 'done' ||
                 event.type === 'response.completed'
               ) {
-                console.log(`🏁 [Responses API ${requestId}] 流式响应完成:`, event.type);
-                console.log(`📊 [Responses API ${requestId}] 最终统计:`, {
-                  totalEvents: eventCount,
-                  messageLength: assistantMessage.length,
-                  reasoningLength: reasoning.length,
-                  functionCallsCount: functionCalls.length
-                });
-
                 // 保存助手消息到数据库
                 const assistantMsg: Omit<Message, 'id' | 'timestamp'> = {
                   role: 'assistant',
                   content: assistantMessage,
-                  model: modelId,
+                  model: actualModel,
                   metadata: {
                     reasoning: reasoning || undefined,
                     verbosity: settings.text?.verbosity,
-                    effort: settings.reasoning?.effort,
                   },
                 };
-
-                console.log(`💾 [Responses API ${requestId}] 保存助手消息到数据库...`);
                 await addMessageToConversation(conversation.id, assistantMsg, auth.sub);
-                console.log(`✅ [Responses API ${requestId}] 消息保存成功`);
 
                 controller.enqueue(
                   encoder.encode(`data: ${JSON.stringify({ type: 'done', conversationId: conversation.id, reasoning: reasoning || undefined })}\n\n`)
@@ -275,8 +228,6 @@ export async function POST(request: NextRequest) {
                 controller.close();
               }
             }
-
-            console.log(`🔚 [Responses API ${requestId}] 事件迭代结束，总计 ${eventCount} 个事件`);
           } catch (error) {
             console.error(`❌ [Responses API ${requestId}] 流处理错误:`, error);
             const errInfo = error instanceof Error ? {
@@ -309,28 +260,16 @@ export async function POST(request: NextRequest) {
         },
       });
     } else {
-      console.log(`📄 [Responses API ${requestId}] 处理非流式响应`);
       // 非流式响应
       const result = response as any;
-      console.log(`📥 [Responses API ${requestId}] 原始响应:`, JSON.stringify(result, null, 2));
 
       let assistantContent = result.content || result.output || '';
       let reasoning = result.reasoning || '';
 
-      console.log(`📝 [Responses API ${requestId}] 解析内容:`, {
-        contentLength: assistantContent.length,
-        reasoningLength: reasoning.length,
-        hasToolCalls: !!(result.tool_calls && result.tool_calls.length > 0),
-        usage: result.usage
-      });
-
       // 处理工具调用
       if (result.tool_calls && result.tool_calls.length > 0) {
-        console.log(`🔧 [Responses API ${requestId}] 处理 ${result.tool_calls.length} 个工具调用`);
         for (const toolCall of result.tool_calls) {
-          console.log(`🔧 [Responses API ${requestId}] 执行工具:`, toolCall.name, '参数:', toolCall.arguments);
           const toolResult = await executeFunction(toolCall.name, toolCall.arguments);
-          console.log(`✅ [Responses API ${requestId}] 工具执行结果:`, toolResult);
           assistantContent += `\n\n工具调用结果（${toolCall.name}）：${toolResult}`;
         }
       }
@@ -339,18 +278,15 @@ export async function POST(request: NextRequest) {
       const assistantMessage: Omit<Message, 'id' | 'timestamp'> = {
         role: 'assistant',
         content: assistantContent,
-        model: modelId,
+        model: actualModel,
         metadata: {
           reasoning: reasoning || undefined,
           verbosity: settings.text?.verbosity,
-          effort: settings.reasoning?.effort,
           tokensUsed: result.usage?.total_tokens,
         },
       };
 
-      console.log(`💾 [Responses API ${requestId}] 保存助手消息到数据库...`);
       await addMessageToConversation(conversation.id, assistantMessage, auth.sub);
-      console.log(`✅ [Responses API ${requestId}] 消息保存成功`);
 
       const responseData = {
         message: assistantMessage,
@@ -358,13 +294,6 @@ export async function POST(request: NextRequest) {
         reasoning: reasoning || undefined,
         usage: result.usage,
       };
-
-      console.log(`🎯 [Responses API ${requestId}] 返回响应:`, {
-        messageLength: assistantMessage.content.length,
-        conversationId: conversation.id,
-        hasReasoning: !!reasoning,
-        tokensUsed: result.usage?.total_tokens
-      });
 
       return NextResponse.json(responseData);
     }

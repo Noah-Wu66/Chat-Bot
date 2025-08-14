@@ -1,11 +1,9 @@
 'use client';
 
-import { useState } from 'react';
 import { Settings, X, RotateCcw, Info } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
-import { MODELS, ConversationSettings, getModelConfig } from '@/lib/types';
+import { getModelConfig } from '@/lib/types';
 import { cn } from '@/utils/helpers';
-import { validateModelFeature } from '@/lib/openai';
 
 export default function SettingsPanel() {
   const { 
@@ -26,7 +24,6 @@ export default function SettingsPanel() {
       topP: 1,
       frequencyPenalty: 0,
       presencePenalty: 0,
-      reasoning: { effort: 'medium' },
       text: { verbosity: 'medium' },
       webSearch: false,
       stream: true,
@@ -299,29 +296,6 @@ export default function SettingsPanel() {
               </div>
             </div>
 
-            {/* GPT-5 特有参数 */}
-            {modelConfig.supportsReasoning && (
-              <div className="settings-panel">
-                <h3 className="font-medium mb-3">推理设置</h3>
-                <div className="space-y-4">
-                  <Select
-                    label="推理强度"
-                    value={settings.reasoning?.effort || 'medium'}
-                    onChange={(value) => setSettings({ 
-                      reasoning: { effort: value as any } 
-                    })}
-                    options={[
-                      { value: 'minimal', label: '最小' },
-                      { value: 'low', label: '低' },
-                      { value: 'medium', label: '中等' },
-                      { value: 'high', label: '高' },
-                    ]}
-                    description="控制模型的推理深度"
-                  />
-                </div>
-              </div>
-            )}
-
             {/* 输出控制 */}
             {modelConfig.supportsVerbosity && (
               <div className="settings-panel">
@@ -375,7 +349,7 @@ export default function SettingsPanel() {
                   <ul className="space-y-1 text-xs">
                     <li>• 设置会自动保存并应用到新对话</li>
                     <li>• 不同模型支持的参数可能不同</li>
-                    <li>• 推理模型建议使用默认设置</li>
+                    <li>• GPT-5 会自动根据问题难度选择模型</li>
                   </ul>
                 </div>
               </div>

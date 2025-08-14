@@ -178,9 +178,6 @@ export default function MessageList({
           {/* 元数据 */}
           {message.metadata && (
             <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-              {message.metadata.effort && (
-                <span>推理强度: {message.metadata.effort}</span>
-              )}
               {message.metadata.verbosity && (
                 <span>详细程度: {message.metadata.verbosity}</span>
               )}
