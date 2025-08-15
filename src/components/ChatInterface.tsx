@@ -172,6 +172,11 @@ export default function ChatInterface() {
                     setReasoningContent(reasoning);
                     break;
 
+                  case 'start':
+                  case 'tool_call_start':
+                    // 起始事件或工具调用开始事件，无需特殊处理
+                    break;
+
                   case 'function_result':
                   case 'tool_result':
                     assistantContent += `\n\n**工具调用结果 (${data.tool || data.function}):**\n${data.result}`;
