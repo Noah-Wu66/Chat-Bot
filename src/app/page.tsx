@@ -5,6 +5,7 @@ import { useChatStore } from '@/store/chatStore';
 import Sidebar from '@/components/Sidebar';
 import ChatInterface from '@/components/ChatInterface';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import FeatureTabs from '@/components/FeatureTabs';
 import { AlertCircle, Wifi, WifiOff } from 'lucide-react';
 
 export default function HomePage() {
@@ -62,18 +63,21 @@ export default function HomePage() {
 
   return (
     <ErrorBoundary>
-      <div className="flex h-full">
-        {/* 侧边栏 */}
-        <Sidebar />
+      <div className="flex h-full flex-col">
+        <FeatureTabs />
+        <div className="flex flex-1">
+          {/* 侧边栏 */}
+          <Sidebar />
 
-        {/* 主内容区域 */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <ChatInterface />
+          {/* 主内容区域 */}
+          <div className="flex-1 flex flex-col min-w-0">
+            <ChatInterface />
+          </div>
+
+          {/* 全局提示 */}
+          <ErrorAlert />
+          <NetworkStatus />
         </div>
-
-        {/* 全局提示 */}
-        <ErrorAlert />
-        <NetworkStatus />
       </div>
     </ErrorBoundary>
   );
