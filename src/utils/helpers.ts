@@ -173,7 +173,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
       return result;
     }
   } catch (error) {
-    console.error('Failed to copy text:', error);
+    // Failed to copy text
     return false;
   }
 }

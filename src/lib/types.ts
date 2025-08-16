@@ -17,6 +17,8 @@ export interface Message {
   metadata?: {
     reasoning?: string;
     verbosity?: 'low' | 'medium' | 'high';
+    reasoningLevel?: ReasoningLevel; // 新增：使用的推理级别
+    routingDecision?: RoutingDecision; // 新增：路由决策信息
     searchUsed?: boolean;
     tokensUsed?: number;
   };
@@ -47,6 +49,12 @@ export interface ConversationSettings {
   };
   webSearch?: boolean;
   stream?: boolean;
+  // 新增：路由相关设置
+  routing?: {
+    enabled: boolean; // 是否启用智能路由
+    preferQuality: boolean; // 偏好质量还是速度
+    customReasoningLevel?: ReasoningLevel; // 自定义推理级别
+  };
 }
 
 // 支持的模型列表
@@ -104,6 +112,34 @@ export const MODELS: Record<string, ModelConfig> = {
   },
 };
 
+// 扩展的模型配置，包含路由信息
+export const EXTENDED_MODELS: Record<ModelId, ExtendedModelConfig> = {
+  'gpt-4o': {
+    ...MODELS['gpt-4o'],
+    availableReasoningLevels: ['high'], // GPT-4o 不支持推理级别，默认 high
+    defaultReasoningLevel: 'high',
+    routingPriority: 4, // 不参与自动路由
+  },
+  'gpt-5': {
+    ...MODELS['gpt-5'],
+    availableReasoningLevels: ['minimal', 'low', 'medium', 'high'],
+    defaultReasoningLevel: 'medium',
+    routingPriority: 1, // 最高优先级
+  },
+  'gpt-5-mini': {
+    ...MODELS['gpt-5-mini'],
+    availableReasoningLevels: ['high'],
+    defaultReasoningLevel: 'high',
+    routingPriority: 2,
+  },
+  'gpt-5-nano': {
+    ...MODELS['gpt-5-nano'],
+    availableReasoningLevels: ['high'],
+    defaultReasoningLevel: 'high',
+    routingPriority: 3,
+  },
+};
+
 export type ModelId = keyof typeof MODELS;
 
 // 模型配置类型
@@ -123,6 +159,11 @@ export interface ModelConfig {
 // 类型安全的模型配置获取函数
 export function getModelConfig(model: ModelId): ModelConfig {
   return MODELS[model] as ModelConfig;
+}
+
+// 获取扩展模型配置
+export function getExtendedModelConfig(model: ModelId): ExtendedModelConfig {
+  return EXTENDED_MODELS[model] as ExtendedModelConfig;
 }
 
 // API 响应类型
@@ -204,6 +245,88 @@ export interface User {
   email: string;
   passwordHash: string;
   createdAt: Date;
+}
+
+// 推理级别枚举
+export type ReasoningLevel = 'minimal' | 'low' | 'medium' | 'high';
+
+// 扩展的模型配置
+export interface ExtendedModelConfig extends ModelConfig {
+  availableReasoningLevels: ReasoningLevel[];
+  defaultReasoningLevel: ReasoningLevel;
+  routingPriority: number; // 路由优先级，数字越小优先级越高
+}
+
+// 复杂度分析结果
+export interface ComplexityAnalysis {
+  score: number; // 复杂度分数 0-100
+  factors: {
+    textLength: number;
+    questionType: 'factual' | 'analytical' | 'creative' | 'technical';
+    domainSpecific: boolean;
+    multiStep: boolean;
+    requiresReasoning: boolean;
+  };
+  category: 'simple' | 'medium' | 'complex';
+}
+
+// 路由决策结果
+export interface RoutingDecision {
+  targetModel: ModelId;
+  reasoningLevel: ReasoningLevel;
+  confidence: number; // 决策置信度 0-1
+  reasoning: string; // 决策理由
+  fallbackModel?: ModelId; // 备选模型
+}
+
+// 路由上下文
+export interface RoutingContext {
+  userId?: string;
+  conversationId?: string;
+  responseTimeRequirement?: 'fast' | 'normal' | 'quality';
+  previousModel?: ModelId; // 上一次使用的模型
+  userPreferences?: {
+    preferQuality: boolean;
+    preferSpeed: boolean;
+    maxCost?: number;
+  };
+}
+
+// 路由配置
+export interface RouterConfig {
+  models: Record<ModelId, ExtendedModelConfig>;
+  thresholds: {
+    simpleComplexity: number; // 简单问题阈值
+    mediumComplexity: number; // 中等复杂度阈值
+    fastResponseTime: number; // 快速响应时间要求(ms)
+  };
+  fallbackStrategy: 'conservative' | 'aggressive';
+  enableLogging: boolean;
+}
+
+// 路由日志
+export interface RoutingLog {
+  id: string;
+  timestamp: Date;
+  inputHash: string; // 输入内容的哈希值（隐私保护）
+  complexityAnalysis: ComplexityAnalysis;
+  routingDecision: RoutingDecision;
+  executionTime: number;
+  success: boolean;
+  errorMessage?: string;
+  responseQuality?: number; // 可选的响应质量评分
+}
+
+// 路由错误类型
+export class RoutingError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public fallbackModel?: ModelId
+  ) {
+    super(message);
+    this.name = 'RoutingError';
+  }
 }
 
 // 错误类型

@@ -1,0 +1,5 @@
+1. Please communicate in Chinese.
+2. Please do not use the terminal to attempt to test the project, and creating test files is not allowed. This is because the project is deployed on a cloud server, and there is no local running environment, so you can only check by viewing the code. Other terminal commands that do not depend on the environment, such as push and pull, can still be executed.
+3. Do not create .md documentation files on your own initiative unless explicitly requested.
+4. Please do not write development environment or testing-related files into the project. Since all projects are deployed on cloud servers and there is no local running environment, you only need to write production environment and related files.
+5. Unless explicitly requested, do not take it upon yourself to delete .git files.
