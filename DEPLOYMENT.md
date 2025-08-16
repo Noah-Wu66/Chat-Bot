@@ -25,33 +25,9 @@
    NODE_ENV=production
    ```
 
-### 方法二：使用 Docker 部署
-
-1. **确保项目根目录有以下文件**
-   - `Dockerfile`（已优化）
-   - `.dockerignore`
-   - `package.json`
-
-2. **在 Zeabur 控制台**
-   - 选择 Docker 部署
-   - 上传项目文件或连接 Git 仓库
-   - 设置环境变量
-   - 点击部署
 
 ### 故障排除
 
-#### 构建失败：npm ci 错误
-**问题**: `npm ci` 需要 `package-lock.json` 文件
-
-**解决方案**: 
-- 使用修改后的 Dockerfile（已修复）
-- 或者在本地生成 `package-lock.json`：
-  ```bash
-  npm install
-  git add package-lock.json
-  git commit -m "Add package-lock.json"
-  git push
-  ```
 
 #### 内存不足错误
 **解决方案**: 在 `next.config.js` 中添加：
@@ -155,7 +131,7 @@ A: 验证 `AIHUBMIX_API_KEY` 是否正确设置
 A: 检查 `MONGODB_URI` 格式和网络访问权限
 
 ### Q: 构建时间过长
-A: 使用 `.dockerignore` 排除不必要的文件
+A: 清理不必要的文件、启用 swcMinify/compress，并仅安装生产依赖
 
 ## 支持
 
