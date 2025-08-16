@@ -574,8 +574,7 @@ export class GPT5Router {
       thresholds: {
         simpleComplexity: 30,
         mediumComplexity: 60,
-        fastResponseTime: 500,
-        qualityThreshold: 0.8
+        fastResponseTime: 500
       },
       fallbackStrategy: 'conservative',
       enableLogging: false
