@@ -541,15 +541,21 @@ export class GPT5Router {
     mostCommonError: string | null;
   } {
     const errorCounts = this.routingStats.errorCounts;
-    const totalErrors = Object.keys(errorCounts).reduce((sum: number, key: string) => sum + errorCounts[key], 0);
+    const totalErrors = Object.values(errorCounts).reduce((sum, count) => sum + count, 0);
     const successRate = this.routingStats.totalRoutes > 0
       ? this.routingStats.successfulRoutes / this.routingStats.totalRoutes
       : 0;
 
-    const errorEntries = Object.keys(this.routingStats.errorCounts).map(key => [key, this.routingStats.errorCounts[key]]);
-    const mostCommonError = errorEntries.length > 0
-      ? errorEntries.sort((a: any, b: any) => b[1] - a[1])[0][0]
-      : null;
+    let mostCommonError: string | null = null;
+    if (totalErrors > 0) {
+      let max = -1;
+      for (const [key, count] of Object.entries(errorCounts)) {
+        if (count > max) {
+          max = count;
+          mostCommonError = key;
+        }
+      }
+    }
 
     return {
       totalErrors,
