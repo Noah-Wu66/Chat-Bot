@@ -125,7 +125,9 @@ export class ComplexityAnalyzer {
     };
 
     // 返回得分最高的类型
-    return Object.entries(scores).reduce((a, b) => scores[a[0]] > scores[b[0]] ? a : b)[0] as any;
+    const bestKey = (Object.keys(scores) as Array<keyof typeof scores>)
+      .reduce((a, b) => scores[a] > scores[b] ? a : b);
+    return bestKey;
   }
 
   /**
