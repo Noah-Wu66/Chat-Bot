@@ -173,7 +173,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
       return result;
     }
   } catch (error) {
-    console.error('Failed to copy text:', error);
+    // 复制失败静默处理以避免噪声
     return false;
   }
 }

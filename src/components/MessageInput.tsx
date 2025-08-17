@@ -81,7 +81,7 @@ export default function MessageInput({ onSendMessage, disabled }: MessageInputPr
         const base64 = await fileToBase64(compressedFile);
         newImages.push(base64);
       } catch (error) {
-        console.error('处理图片失败:', error);
+        // 处理图片失败：静默失败，避免噪声
       }
     }
 

@@ -79,25 +79,59 @@ export async function createChatCompletion({
   return await openai.chat.completions.create(params);
 }
 
-// 使用 gpt-5-nano 判断应路由到的具体模型
-async function routeGpt5Model(input: string | any[]): Promise<ModelId> {
+// 使用 gpt-5-nano 判断应路由到的具体模型与推理级别（内部函数）
+async function routeGpt5Model(input: string | any[]): Promise<{ model: ModelId; effort: 'minimal' | 'low' | 'medium' | 'high' }> {
   const content = typeof input === 'string' ? input : JSON.stringify(input);
   const router = await (openai as any).responses.create({
     model: 'gpt-5-nano',
     input: content,
     instructions:
-      '你是模型路由器，根据用户问题难度在 gpt-5、gpt-5-mini、gpt-5-nano 中选择，直接返回模型名称。',
+      '你是模型路由器。请根据用户问题的难易程度在 gpt-5、gpt-5-mini、gpt-5-nano 中选择合适的模型，并为 gpt-5 选择推理级别。输出严格的 JSON：{"model":"gpt-5|gpt-5-mini|gpt-5-nano","effort":"minimal|low|medium|high"}。当选择 gpt-5-mini 或 gpt-5-nano 时，effort 必须为 "high"。不要输出除 JSON 外的任何字符。',
     reasoning: { effort: 'high' },
   });
-  const choice =
+
+  const raw =
     (router as any).output_text?.trim() ||
     (router as any).content?.trim() ||
     '';
-  const valid: ModelId[] = ['gpt-5', 'gpt-5-mini', 'gpt-5-nano'];
-  const selected = valid.includes(choice as ModelId) ? (choice as ModelId) : 'gpt-5-nano';
-  console.log('🛣️ [GPT-5 Router] 路由到:', selected);
-  return selected;
 
+  const validModels: ModelId[] = ['gpt-5', 'gpt-5-mini', 'gpt-5-nano'];
+  const validEfforts = ['minimal', 'low', 'medium', 'high'] as const;
+
+  let decision: { model: ModelId; effort: 'minimal' | 'low' | 'medium' | 'high' } = {
+    model: 'gpt-5-mini',
+    effort: 'high',
+  };
+
+  try {
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    const jsonText = start !== -1 && end !== -1 ? raw.slice(start, end + 1) : raw;
+    const parsed = JSON.parse(jsonText);
+    const m = parsed.model as ModelId;
+    const e = parsed.effort as (typeof validEfforts)[number];
+    if (validModels.includes(m) && validEfforts.includes(e)) {
+      decision = { model: m, effort: e };
+    }
+  } catch (e) {
+    const choice = raw.replace(/[`\s]/g, '').toLowerCase();
+    const fallback = validModels.find((m) => m === choice);
+    if (fallback) {
+      decision = { model: fallback, effort: fallback === 'gpt-5' ? 'medium' : 'high' };
+    }
+  }
+
+  if (decision.model === 'gpt-5-mini' || decision.model === 'gpt-5-nano') {
+    decision.effort = 'high';
+  }
+
+  // 不在这里输出日志，统一由 API 层/前端输出
+  return decision;
+}
+
+// 对外导出一个决策函数，便于在 API 层先拿到路由信息
+export async function decideGpt5Routing(input: string | any[]) {
+  return routeGpt5Model(input);
 }
 
 // Responses API 调用（支持 gpt-5 系列模型自动路由）
@@ -108,6 +142,7 @@ export async function createResponse({
   settings,
   tools,
   stream = false,
+  decision,
 }: {
   model: ModelId;
   input: string | any[];
@@ -115,10 +150,22 @@ export async function createResponse({
   settings: ConversationSettings;
   tools?: Tool[];
   stream?: boolean;
+  decision?: { model: ModelId; effort: 'minimal' | 'low' | 'medium' | 'high' };
 }) {
   let finalModel: ModelId = model;
+  let selectedEffort: 'minimal' | 'low' | 'medium' | 'high' | undefined;
+
   if (model === 'gpt-5') {
-    finalModel = await routeGpt5Model(input);
+    if (decision) {
+      finalModel = decision.model;
+      selectedEffort = decision.effort;
+    } else {
+      const d = await routeGpt5Model(input);
+      finalModel = d.model;
+      selectedEffort = d.effort;
+    }
+  } else if (model === 'gpt-5-mini' || model === 'gpt-5-nano') {
+    selectedEffort = 'high';
   }
 
   const modelConfig = MODELS[finalModel];
@@ -142,6 +189,11 @@ export async function createResponse({
   // 最大输出 Token（推理/Responses API 使用）
   if (settings.maxTokens) {
     params.max_output_tokens = settings.maxTokens;
+  }
+
+  // 推理级别（仅 responses 推理模型）
+  if (modelConfig.supportsReasoning) {
+    params.reasoning = { effort: selectedEffort || 'high' };
   }
 
   // 添加工具支持

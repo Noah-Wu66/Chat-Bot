@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  createResponse, 
-  executeFunction, 
+import {
+  createResponse,
+  executeFunction,
   PREDEFINED_TOOLS,
   validateModelFeature,
-  formatImageInput 
+  formatImageInput,
+  decideGpt5Routing,
 } from '@/lib/openai';
 import { 
   addMessageToConversation, 
@@ -17,7 +18,6 @@ import { getAuthUserFromRequest } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   const requestId = Math.random().toString(36).substring(7);
-  console.log(`🎯 [Responses API ${requestId}] 收到新请求`);
 
   try {
     // 验证环境变量
@@ -121,6 +121,18 @@ export async function POST(request: NextRequest) {
     // 准备工具
     const tools = useTools && validateModelFeature(modelId, 'tools') ? PREDEFINED_TOOLS : undefined;
 
+    // 计算路由决策（仅 gpt-5 需要）
+    let routingDecision: { model: ModelId; effort: 'minimal' | 'low' | 'medium' | 'high' } | undefined;
+    let chosenModel: ModelId = modelId;
+    let chosenEffort: 'minimal' | 'low' | 'medium' | 'high' | undefined = undefined;
+    if (modelId === 'gpt-5') {
+      routingDecision = await decideGpt5Routing(input);
+      chosenModel = routingDecision.model;
+      chosenEffort = routingDecision.effort;
+    } else if (modelId === 'gpt-5-mini' || modelId === 'gpt-5-nano') {
+      chosenEffort = 'high';
+    }
+
     // 调用 OpenAI Responses API
     const response = await createResponse({
       model: modelId,
@@ -129,9 +141,9 @@ export async function POST(request: NextRequest) {
       settings,
       tools,
       stream,
+      decision: routingDecision,
     });
-    const actualModel = (response as any).model || modelId;
-    console.log(`🛣️ [Responses API ${requestId}] 使用模型: ${actualModel}`);
+    const actualModel = (response as any).model || chosenModel;
 
     if (stream) {
       // 流式响应
@@ -139,6 +151,11 @@ export async function POST(request: NextRequest) {
       const readable = new ReadableStream({
         async start(controller) {
           try {
+            // 先告知前端路由决策
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: 'routing', model: actualModel, effort: chosenEffort || (modelId === 'gpt-5' ? 'medium' : 'high'), requestId })}\n\n`)
+            );
+
             let assistantMessage = '';
             let reasoning = '';
 
@@ -293,6 +310,7 @@ export async function POST(request: NextRequest) {
         conversationId: conversation.id,
         reasoning: reasoning || undefined,
         usage: result.usage,
+        routing: { model: actualModel, effort: chosenEffort || (modelId === 'gpt-5' ? 'medium' : 'high') },
       };
 
       return NextResponse.json(responseData);

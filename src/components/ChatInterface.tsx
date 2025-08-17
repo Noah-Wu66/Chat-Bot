@@ -144,6 +144,8 @@ export default function ChatInterface() {
         let assistantContent = '';
         let reasoning = '';
         let chunkCount = 0;
+        let routedModel: string | null = null;
+        let routedEffort: string | undefined = undefined;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -172,6 +174,12 @@ export default function ChatInterface() {
                     setReasoningContent(reasoning);
                     break;
 
+                  case 'routing':
+                    routedModel = data.model;
+                    routedEffort = data.effort;
+                    console.info('[Router] 使用模型: %s, effort=%s, requestId=%s', routedModel, routedEffort || 'high', data.requestId);
+                    break;
+
                   case 'start':
                   case 'tool_call_start':
                     // 起始事件或工具调用开始事件，无需特殊处理
@@ -190,14 +198,15 @@ export default function ChatInterface() {
                       role: 'assistant' as const,
                       content: assistantContent,
                       timestamp: new Date(),
-                      model: currentModel,
+                      model: routedModel || currentModel,
                       metadata: {
                         reasoning: reasoning || undefined,
                         verbosity: settings.text?.verbosity,
                       },
                     };
                     addMessage(assistantMessage);
-                    console.log('✅ [ChatInterface] 使用模型:', assistantMessage.model);
+                    // 归一化路由日志（done 时若未提前收到 routing 事件，则以当前模型作为兜底）
+                    console.info('[Router] 模型已完成响应。model=%s', assistantMessage.model);
                     setStreamingContent('');
                     setReasoningContent('');
                     break;
@@ -211,7 +220,6 @@ export default function ChatInterface() {
                 }
               } catch (parseError) {
                 console.error('❌ [ChatInterface] JSON 解析错误:', parseError, '原始行:', line);
-                console.error('解析流数据失败:', parseError);
               }
             }
           }
@@ -226,7 +234,12 @@ export default function ChatInterface() {
             id: generateId(),
             timestamp: new Date(),
           });
-          console.log('✅ [ChatInterface] 使用模型:', data.message.model);
+          const routing = data.routing;
+          if (routing) {
+            console.info('[Router] 使用模型: %s, effort=%s', routing.model, routing.effort);
+          } else if (data.message?.model) {
+            console.info('[Router] 使用模型: %s', data.message.model);
+          }
         }
       }
     } catch (error) {
