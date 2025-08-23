@@ -16,6 +16,7 @@ import {
 import { useChatStore } from '@/store/chatStore';
 import { Conversation } from '@/lib/types';
 import { formatRelativeTime, truncateText, cn } from '@/utils/helpers';
+import { apiFetch } from '@/utils/api';
 
 export default function Sidebar() {
   const {
@@ -42,7 +43,7 @@ export default function Sidebar() {
   const loadConversations = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/conversations');
+      const response = await apiFetch('/api/conversations');
       if (response.ok) {
         const data = await response.json();
         setConversations(data);
@@ -62,7 +63,7 @@ export default function Sidebar() {
     }
 
     try {
-      const response = await fetch(`/api/conversations?search=${encodeURIComponent(query)}`);
+      const response = await apiFetch(`/api/conversations?search=${encodeURIComponent(query)}`);
       if (response.ok) {
         const data = await response.json();
         setConversations(data);
@@ -75,7 +76,7 @@ export default function Sidebar() {
   // 创建新对话
   const createNewConversation = async () => {
     try {
-      const response = await fetch('/api/conversations', {
+      const response = await apiFetch('/api/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -104,7 +105,7 @@ export default function Sidebar() {
     }
 
     try {
-      const response = await fetch(`/api/conversations?id=${id}`, {
+      const response = await apiFetch(`/api/conversations?id=${id}`, {
         method: 'DELETE',
       });
 
@@ -133,7 +134,7 @@ export default function Sidebar() {
     }
 
     try {
-      const response = await fetch('/api/conversations', {
+      const response = await apiFetch('/api/conversations', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -326,8 +327,10 @@ export default function Sidebar() {
         <button
           onClick={async () => {
             try {
-              const res = await fetch('/api/auth/logout', { method: 'POST' });
+              const res = await apiFetch('/api/auth/logout', { method: 'POST' });
               const data = await res.json();
+              // 清理前端域的兼容性 cookie（如后端跨域 SameSite=None 未覆盖的场景）
+              try { document.cookie = 'auth_token=; Max-Age=0; path=/'; } catch {}
               window.location.href = data.redirect || '/login';
             } catch (e) {
               console.error('退出失败', e);

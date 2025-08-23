@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS } from '@/lib/types';
 import { generateId, generateTitleFromMessage } from '@/utils/helpers';
+import { apiFetch } from '@/utils/api';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import ModelSelector from './ModelSelector';
@@ -49,7 +50,7 @@ export default function ChatInterface() {
       let conversationId = currentConversation?.id;
       if (!conversationId) {
         const title = generateTitleFromMessage(content);
-        const response = await fetch('/api/conversations', {
+        const response = await apiFetch('/api/conversations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -119,7 +120,7 @@ export default function ChatInterface() {
         };
       }
 
-      const response = await fetch(apiEndpoint, {
+      const response = await apiFetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
@@ -131,7 +132,10 @@ export default function ChatInterface() {
         throw new Error(errorData.error || '请求失败');
       }
 
-      if (settings.stream !== false) {
+      const contentType = response.headers.get('Content-Type') || '';
+      const canStream = settings.stream !== false && contentType.includes('text/event-stream');
+
+      if (canStream) {
         // 处理流式响应
         const reader = response.body?.getReader();
         const decoder = new TextDecoder();
