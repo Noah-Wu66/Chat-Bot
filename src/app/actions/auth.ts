@@ -58,7 +58,7 @@ export async function registerAction(input: {
   return { ok: true, redirect: '/login' };
 }
 
-export async function registerFormAction(formData: FormData) {
+export async function registerFormAction(formData: FormData): Promise<void> {
   'use server'
   const username = String(formData.get('username') || '');
   const email = String(formData.get('email') || '');
@@ -66,7 +66,7 @@ export async function registerFormAction(formData: FormData) {
   const confirmPassword = String(formData.get('confirmPassword') || '');
   const res = await registerAction({ username, email, password, confirmPassword });
   if (!res.ok) {
-    return { ok: false, error: res.error };
+    redirect(`/register?error=${encodeURIComponent(res.error || '注册失败')}`);
   }
   redirect(res.redirect || '/login');
 }
@@ -102,14 +102,14 @@ export async function loginAction(input: {
   return { ok: true, redirect: '/' };
 }
 
-export async function loginFormAction(formData: FormData) {
+export async function loginFormAction(formData: FormData): Promise<void> {
   'use server'
   const identifier = String(formData.get('identifier') || '');
   const password = String(formData.get('password') || '');
   const remember = Boolean(formData.get('remember'));
   const res = await loginAction({ identifier, password, remember });
   if (!res.ok) {
-    return { ok: false, error: res.error };
+    redirect(`/login?error=${encodeURIComponent(res.error || '登录失败')}`);
   }
   redirect(res.redirect || '/');
 }
