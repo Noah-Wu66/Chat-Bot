@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS } from '@/lib/types';
 import { generateId, generateTitleFromMessage } from '@/utils/helpers';
-import { apiFetch } from '@/utils/api';
+import { createConversationAction } from '@/app/actions/conversations';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import ModelSelector from './ModelSelector';
@@ -50,21 +50,11 @@ export default function ChatInterface() {
       let conversationId = currentConversation?.id;
       if (!conversationId) {
         const title = generateTitleFromMessage(content);
-        const response = await apiFetch('/api/conversations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title,
-            model: currentModel,
-            settings,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('创建对话失败');
-        }
-
-        const newConversation = await response.json();
+        const newConversation = await createConversationAction({
+          title,
+          model: currentModel,
+          settings,
+        } as any);
         setCurrentConversation(newConversation);
         addConversation(newConversation);
         conversationId = newConversation.id;
@@ -120,10 +110,11 @@ export default function ChatInterface() {
         };
       }
 
-      const response = await apiFetch(apiEndpoint, {
+      const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
+        credentials: 'include',
       });
 
       if (!response.ok) {

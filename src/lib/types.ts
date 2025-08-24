@@ -51,10 +51,10 @@ export interface ConversationSettings {
 
 // 支持的模型列表
 export const MODELS: Record<string, ModelConfig> = {
-  // GPT-4o
-  'gpt-4o': {
-    name: 'GPT-4o',
-    description: '最新的多模态模型，支持文本和图像',
+  // GPT-4o Mini（官方推荐示例）
+  'gpt-4o-mini': {
+    name: 'GPT-4o Mini',
+    description: '高性价比多模态对话模型，支持文本和图像',
     type: 'chat',
     supportsVision: true,
     supportsSearch: false,

@@ -73,7 +73,7 @@ export const useChatStore = create<ChatState>()(
       // 初始状态
       currentConversation: null,
       conversations: [],
-      currentModel: 'gpt-4o',
+      currentModel: 'gpt-4o-mini',
       settings: defaultSettings,
       isLoading: false,
       isStreaming: false,
@@ -205,7 +205,7 @@ export const useChatStore = create<ChatState>()(
         set({
           currentConversation: null,
           conversations: [],
-          currentModel: 'gpt-4o',
+          currentModel: 'gpt-4o-mini',
           settings: defaultSettings,
           isLoading: false,
           isStreaming: false,

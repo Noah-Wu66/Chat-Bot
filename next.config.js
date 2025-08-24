@@ -10,16 +10,13 @@ const nextConfig = {
     ],
   },
   async rewrites() {
-    // 将以 /api/ 开头的请求转发到同容器内的 FastAPI（端口 8000）
-    // 单容器部署时无需跨域与凭证复杂配置
-    return process.env.NEXT_PUBLIC_BACKEND_URL
-      ? []
-      : [
-          {
-            source: '/api/:path*',
-            destination: 'http://127.0.0.1:8000/api/:path*',
-          },
-        ];
+    // 单服务：仅处理 favicon 重写
+    return [
+      {
+        source: '/favicon.ico',
+        destination: '/icon.svg',
+      },
+    ];
   },
   webpack: (config) => {
     config.resolve.fallback = {

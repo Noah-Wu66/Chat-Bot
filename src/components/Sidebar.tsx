@@ -16,7 +16,8 @@ import {
 import { useChatStore } from '@/store/chatStore';
 import { Conversation } from '@/lib/types';
 import { formatRelativeTime, truncateText, cn } from '@/utils/helpers';
-import { apiFetch } from '@/utils/api';
+import { logoutAction } from '@/app/actions/auth';
+import { listConversationsAction, createConversationAction, deleteConversationAction, updateConversationTitleAction } from '@/app/actions/conversations';
 
 export default function Sidebar() {
   const {
@@ -43,11 +44,8 @@ export default function Sidebar() {
   const loadConversations = async () => {
     try {
       setLoading(true);
-      const response = await apiFetch('/api/conversations');
-      if (response.ok) {
-        const data = await response.json();
-        setConversations(data);
-      }
+      const data = await listConversationsAction();
+      setConversations(data as any);
     } catch (error) {
       console.error('加载对话列表失败:', error);
     } finally {
@@ -61,13 +59,9 @@ export default function Sidebar() {
       loadConversations();
       return;
     }
-
     try {
-      const response = await apiFetch(`/api/conversations?search=${encodeURIComponent(query)}`);
-      if (response.ok) {
-        const data = await response.json();
-        setConversations(data);
-      }
+      const data = await listConversationsAction(query);
+      setConversations(data as any);
     } catch (error) {
       console.error('搜索对话失败:', error);
     }
@@ -76,21 +70,13 @@ export default function Sidebar() {
   // 创建新对话
   const createNewConversation = async () => {
     try {
-      const response = await apiFetch('/api/conversations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: '新对话',
-          model: currentModel,
-          settings: {},
-        }),
-      });
-
-      if (response.ok) {
-        const newConversation = await response.json();
-        setConversations([newConversation, ...conversations]);
-        setCurrentConversation(newConversation);
-      }
+      const newConversation = await createConversationAction({
+        title: '新对话',
+        model: currentModel,
+        settings: {},
+      } as any);
+      setConversations([newConversation as any, ...conversations]);
+      setCurrentConversation(newConversation as any);
     } catch (error) {
       console.error('创建对话失败:', error);
     }
@@ -105,15 +91,10 @@ export default function Sidebar() {
     }
 
     try {
-      const response = await apiFetch(`/api/conversations?id=${id}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        setConversations(conversations.filter(conv => conv.id !== id));
-        if (currentConversation?.id === id) {
-          setCurrentConversation(null);
-        }
+      await deleteConversationAction(id);
+      setConversations(conversations.filter(conv => conv.id !== id));
+      if (currentConversation?.id === id) {
+        setCurrentConversation(null);
       }
     } catch (error) {
       console.error('删除对话失败:', error);
@@ -134,28 +115,18 @@ export default function Sidebar() {
     }
 
     try {
-      const response = await apiFetch('/api/conversations', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingId,
+      await updateConversationTitleAction(editingId, editTitle.trim());
+      setConversations(conversations.map(conv => 
+        conv.id === editingId 
+          ? { ...conv, title: editTitle.trim() }
+          : conv
+      ));
+      
+      if (currentConversation?.id === editingId) {
+        setCurrentConversation({
+          ...currentConversation,
           title: editTitle.trim(),
-        }),
-      });
-
-      if (response.ok) {
-        setConversations(conversations.map(conv => 
-          conv.id === editingId 
-            ? { ...conv, title: editTitle.trim() }
-            : conv
-        ));
-        
-        if (currentConversation?.id === editingId) {
-          setCurrentConversation({
-            ...currentConversation,
-            title: editTitle.trim(),
-          });
-        }
+        });
       }
     } catch (error) {
       console.error('更新标题失败:', error);
@@ -324,23 +295,19 @@ export default function Sidebar() {
           <Settings className="h-4 w-4" />
           设置
         </button>
-        <button
-          onClick={async () => {
-            try {
-              const res = await apiFetch('/api/auth/logout', { method: 'POST' });
-              const data = await res.json();
-              // 清理前端域的兼容性 cookie（如后端跨域 SameSite=None 未覆盖的场景）
-              try { document.cookie = 'auth_token=; Max-Age=0; path=/'; } catch {}
-              window.location.href = data.redirect || '/login';
-            } catch (e) {
-              console.error('退出失败', e);
-            }
-          }}
-          className="sidebar-item w-full text-red-600 hover:text-red-700"
-        >
+        <form action={async () => {
+          'use server'
+          const res = await logoutAction();
+          return res;
+        }}>
+          <button
+            type="submit"
+            className="sidebar-item w-full text-red-600 hover:text-red-700"
+          >
           <LogOut className="h-4 w-4" />
           退出登录
-        </button>
+          </button>
+        </form>
       </div>
     </div>
   );
