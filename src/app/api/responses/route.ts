@@ -20,6 +20,22 @@ export async function POST(req: NextRequest) {
 
   const ai = getAIClient();
   const Conversation = await getConversationModel();
+  const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  const normalizeModel = (m?: string) => {
+    if (!m) return 'gpt-5';
+    if (m === 'gpt-4o-mini') return 'gpt-4o';
+    if (m === 'gpt-5-mini' || m === 'gpt-5-nano' || m === 'gpt-5-chat') return 'gpt-5';
+    return m;
+  };
+  const modelToUse = normalizeModel(model);
+  console.info('[API/responses] request.start', {
+    requestId,
+    userId: user.sub,
+    conversationId,
+    model: modelToUse,
+    stream: !!stream,
+    route: 'responses',
+  });
 
   // 记录用户消息（仅文本摘要记录）
   let userContent = '';
@@ -51,13 +67,26 @@ export async function POST(req: NextRequest) {
     const streamBody = new ReadableStream<Uint8Array>({
       async start(controller) {
         try {
+          // SSE: start 事件
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: 'start', requestId, route: 'responses', model: modelToUse })}\n\n`
+            )
+          );
           const response = await (ai as any).responses.create({
-            model: model || 'gpt-5',
+            model: modelToUse,
             input,
             ...(settings?.reasoning ? { reasoning: settings.reasoning } : {}),
             ...(settings?.text ? { text: settings.text } : {}),
             stream: true,
           });
+
+          // SSE: routing 事件（声明最终模型）
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: 'routing', model: modelToUse, effort: settings?.reasoning?.effort, requestId })}\n\n`
+            )
+          );
 
           for await (const event of response) {
             if (event.type === 'response.refusal.delta') continue;
@@ -72,9 +101,11 @@ export async function POST(req: NextRequest) {
             } else if (event.type === 'response.completed') {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
               controller.close();
+              console.info('[API/responses] request.done', { requestId, conversationId, model: modelToUse });
             }
           }
         } catch (e: any) {
+          console.error('[API/responses] request.error', { requestId, error: e?.message || String(e) });
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e.message })}\n\n`)
           );
@@ -94,7 +125,7 @@ export async function POST(req: NextRequest) {
   }
 
   const resp = await (ai as any).responses.create({
-    model: model || 'gpt-5',
+    model: modelToUse,
     input,
     ...(settings?.reasoning ? { reasoning: settings.reasoning } : {}),
     ...(settings?.text ? { text: settings.text } : {}),
@@ -123,7 +154,12 @@ export async function POST(req: NextRequest) {
     }
   );
 
-  return Response.json({ message: { role: 'assistant', content, model } });
+  console.info('[API/responses] request.done', { requestId, conversationId, model: modelToUse });
+  return Response.json({
+    message: { role: 'assistant', content, model: modelToUse },
+    routing: { model: modelToUse, effort: settings?.reasoning?.effort },
+    requestId,
+  });
 }
 
 

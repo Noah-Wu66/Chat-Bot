@@ -28,7 +28,7 @@ export default function ModelSelector() {
   };
 
   const modelGroups = {
-    '可用模型': ['gpt-4o-mini', 'gpt-5', 'gpt-5-mini', 'gpt-5-chat'],
+    '可用模型': ['gpt-4o', 'gpt-5'],
   } as const;
 
   return (

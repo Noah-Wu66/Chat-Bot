@@ -20,6 +20,23 @@ export async function POST(req: NextRequest) {
     stream?: boolean;
   };
 
+  const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  const normalizeModel = (m?: string) => {
+    if (!m) return 'gpt-4o';
+    if (m === 'gpt-4o-mini') return 'gpt-4o';
+    if (m === 'gpt-5-mini' || m === 'gpt-5-nano' || m === 'gpt-5-chat') return 'gpt-5';
+    return m;
+  };
+  const modelToUse = normalizeModel(model);
+  console.info('[API/chat] request.start', {
+    requestId,
+    userId: user.sub,
+    conversationId,
+    model: modelToUse,
+    stream: !!stream,
+    route: 'chat',
+  });
+
   const ai = getAIClient();
 
   // 记录消息到数据库（用户消息）
@@ -52,8 +69,15 @@ export async function POST(req: NextRequest) {
     const streamBody = new ReadableStream<Uint8Array>({
       async start(controller) {
         try {
+          // SSE: start 事件
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: 'start', requestId, route: 'chat', model: modelToUse })}\n\n`
+            )
+          );
+
           const streamResp: any = await ai.chat.completions.create({
-            model: model || 'gpt-4o-mini',
+            model: modelToUse,
             messages,
             temperature: settings?.temperature ?? 0.8,
             max_tokens: settings?.maxTokens ?? 1024,
@@ -62,6 +86,13 @@ export async function POST(req: NextRequest) {
             presence_penalty: settings?.presencePenalty ?? 0,
             stream: true,
           } as any);
+
+          // SSE: routing 事件（声明最终模型）
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: 'routing', model: modelToUse, requestId })}\n\n`
+            )
+          );
 
           for await (const chunk of streamResp as AsyncIterable<any>) {
             const delta = chunk.choices?.[0]?.delta?.content || '';
@@ -74,7 +105,9 @@ export async function POST(req: NextRequest) {
 
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
           controller.close();
+          console.info('[API/chat] request.done', { requestId, conversationId, model: modelToUse });
         } catch (e: any) {
+          console.error('[API/chat] request.error', { requestId, error: e?.message || String(e) });
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e.message })}\n\n`)
           );
@@ -94,7 +127,7 @@ export async function POST(req: NextRequest) {
   }
 
   const completion = await ai.chat.completions.create({
-    model: model || 'gpt-4o-mini',
+    model: modelToUse,
     messages,
     temperature: settings?.temperature ?? 0.8,
     max_tokens: settings?.maxTokens ?? 1024,
@@ -122,7 +155,12 @@ export async function POST(req: NextRequest) {
     }
   );
 
-  return Response.json({ message: { role: 'assistant', content, model } });
+  console.info('[API/chat] request.done', { requestId, conversationId, model: modelToUse });
+  return Response.json({
+    message: { role: 'assistant', content, model: modelToUse },
+    routing: { model: modelToUse },
+    requestId,
+  });
 }
 
 

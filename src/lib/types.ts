@@ -49,12 +49,12 @@ export interface ConversationSettings {
   stream?: boolean;
 }
 
-// 支持的模型列表
+// 支持的模型列表（仅对外可用：GPT-4o 与 GPT-5）
 export const MODELS: Record<string, ModelConfig> = {
-  // GPT-4o Mini（官方推荐示例）
-  'gpt-4o-mini': {
-    name: 'GPT-4o Mini',
-    description: '高性价比多模态对话模型，支持文本和图像',
+  // GPT-4o（面向聊天，多模态）
+  'gpt-4o': {
+    name: 'GPT-4o',
+    description: '多模态对话模型，支持文本和图像',
     type: 'chat',
     supportsVision: true,
     supportsSearch: false,
@@ -63,7 +63,7 @@ export const MODELS: Record<string, ModelConfig> = {
     supportsVerbosity: false,
     maxTokens: 4096,
   },
-  // GPT-5
+  // GPT-5（面向 Responses API 的推理模型）
   'gpt-5': {
     name: 'GPT-5',
     description: '最新的推理模型，支持深度思考',
@@ -73,47 +73,57 @@ export const MODELS: Record<string, ModelConfig> = {
     supportsTools: true,
     supportsReasoning: true,
     supportsVerbosity: true,
-    supportsTemperature: false, // 手册：GPT-5 默认不支持 temperature/top_p
+    supportsTemperature: false, // GPT-5 不支持 temperature/top_p
     maxTokens: 8192,
   },
-  // GPT-5 Mini
-  'gpt-5-mini': {
-    name: 'GPT-5 Mini',
-    description: '轻量级推理模型，适合中等复杂度任务',
-    type: 'responses',
-    supportsVision: false,
-    supportsSearch: false,
-    supportsTools: true,
-    supportsReasoning: true,
-    supportsVerbosity: true,
-    supportsTemperature: false,
-    maxTokens: 4096,
-  },
-  // GPT-5 Nano（隐藏模型，用于路由和处理简单任务）
-  'gpt-5-nano': {
-    name: 'GPT-5 Nano',
-    description: '超轻量推理模型，主要用于路由判断和简单问题',
-    type: 'responses',
-    supportsVision: false,
-    supportsSearch: false,
-    supportsTools: true,
-    supportsReasoning: true,
-    supportsVerbosity: true,
-    supportsTemperature: false,
-    maxTokens: 2048,
-  },
-  // GPT-5 Chat（用于轻量聊天，不传 reasoning.effort）
-  'gpt-5-chat': {
-    name: 'GPT-5 Chat',
-    description: '面向对话的轻量模型，不使用 reasoning.effort',
+
+  // 兼容性别名（不在 UI 中展示，仅为旧数据兜底）：
+  'gpt-4o-mini': {
+    name: 'GPT-4o',
+    description: '多模态对话模型，支持文本和图像',
     type: 'chat',
-    supportsVision: false,
+    supportsVision: true,
     supportsSearch: false,
     supportsTools: true,
     supportsReasoning: false,
     supportsVerbosity: false,
-    supportsTemperature: true,
     maxTokens: 4096,
+  },
+  'gpt-5-mini': {
+    name: 'GPT-5',
+    description: '最新的推理模型，支持深度思考',
+    type: 'responses',
+    supportsVision: false,
+    supportsSearch: false,
+    supportsTools: true,
+    supportsReasoning: true,
+    supportsVerbosity: true,
+    supportsTemperature: false,
+    maxTokens: 8192,
+  },
+  'gpt-5-nano': {
+    name: 'GPT-5',
+    description: '最新的推理模型，支持深度思考',
+    type: 'responses',
+    supportsVision: false,
+    supportsSearch: false,
+    supportsTools: true,
+    supportsReasoning: true,
+    supportsVerbosity: true,
+    supportsTemperature: false,
+    maxTokens: 8192,
+  },
+  'gpt-5-chat': {
+    name: 'GPT-5',
+    description: '最新的推理模型，支持深度思考',
+    type: 'responses',
+    supportsVision: false,
+    supportsSearch: false,
+    supportsTools: true,
+    supportsReasoning: true,
+    supportsVerbosity: true,
+    supportsTemperature: false,
+    maxTokens: 8192,
   },
 };
 
