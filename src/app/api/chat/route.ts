@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     const streamBody = new ReadableStream<Uint8Array>({
       async start(controller) {
         try {
-          const completion = await ai.chat.completions.create({
+          const streamResp: any = await ai.chat.completions.create({
             model: model || 'gpt-4o-mini',
             messages,
             temperature: settings?.temperature ?? 0.8,
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
             stream: true,
           } as any);
 
-          for await (const chunk of completion) {
+          for await (const chunk of streamResp as AsyncIterable<any>) {
             const delta = chunk.choices?.[0]?.delta?.content || '';
             if (delta) {
               controller.enqueue(
