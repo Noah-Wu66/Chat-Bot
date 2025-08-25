@@ -25,6 +25,21 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
   const { currentModel, isStreaming, setLoginOpen } = useChatStore();
   const modelConfig = MODELS[currentModel];
 
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  // 检查登录状态（不阻塞 UI）
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!cancelled) setIsLoggedIn(res.ok);
+      } catch {
+        if (!cancelled) setIsLoggedIn(false);
+      }
+    })();
+    return () => { cancelled = true };
+  }, []);
+
   // 自动调整文本框高度
   const adjustTextareaHeight = useCallback(() => {
     const textarea = textareaRef.current;
@@ -75,10 +90,10 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
     }
 
     const newImages: string[] = [];
-    
+
     for (let i = 0; i < Math.min(files.length, 5 - images.length); i++) {
       const file = files[i];
-      
+
       if (!file.type.startsWith('image/')) {
         continue;
       }
@@ -110,7 +125,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     const files = e.dataTransfer.files;
     if (files.length > 0) {
       handleFileSelect(files);
@@ -124,20 +139,6 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
 
   const canSend = (message.trim() || images.length > 0) && !disabled && !isStreaming && isLoggedIn !== false;
 
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
-  // 检查登录状态（不阻塞 UI）
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' });
-        if (!cancelled) setIsLoggedIn(res.ok);
-      } catch {
-        if (!cancelled) setIsLoggedIn(false);
-      }
-    })();
-    return () => { cancelled = true };
-  }, []);
 
   return (
     <div className={cn("relative", variant === 'center' && "max-w-2xl mx-auto")}>
