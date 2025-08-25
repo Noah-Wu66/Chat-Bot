@@ -19,6 +19,7 @@ export default function ChatInterface() {
     setCurrentConversation,
     addConversation,
     addMessage,
+    updateConversation,
     currentModel,
     settings,
     isStreaming,
@@ -30,6 +31,8 @@ export default function ChatInterface() {
   const [reasoningContent, setReasoningContent] = useState('');
 
   const modelConfig = MODELS[currentModel];
+
+  // 取消服务端强制刷新，改为纯前端追加，避免消息被旧数据覆盖
 
   // 发送消息
   const handleSendMessage = useCallback(async (content: string, images?: string[]) => {
@@ -49,7 +52,7 @@ export default function ChatInterface() {
         images,
       };
 
-      // 如果没有当前对话，创建新对话
+      // 如果没有当前对话，先创建，并确保本地立即包含首条用户消息
       let conversationId = currentConversation?.id;
       if (!conversationId) {
         const title = generateTitleFromMessage(content);
@@ -58,13 +61,15 @@ export default function ChatInterface() {
           model: currentModel,
           settings,
         } as any);
-        setCurrentConversation(newConversation);
-        addConversation(newConversation);
+        // 立刻让本地会话包含用户消息，避免短暂丢失
+        const withFirstMessage = { ...newConversation, messages: [userMessage] } as any;
+        setCurrentConversation(withFirstMessage);
+        addConversation(withFirstMessage);
         conversationId = newConversation.id;
+      } else {
+        // 现有会话，直接追加本地消息
+        addMessage(userMessage);
       }
-
-      // 添加用户消息到界面
-      addMessage(userMessage);
 
       // 准备 API 请求
       const apiEndpoint = modelConfig.type === 'responses' ? '/api/responses' : '/api/chat';
@@ -203,6 +208,7 @@ export default function ChatInterface() {
                       },
                     };
                     addMessage(assistantMessage);
+                    // 已本地追加消息，避免再拉取覆盖
                     // 归一化路由日志（done 时若未提前收到 routing 事件，则以当前模型作为兜底）
                     // 运行日志已在服务端记录
                     setStreamingContent('');
