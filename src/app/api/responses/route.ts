@@ -29,8 +29,10 @@ export async function POST(req: NextRequest) {
     // 提取路由文本（若 input 为数组，优先取 input_text）
     let routingText = '';
     if (Array.isArray(input)) {
-      const text = input.find((i: any) => i.type === 'input_text');
-      routingText = text?.text || '';
+      const first = input.find((i: any) => Array.isArray(i?.content));
+      const contentArr = Array.isArray(first?.content) ? first.content : [];
+      const textItem = contentArr.find((c: any) => c?.type === 'input_text');
+      routingText = textItem?.text || '';
     } else {
       routingText = String(input ?? '');
     }
@@ -49,8 +51,10 @@ export async function POST(req: NextRequest) {
   // 记录用户消息（仅文本摘要记录）
   let userContent = '';
   if (Array.isArray(input)) {
-    const text = input.find((i) => i.type === 'input_text');
-    userContent = text?.text || '[复合输入]';
+    const first = input.find((i: any) => Array.isArray(i?.content));
+    const contentArr = Array.isArray(first?.content) ? first.content : [];
+    const textItem = contentArr.find((c: any) => c?.type === 'input_text');
+    userContent = textItem?.text || '[复合输入]';
   } else {
     userContent = input;
   }
@@ -82,6 +86,41 @@ export async function POST(req: NextRequest) {
               `data: ${JSON.stringify({ type: 'start', requestId, route: 'responses', model: modelToUse })}\n\n`
             )
           );
+          // 若路由为 gpt-5-chat，则直接使用 Chat Completions 流式
+          if (modelToUse === 'gpt-5-chat') {
+            const chatModel = 'gpt-4o';
+            const messages = [
+              { role: 'system', content: '总是用中文回复' },
+              { role: 'user', content: Array.isArray(input) ? (Array.isArray(input[0]?.content) ? (input[0].content.find((c: any) => c?.type === 'input_text')?.text || '[复合输入]') : '[复合输入]') : String(input ?? '') },
+            ] as any[];
+            await logInfo('responses', 'chat.call', '以 Chat Completions 执行 gpt-5-chat（流式）', { chatModel }, requestId);
+            const chatStream: any = await ai.chat.completions.create({
+              model: chatModel,
+              messages,
+              stream: true,
+              temperature: 0.7,
+            } as any);
+
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({ type: 'routing', model: chatModel, requestId })}\n\n`
+              )
+            );
+
+            for await (const chunk of chatStream as AsyncIterable<any>) {
+              const delta = chunk.choices?.[0]?.delta?.content || '';
+              if (delta) {
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ type: 'content', content: delta })}\n\n`)
+                );
+              }
+            }
+
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+            controller.close();
+            await logInfo('responses', 'request.done', '请求完成（Chat Completions 流式）', { conversationId, model: chatModel }, requestId);
+            return;
+          }
           // 应用路由器决策：若是 gpt-5 则传入 effort（在 settings.reasoning 下），若是 gpt-5-chat 则不传 effort
           const finalSettings: any = { ...(settings?.text ? { text: settings.text } : {}) };
           if (modelToUse === 'gpt-5') {
@@ -192,6 +231,52 @@ export async function POST(req: NextRequest) {
   }
 
   // 非流式：同样应用路由决策
+  // 若路由为 gpt-5-chat，则改为使用 Chat Completions 非流式
+  if (modelToUse === 'gpt-5-chat') {
+    let content = '';
+    try {
+      await logInfo('responses', 'chat.call', '以 Chat Completions 执行 gpt-5-chat（非流式）', {}, requestId);
+      const chatModel = 'gpt-4o';
+      const messages = [
+        { role: 'system', content: '总是用中文回复' },
+        { role: 'user', content: Array.isArray(input) ? (Array.isArray(input[0]?.content) ? (input[0].content.find((c: any) => c?.type === 'input_text')?.text || '[复合输入]') : '[复合输入]') : String(input ?? '') },
+      ] as any[];
+      const completion = await ai.chat.completions.create({
+        model: chatModel,
+        messages,
+        temperature: 0.7,
+        max_tokens: 1024,
+      } as any);
+      content = completion.choices?.[0]?.message?.content || '';
+    } catch (e: any) {
+      await logError('responses', 'chat.error', 'Chat Completions 失败（非流式）', { error: e?.message || String(e) }, requestId);
+      return new Response(JSON.stringify({ error: 'Chat Completions 请求失败' }), { status: 500 });
+    }
+
+    await Conversation.updateOne(
+      { id: conversationId, userId: user.sub },
+      {
+        $push: {
+          messages: {
+            id: Date.now().toString(36),
+            role: 'assistant',
+            content,
+            timestamp: new Date(),
+            model,
+          },
+        },
+        $set: { updatedAt: new Date() },
+      }
+    );
+
+    await logInfo('responses', 'request.done', '请求完成（Chat Completions 非流式）', { conversationId, model: 'gpt-4o' }, requestId);
+    return Response.json({
+      message: { role: 'assistant', content, model: 'gpt-4o' },
+      routing: { model: 'gpt-4o' },
+      requestId,
+    });
+  }
+
   const finalSettings: any = { ...(settings?.text ? { text: settings.text } : {}) };
   if (modelToUse === 'gpt-5') {
     finalSettings.reasoning = {
