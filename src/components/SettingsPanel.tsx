@@ -304,15 +304,14 @@ export default function SettingsPanel() {
                   <Select
                     label="详细程度"
                     value={settings.text?.verbosity || 'medium'}
-                    onChange={(value) => setSettings({ 
-                      text: { verbosity: value as any } 
-                    })}
+                    onChange={() => {}}
                     options={[
                       { value: 'low', label: '简洁' },
                       { value: 'medium', label: '中等' },
                       { value: 'high', label: '详细' },
                     ]}
-                    description="控制回复的详细程度"
+                    description="控制回复的详细程度（由路由器自动决定）"
+                    disabled={true}
                   />
                 </div>
               </div>

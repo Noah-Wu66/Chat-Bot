@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getAIClient } from '@/lib/ai';
+import { routeGpt5Decision } from '@/lib/router';
 import { getConversationModel } from '@/lib/models/Conversation';
 import { getCurrentUser } from '@/app/actions/auth';
 
@@ -21,10 +22,26 @@ export async function POST(req: NextRequest) {
   const ai = getAIClient();
   const Conversation = await getConversationModel();
   const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  // 新：由路由器决定最终模型
+  let routed = { model: 'gpt-5-chat' as 'gpt-5' | 'gpt-5-chat', effort: undefined as any, verbosity: 'medium' as 'low' | 'medium' | 'high' } as { model: 'gpt-5' | 'gpt-5-chat'; effort?: 'minimal' | 'low' | 'medium' | 'high'; verbosity?: 'low' | 'medium' | 'high' };
+  try {
+    // 提取路由文本（若 input 为数组，优先取 input_text）
+    let routingText = '';
+    if (Array.isArray(input)) {
+      const text = input.find((i: any) => i.type === 'input_text');
+      routingText = text?.text || '';
+    } else {
+      routingText = String(input ?? '');
+    }
+    routed = await routeGpt5Decision(ai, routingText);
+  } catch {}
+
+  // 若用户强制指定了模型，则仍执行别名归一化，但以用户为准
   const normalizeModel = (m?: string) => {
-    if (!m) return 'gpt-5';
+    if (!m) return routed.model; // 若未显式指定，则使用路由结果
     if (m === 'gpt-4o-mini') return 'gpt-4o';
-    if (m === 'gpt-5-mini' || m === 'gpt-5-nano' || m === 'gpt-5-chat') return 'gpt-5';
+    // 5 系列别名统一到 gpt-5（但 gpt-5-chat 例外保留）
+    if (m === 'gpt-5-mini' || m === 'gpt-5-nano') return 'gpt-5';
     return m;
   };
   const modelToUse = normalizeModel(model);
@@ -73,18 +90,30 @@ export async function POST(req: NextRequest) {
               `data: ${JSON.stringify({ type: 'start', requestId, route: 'responses', model: modelToUse })}\n\n`
             )
           );
+          // 应用路由器决策：若是 gpt-5 则传入 effort（在 settings.reasoning 下），若是 gpt-5-chat 则不传 effort
+          const finalSettings: any = { ...(settings?.text ? { text: settings.text } : {}) };
+          if (modelToUse === 'gpt-5') {
+            finalSettings.reasoning = {
+              ...(settings?.reasoning || {}),
+              ...(routed && 'effort' in routed && routed.effort ? { effort: routed.effort } : {}),
+            };
+          }
+          // 始终注入由路由器决定的输出详细程度（覆盖用户设置）
+          if (!finalSettings.text) finalSettings.text = {};
+          finalSettings.text.verbosity = (routed as any).verbosity || 'medium';
+
           const response = await (ai as any).responses.create({
             model: modelToUse,
             input,
-            ...(settings?.reasoning ? { reasoning: settings.reasoning } : {}),
-            ...(settings?.text ? { text: settings.text } : {}),
+            ...(finalSettings.reasoning ? { reasoning: finalSettings.reasoning } : {}),
+            ...(finalSettings.text ? { text: finalSettings.text } : {}),
             stream: true,
           });
 
           // SSE: routing 事件（声明最终模型）
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ type: 'routing', model: modelToUse, effort: settings?.reasoning?.effort, requestId })}\n\n`
+              `data: ${JSON.stringify({ type: 'routing', model: modelToUse, effort: modelToUse === 'gpt-5' ? (routed as any).effort : undefined, verbosity: (routed as any).verbosity, requestId })}\n\n`
             )
           );
 
@@ -124,11 +153,22 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // 非流式：同样应用路由决策
+  const finalSettings: any = { ...(settings?.text ? { text: settings.text } : {}) };
+  if (modelToUse === 'gpt-5') {
+    finalSettings.reasoning = {
+      ...(settings?.reasoning || {}),
+      ...(routed && 'effort' in routed && routed.effort ? { effort: routed.effort } : {}),
+    };
+  }
+  // 覆盖 verbosity
+  if (!finalSettings.text) finalSettings.text = {};
+  finalSettings.text.verbosity = (routed as any).verbosity || 'medium';
   const resp = await (ai as any).responses.create({
     model: modelToUse,
     input,
-    ...(settings?.reasoning ? { reasoning: settings.reasoning } : {}),
-    ...(settings?.text ? { text: settings.text } : {}),
+    ...(finalSettings.reasoning ? { reasoning: finalSettings.reasoning } : {}),
+    ...(finalSettings.text ? { text: finalSettings.text } : {}),
   });
 
   let content = '';
@@ -157,7 +197,7 @@ export async function POST(req: NextRequest) {
   console.info('[API/responses] request.done', { requestId, conversationId, model: modelToUse });
   return Response.json({
     message: { role: 'assistant', content, model: modelToUse },
-    routing: { model: modelToUse, effort: settings?.reasoning?.effort },
+    routing: { model: modelToUse, effort: modelToUse === 'gpt-5' ? (routed as any).effort : undefined, verbosity: (routed as any).verbosity || 'medium' },
     requestId,
   });
 }

@@ -172,7 +172,16 @@ export default function ChatInterface() {
                   case 'routing':
                     routedModel = data.model;
                     routedEffort = data.effort;
-                    console.info('[Router] 使用模型: %s, effort=%s, requestId=%s', routedModel, routedEffort || 'high', data.requestId);
+                    const verbosity = data.verbosity as 'low' | 'medium' | 'high' | undefined;
+                    if (routedEffort && verbosity) {
+                      console.info('[Router] 使用模型: %s, effort=%s, verbosity=%s, requestId=%s', routedModel, routedEffort, verbosity, data.requestId);
+                    } else if (routedEffort) {
+                      console.info('[Router] 使用模型: %s, effort=%s, requestId=%s', routedModel, routedEffort, data.requestId);
+                    } else if (verbosity) {
+                      console.info('[Router] 使用模型: %s, verbosity=%s, requestId=%s', routedModel, verbosity, data.requestId);
+                    } else {
+                      console.info('[Router] 使用模型: %s, requestId=%s', routedModel, data.requestId);
+                    }
                     break;
 
                   case 'start':
@@ -231,7 +240,15 @@ export default function ChatInterface() {
           });
           const routing = data.routing;
           if (routing) {
-            console.info('[Router] 使用模型: %s, effort=%s', routing.model, routing.effort);
+            if (routing.effort && routing.verbosity) {
+              console.info('[Router] 使用模型: %s, effort=%s, verbosity=%s', routing.model, routing.effort, routing.verbosity);
+            } else if (routing.effort) {
+              console.info('[Router] 使用模型: %s, effort=%s', routing.model, routing.effort);
+            } else if (routing.verbosity) {
+              console.info('[Router] 使用模型: %s, verbosity=%s', routing.model, routing.verbosity);
+            } else {
+              console.info('[Router] 使用模型: %s', routing.model);
+            }
           } else if (data.message?.model) {
             console.info('[Router] 使用模型: %s', data.message.model);
           }

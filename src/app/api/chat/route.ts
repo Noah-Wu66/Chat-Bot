@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
             stream: true,
           } as any);
 
-          // SSE: routing 事件（声明最终模型）
+          // SSE: routing 事件（声明最终模型）。Chat 路由无 reasoning.effort
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ type: 'routing', model: modelToUse, requestId })}\n\n`
