@@ -10,12 +10,12 @@ import OpenAI from 'openai';
  * - gpt-5-chat (不传入 reasoning.effort)
  * 若返回不合法，则兜底到 gpt-5-chat。
  */
-export async function routeGpt5Decision(ai: OpenAI, userInputText: string): Promise<Gpt5RoutingDecision> {
+export async function routeGpt5Decision(ai: OpenAI, userInputText: string, requestId?: string): Promise<Gpt5RoutingDecision> {
   const RunLog = await getRunLogModel();
-  const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  const rid = requestId || Date.now().toString(36) + Math.random().toString(36).slice(2);
   await RunLog.create({
     id: generateId(),
-    requestId,
+    requestId: rid,
     route: 'router',
     level: 'info',
     stage: 'routing.start',
@@ -61,7 +61,7 @@ export async function routeGpt5Decision(ai: OpenAI, userInputText: string): Prom
     const decision = validateDecision(json);
     await RunLog.create({
       id: generateId(),
-      requestId,
+      requestId: rid,
       route: 'router',
       level: 'info',
       stage: 'routing.done',
@@ -72,7 +72,7 @@ export async function routeGpt5Decision(ai: OpenAI, userInputText: string): Prom
   } catch (e: any) {
     await RunLog.create({
       id: generateId(),
-      requestId,
+      requestId: rid,
       route: 'router',
       level: 'error',
       stage: 'routing.error',

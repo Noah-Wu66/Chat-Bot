@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     } else {
       routingText = String(input ?? '');
     }
-    routed = await routeGpt5Decision(ai, routingText);
+    routed = await routeGpt5Decision(ai, routingText, requestId);
   } catch {}
 
   // 最终模型：严格使用路由器决策，忽略客户端传入的 model

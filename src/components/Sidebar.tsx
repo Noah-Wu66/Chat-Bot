@@ -53,7 +53,7 @@ export default function Sidebar() {
         setConversations(data);
       }
     } catch (error) {
-      console.error('加载对话列表失败:', error);
+      // 忽略错误
     } finally {
       setLoading(false);
     }
@@ -72,7 +72,7 @@ export default function Sidebar() {
         setConversations(data);
       }
     } catch (error) {
-      console.error('搜索对话失败:', error);
+      // 忽略错误
     }
   };
 
@@ -91,7 +91,7 @@ export default function Sidebar() {
         setCurrentConversation(newConversation);
       }
     } catch (error) {
-      console.error('创建对话失败:', error);
+      // 忽略错误
     }
   };
 
@@ -112,7 +112,7 @@ export default function Sidebar() {
         }
       }
     } catch (error) {
-      console.error('删除对话失败:', error);
+      // 忽略错误
     }
   };
 
@@ -150,7 +150,7 @@ export default function Sidebar() {
         }
       }
     } catch (error) {
-      console.error('更新标题失败:', error);
+      // 忽略错误
     } finally {
       setEditingId(null);
       setEditTitle('');
@@ -355,7 +355,6 @@ export default function Sidebar() {
               const data = await res.json().catch(() => ({} as any));
               window.location.href = (data && data.redirect) || '/login';
             } catch (e) {
-              console.error('退出失败', e);
               window.location.href = '/login';
             }
           }}

@@ -130,7 +130,6 @@ export default function ChatInterface() {
         const decoder = new TextDecoder();
 
         if (!reader) {
-          console.error('❌ [ChatInterface] 无法获取响应流读取器');
           throw new Error('无法读取响应流');
         }
 
