@@ -78,17 +78,25 @@ export async function POST(req: Request) {
     }
   );
 
-  // 归一化 Responses 输入为消息数组（为 gpt-5-chat-latest 按规范提供 input 数组）
-  const normalizeResponsesInput = (src: string | any[]): any[] => {
+  // 从数据库获取历史，构建用于 Responses API 的上下文输入
+  const MAX_HISTORY = 30;
+  const doc = await Conversation.findOne({ id: conversationId, userId: user.sub }, { messages: 1 }).lean();
+  const fullHistory: any[] = Array.isArray((doc as any)?.messages) ? (doc as any).messages : [];
+  // 移除刚写入的当前用户消息，避免与 input 重复；仅保留更早历史
+  const historyWithoutCurrent = fullHistory.length > 0 ? fullHistory.slice(0, -1) : [];
+  const buildHistoryText = (list: any[]): string => {
+    const items = list.slice(-MAX_HISTORY).filter((m: any) => m && (m.role === 'user' || m.role === 'assistant'));
+    return items.map((m: any) => `${m.role === 'user' ? '用户' : '助手'}: ${String(m.content ?? '')}`).join('\n');
+  };
+  const historyText = buildHistoryText(historyWithoutCurrent);
+  // 归一化 Responses 输入为消息数组，并注入历史摘要（作为一条用户消息文本）
+  const buildResponsesInputWithHistory = (src: string | any[]): any[] => {
     const dev = { role: 'developer', content: [{ type: 'input_text', text: '总是用中文回复' }] } as any;
-    if (Array.isArray(src)) {
-      // 若已是消息数组，则在前面注入 developer 指令
-      return [dev, ...src];
-    }
-    return [
-      dev,
-      { role: 'user', content: [{ type: 'input_text', text: String(src ?? '') }] },
-    ];
+    const historyMsg = historyText ? { role: 'user', content: [{ type: 'input_text', text: `以下是对话历史（供参考）：\n${historyText}` }] } as any : null;
+    const current = Array.isArray(src)
+      ? src
+      : [{ role: 'user', content: [{ type: 'input_text', text: String(src ?? '') }] }] as any[];
+    return [dev, ...(historyMsg ? [historyMsg] : []), ...current];
   };
 
   // 直接使用路由结果（路由已返回 gpt-5-chat-latest 或 gpt-5）
@@ -117,7 +125,7 @@ export async function POST(req: Request) {
           if (!finalSettings.text) finalSettings.text = {};
           finalSettings.text.verbosity = (routed as any).verbosity || 'medium';
 
-          const inputPayload = normalizeResponsesInput(input);
+          const inputPayload = buildResponsesInputWithHistory(input);
           const maxOutputTokens = typeof settings?.maxTokens === 'number' ? settings.maxTokens : undefined;
           const temperature = typeof settings?.temperature === 'number' ? settings.temperature : undefined;
 
@@ -143,9 +151,11 @@ export async function POST(req: Request) {
             )
           );
 
+          let fullContent = '';
           for await (const event of response) {
             if (event.type === 'response.refusal.delta') continue;
             if (event.type === 'response.output_text.delta') {
+              fullContent += event.delta || '';
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ type: 'content', content: event.delta })}\n\n`)
               );
@@ -154,7 +164,25 @@ export async function POST(req: Request) {
                 encoder.encode(`data: ${JSON.stringify({ type: 'reasoning', content: event.delta })}\n\n`)
               );
             } else if (event.type === 'response.completed') {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+              // 流完成后写入助手消息
+              try {
+                await Conversation.updateOne(
+                  { id: conversationId, userId: user.sub },
+                  {
+                    $push: {
+                      messages: {
+                        id: Date.now().toString(36),
+                        role: 'assistant',
+                        content: fullContent,
+                        timestamp: new Date(),
+                        model: modelToUse,
+                      },
+                    },
+                    $set: { updatedAt: new Date() },
+                  }
+                );
+              } catch {}
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\\n\\n`));
               controller.close();
               await logInfo('responses', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
             }
@@ -172,10 +200,14 @@ export async function POST(req: Request) {
                   return textItem?.text || '[复合输入]';
                 })()
               : String(input ?? '');
-            const messages = [
+            const messages = ([
               { role: 'system', content: '总是用中文回复' },
+              ...historyWithoutCurrent
+                .slice(-MAX_HISTORY)
+                .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant' || m.role === 'system'))
+                .map((m: any) => ({ role: m.role, content: String(m.content ?? '') })),
               { role: 'user', content: fallbackUserText },
-            ] as any[];
+            ]) as any[];
 
             const chatStream: any = await ai.chat.completions.create({
               model: fallbackModel,
@@ -190,16 +222,37 @@ export async function POST(req: Request) {
               )
             );
 
+            let fullContent2 = '';
             for await (const chunk of (chatStream as any)) {
               const delta = chunk.choices?.[0]?.delta?.content || '';
               if (delta) {
+                fullContent2 += delta;
                 controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({ type: 'content', content: delta })}\n\n`)
+                  encoder.encode(`data: ${JSON.stringify({ type: 'content', content: delta })}\\n\\n`)
                 );
               }
             }
 
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+            // 落库
+            try {
+              await Conversation.updateOne(
+                { id: conversationId, userId: user.sub },
+                {
+                  $push: {
+                    messages: {
+                      id: Date.now().toString(36),
+                      role: 'assistant',
+                      content: fullContent2,
+                      timestamp: new Date(),
+                      model: fallbackModel,
+                    },
+                  },
+                  $set: { updatedAt: new Date() },
+                }
+              );
+            } catch {}
+
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\\n\\n`));
             controller.close();
 
           } catch (e2: any) {
@@ -235,7 +288,7 @@ export async function POST(req: Request) {
   // 覆盖 verbosity
   if (!finalSettings.text) finalSettings.text = {};
   finalSettings.text.verbosity = (routed as any).verbosity || 'medium';
-  const inputPayload = normalizeResponsesInput(input);
+  const inputPayload = buildResponsesInputWithHistory(input);
   const apiModel = modelToUse;
   const maxOutputTokens = typeof settings?.maxTokens === 'number' ? settings.maxTokens : undefined;
   const temperature = typeof settings?.temperature === 'number' ? settings.temperature : undefined;
@@ -296,7 +349,7 @@ export async function POST(req: Request) {
           role: 'assistant',
           content,
           timestamp: new Date(),
-          model,
+          model: modelToUse,
         },
       },
       $set: { updatedAt: new Date() },

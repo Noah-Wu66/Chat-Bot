@@ -178,7 +178,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
       {/* 输入区域 */}
       <div
         className={cn(
-          "relative border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
+          "relative border border-input bg-background",
           isDragging && "border-primary",
           // 统一圆角风格
           variant === 'center' ? "rounded-2xl shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/70" : "rounded-2xl"

@@ -56,10 +56,16 @@ export async function POST(req: NextRequest) {
     }
   );
 
-  const messages = [
+  const MAX_HISTORY = 30;
+  const doc = await Conversation.findOne({ id: conversationId, userId: user.sub }, { messages: 1 }).lean();
+  const history = Array.isArray((doc as any)?.messages) ? (doc as any).messages : [];
+  const messages = ([
     { role: 'system', content: '总是用中文回复' },
-    { role: 'user', content: message.content },
-  ] as any[];
+    ...history
+      .slice(-MAX_HISTORY)
+      .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant' || m.role === 'system'))
+      .map((m: any) => ({ role: m.role, content: String(m.content ?? '') })),
+  ]) as any[];
 
   // Chat Completions 标准调用
   if (stream) {
@@ -93,14 +99,35 @@ export async function POST(req: NextRequest) {
             )
           );
 
+          let fullContent = '';
           for await (const chunk of streamResp as AsyncIterable<any>) {
             const delta = chunk.choices?.[0]?.delta?.content || '';
             if (delta) {
+              fullContent += delta;
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ type: 'content', content: delta })}\n\n`)
               );
             }
           }
+
+          // 在流式结束时写入助手消息，保证历史连续
+          try {
+            await Conversation.updateOne(
+              { id: conversationId, userId: user.sub },
+              {
+                $push: {
+                  messages: {
+                    id: Date.now().toString(36),
+                    role: 'assistant',
+                    content: fullContent,
+                    timestamp: new Date(),
+                    model: modelToUse,
+                  },
+                },
+                $set: { updatedAt: new Date() },
+              }
+            );
+          } catch {}
 
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
           controller.close();
@@ -120,6 +147,24 @@ export async function POST(req: NextRequest) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ type: 'content', content })}\n\n`)
             );
+            // 非流式补偿成功后写入数据库
+            try {
+              await Conversation.updateOne(
+                { id: conversationId, userId: user.sub },
+                {
+                  $push: {
+                    messages: {
+                      id: Date.now().toString(36),
+                      role: 'assistant',
+                      content,
+                      timestamp: new Date(),
+                      model: modelToUse,
+                    },
+                  },
+                  $set: { updatedAt: new Date() },
+                }
+              );
+            } catch {}
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
             controller.close();
 
@@ -167,7 +212,7 @@ export async function POST(req: NextRequest) {
           role: 'assistant',
           content,
           timestamp: new Date(),
-          model,
+          model: modelToUse,
         },
       },
       $set: { updatedAt: new Date() },
