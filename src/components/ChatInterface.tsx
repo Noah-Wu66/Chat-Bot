@@ -272,18 +272,25 @@ export default function ChatInterface() {
               }
             }
           }
-          // 如果没有收到 done 事件，但流已结束且有内容，则补写一条
-          if (!assistantAdded && assistantContent) {
-            console.warn('[Chat] finalize without done -> addMessage');
-            addMessage({
-              id: generateId(),
-              role: 'assistant',
-              content: assistantContent,
-              timestamp: new Date(),
-              model: routedModel || currentModel,
-              metadata: reasoning ? { reasoning, verbosity: settings.text?.verbosity } : undefined,
-            } as any);
-          }
+        }
+        // 循环结束：如果没有收到 done 事件，但流已结束且有内容，则补写一条
+        if (!assistantAdded && assistantContent) {
+          console.warn('[Chat] finalize without done -> addMessage');
+          addMessage({
+            id: generateId(),
+            role: 'assistant',
+            content: assistantContent,
+            timestamp: new Date(),
+            model: routedModel || currentModel,
+            metadata: reasoning ? { reasoning, verbosity: settings.text?.verbosity } : undefined,
+          } as any);
+        }
+        // 收尾：清理临时状态与日志观察器
+        setStreamingContent('');
+        setReasoningContent('');
+        if (stopLogsWatcher) {
+          stopLogsWatcher();
+          stopLogsWatcher = null;
         }
       } else {
         // 处理非流式响应
