@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
             );
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
             controller.close();
-            await logInfo('chat', 'fallback.done', '非流式补偿完成', { conversationId, model: modelToUse }, requestId);
+
           } catch (e2: any) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e2?.message || String(e2) })}\n\n`)

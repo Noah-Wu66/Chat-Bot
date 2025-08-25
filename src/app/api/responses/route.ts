@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
               { role: 'system', content: '总是用中文回复' },
               { role: 'user', content: Array.isArray(input) ? (Array.isArray(input[0]?.content) ? (input[0].content.find((c: any) => c?.type === 'input_text')?.text || '[复合输入]') : '[复合输入]') : String(input ?? '') },
             ] as any[];
-            await logInfo('responses', 'chat.call', '以 Chat Completions 执行 gpt-5-chat（流式）', { chatModel }, requestId);
+
             const chatStream: any = await ai.chat.completions.create({
               model: chatModel,
               messages,
@@ -133,11 +133,7 @@ export async function POST(req: NextRequest) {
           if (!finalSettings.text) finalSettings.text = {};
           finalSettings.text.verbosity = (routed as any).verbosity || 'medium';
 
-          await logInfo('responses', 'api.call', '调用 Responses API', {
-            model: modelToUse,
-            hasReasoning: Boolean(finalSettings.reasoning),
-            verbosity: finalSettings.text?.verbosity,
-          }, requestId);
+          
           const response = await (ai as any).responses.create({
             model: modelToUse,
             input,
@@ -147,11 +143,6 @@ export async function POST(req: NextRequest) {
           });
 
           // SSE: routing 事件（声明最终模型）
-          await logInfo('responses', 'routing.broadcast', '广播路由结果', {
-            model: modelToUse,
-            effort: modelToUse === 'gpt-5' ? (routed as any).effort : undefined,
-            verbosity: (routed as any).verbosity,
-          }, requestId);
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ type: 'routing', model: modelToUse, effort: modelToUse === 'gpt-5' ? (routed as any).effort : undefined, verbosity: (routed as any).verbosity, requestId })}\n\n`
@@ -183,7 +174,7 @@ export async function POST(req: NextRequest) {
               { role: 'system', content: '总是用中文回复' },
               { role: 'user', content: Array.isArray(input) ? (input.find((i: any) => i.type === 'input_text')?.text || '[复合输入]') : String(input ?? '') },
             ] as any[];
-            await logWarn('responses', 'fallback.start', '进入回退（Chat Completions 流式）', { fallbackModel }, requestId);
+
             const chatStream: any = await ai.chat.completions.create({
               model: fallbackModel,
               messages,
@@ -208,7 +199,7 @@ export async function POST(req: NextRequest) {
 
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
             controller.close();
-            await logInfo('responses', 'fallback.done', '回退完成（Chat Completions 流式）', { fallbackModel }, requestId);
+
           } catch (e2: any) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e2?.message || String(e2) })}\n\n`)
@@ -235,7 +226,7 @@ export async function POST(req: NextRequest) {
   if (modelToUse === 'gpt-5-chat') {
     let content = '';
     try {
-      await logInfo('responses', 'chat.call', '以 Chat Completions 执行 gpt-5-chat（非流式）', {}, requestId);
+
       const chatModel = 'gpt-4o';
       const messages = [
         { role: 'system', content: '总是用中文回复' },
@@ -289,11 +280,7 @@ export async function POST(req: NextRequest) {
   finalSettings.text.verbosity = (routed as any).verbosity || 'medium';
   let content = '';
   try {
-    await logInfo('responses', 'api.call', '调用 Responses API（非流式）', {
-      model: modelToUse,
-      hasReasoning: Boolean(finalSettings.reasoning),
-      verbosity: finalSettings.text?.verbosity,
-    }, requestId);
+
     const resp = await (ai as any).responses.create({
       model: modelToUse,
       input,
@@ -321,7 +308,7 @@ export async function POST(req: NextRequest) {
       max_tokens: 1024,
     } as any);
     content = completion.choices?.[0]?.message?.content || '';
-    await logInfo('responses', 'fallback.done', '回退完成（Chat Completions 非流式）', { fallbackModel }, requestId);
+
   }
 
   await Conversation.updateOne(
