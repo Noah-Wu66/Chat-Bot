@@ -1,7 +1,7 @@
 import { getRunLogModel } from '@/lib/models/RunLog';
 import { generateId } from '@/utils/helpers';
 
-export type LogRoute = 'responses' | 'chat' | 'router';
+export type LogRoute = 'responses' | 'chat' | 'router' | 'conversations' | 'auth';
 export type LogLevel = 'info' | 'warn' | 'error';
 
 export async function logRun(
