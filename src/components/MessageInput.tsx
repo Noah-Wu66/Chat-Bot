@@ -137,7 +137,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
     setImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const canSend = (message.trim() || images.length > 0) && !disabled && !isStreaming && isLoggedIn !== false;
+  const canSend = (message.trim() || images.length > 0) && !disabled && !isStreaming;
 
 
   return (
