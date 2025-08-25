@@ -3,6 +3,7 @@ import { getAIClient } from '@/lib/ai';
 import { routeGpt5Decision } from '@/lib/router';
 import { getConversationModel } from '@/lib/models/Conversation';
 import { getCurrentUser } from '@/app/actions/auth';
+import { logInfo, logError, logWarn } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
@@ -38,14 +39,12 @@ export async function POST(req: NextRequest) {
 
   // 最终模型：严格使用路由器决策，忽略客户端传入的 model
   const modelToUse = routed.model;
-  console.info('[API/responses] request.start', {
-    requestId,
+  await logInfo('responses', 'request.start', '请求开始', {
     userId: user.sub,
     conversationId,
     model: modelToUse,
     stream: !!stream,
-    route: 'responses',
-  });
+  }, requestId);
 
   // 记录用户消息（仅文本摘要记录）
   let userContent = '';
@@ -95,6 +94,11 @@ export async function POST(req: NextRequest) {
           if (!finalSettings.text) finalSettings.text = {};
           finalSettings.text.verbosity = (routed as any).verbosity || 'medium';
 
+          await logInfo('responses', 'api.call', '调用 Responses API', {
+            model: modelToUse,
+            hasReasoning: Boolean(finalSettings.reasoning),
+            verbosity: finalSettings.text?.verbosity,
+          }, requestId);
           const response = await (ai as any).responses.create({
             model: modelToUse,
             input,
@@ -104,6 +108,11 @@ export async function POST(req: NextRequest) {
           });
 
           // SSE: routing 事件（声明最终模型）
+          await logInfo('responses', 'routing.broadcast', '广播路由结果', {
+            model: modelToUse,
+            effort: modelToUse === 'gpt-5' ? (routed as any).effort : undefined,
+            verbosity: (routed as any).verbosity,
+          }, requestId);
           controller.enqueue(
             encoder.encode(
               `data: ${JSON.stringify({ type: 'routing', model: modelToUse, effort: modelToUse === 'gpt-5' ? (routed as any).effort : undefined, verbosity: (routed as any).verbosity, requestId })}\n\n`
@@ -123,11 +132,11 @@ export async function POST(req: NextRequest) {
             } else if (event.type === 'response.completed') {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
               controller.close();
-              console.info('[API/responses] request.done', { requestId, conversationId, model: modelToUse });
+              await logInfo('responses', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
             }
           }
         } catch (e: any) {
-          console.error('[API/responses] request.error', { requestId, error: e?.message || String(e) });
+          await logError('responses', 'api.error', 'Responses API 失败，准备回退', { error: e?.message || String(e) }, requestId);
           // Fallback: 使用 Chat Completions 流式
           try {
             const fallbackModel = 'gpt-4o';
@@ -135,6 +144,7 @@ export async function POST(req: NextRequest) {
               { role: 'system', content: '总是用中文回复' },
               { role: 'user', content: Array.isArray(input) ? (input.find((i: any) => i.type === 'input_text')?.text || '[复合输入]') : String(input ?? '') },
             ] as any[];
+            await logWarn('responses', 'fallback.start', '进入回退（Chat Completions 流式）', { fallbackModel }, requestId);
             const chatStream: any = await ai.chat.completions.create({
               model: fallbackModel,
               messages,
@@ -159,11 +169,13 @@ export async function POST(req: NextRequest) {
 
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
             controller.close();
+            await logInfo('responses', 'fallback.done', '回退完成（Chat Completions 流式）', { fallbackModel }, requestId);
           } catch (e2: any) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e2?.message || String(e2) })}\n\n`)
             );
             controller.close();
+            await logError('responses', 'fallback.error', '回退失败', { error: e2?.message || String(e2) }, requestId);
           }
         }
       },
@@ -192,6 +204,11 @@ export async function POST(req: NextRequest) {
   finalSettings.text.verbosity = (routed as any).verbosity || 'medium';
   let content = '';
   try {
+    await logInfo('responses', 'api.call', '调用 Responses API（非流式）', {
+      model: modelToUse,
+      hasReasoning: Boolean(finalSettings.reasoning),
+      verbosity: finalSettings.text?.verbosity,
+    }, requestId);
     const resp = await (ai as any).responses.create({
       model: modelToUse,
       input,
@@ -206,6 +223,7 @@ export async function POST(req: NextRequest) {
     }
   } catch (e: any) {
     // 非流式也失败时回退到 Chat Completions
+    await logError('responses', 'api.error', 'Responses API 失败，准备回退（非流式）', { error: e?.message || String(e) }, requestId);
     const fallbackModel = 'gpt-4o';
     const messages = [
       { role: 'system', content: '总是用中文回复' },
@@ -218,6 +236,7 @@ export async function POST(req: NextRequest) {
       max_tokens: 1024,
     } as any);
     content = completion.choices?.[0]?.message?.content || '';
+    await logInfo('responses', 'fallback.done', '回退完成（Chat Completions 非流式）', { fallbackModel }, requestId);
   }
 
   await Conversation.updateOne(
@@ -236,7 +255,7 @@ export async function POST(req: NextRequest) {
     }
   );
 
-  console.info('[API/responses] request.done', { requestId, conversationId, model: modelToUse });
+  await logInfo('responses', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
   return Response.json({
     message: { role: 'assistant', content, model: modelToUse },
     routing: { model: modelToUse, effort: modelToUse === 'gpt-5' ? (routed as any).effort : undefined, verbosity: (routed as any).verbosity || 'medium' },

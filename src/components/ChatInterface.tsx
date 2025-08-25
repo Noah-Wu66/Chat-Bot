@@ -118,7 +118,6 @@ export default function ChatInterface() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('❌ [ChatInterface] 请求失败:', errorData);
         throw new Error(errorData.error || '请求失败');
       }
 
@@ -172,15 +171,7 @@ export default function ChatInterface() {
                     routedModel = data.model;
                     routedEffort = data.effort;
                     const verbosity = data.verbosity as 'low' | 'medium' | 'high' | undefined;
-                    if (routedEffort && verbosity) {
-                      console.info('[Router] 使用模型: %s, effort=%s, verbosity=%s, requestId=%s', routedModel, routedEffort, verbosity, data.requestId);
-                    } else if (routedEffort) {
-                      console.info('[Router] 使用模型: %s, effort=%s, requestId=%s', routedModel, routedEffort, data.requestId);
-                    } else if (verbosity) {
-                      console.info('[Router] 使用模型: %s, verbosity=%s, requestId=%s', routedModel, verbosity, data.requestId);
-                    } else {
-                      console.info('[Router] 使用模型: %s, requestId=%s', routedModel, data.requestId);
-                    }
+                    // 运行日志已在服务端记录
                     break;
 
                   case 'start':
@@ -209,13 +200,12 @@ export default function ChatInterface() {
                     };
                     addMessage(assistantMessage);
                     // 归一化路由日志（done 时若未提前收到 routing 事件，则以当前模型作为兜底）
-                    console.info('[Router] 模型已完成响应。model=%s', assistantMessage.model);
+                    // 运行日志已在服务端记录
                     setStreamingContent('');
                     setReasoningContent('');
                     break;
 
                   case 'error':
-                    console.error('❌ [ChatInterface] 流式响应错误:', data.error, data.details);
                     // 降级为非流式请求
                     try {
                       const fallbackBody = { ...requestBody, stream: false } as any;
@@ -242,10 +232,10 @@ export default function ChatInterface() {
                     throw new Error(data.error);
 
                   default:
-                    console.warn(`❓ [ChatInterface] 未知事件类型:`, data.type, data);
+                    // 忽略未知事件类型
                 }
               } catch (parseError) {
-                console.error('❌ [ChatInterface] JSON 解析错误:', parseError, '原始行:', line);
+                // 忽略解析错误
               }
             }
           }
@@ -261,23 +251,10 @@ export default function ChatInterface() {
             timestamp: new Date(),
           });
           const routing = data.routing;
-          if (routing) {
-            if (routing.effort && routing.verbosity) {
-              console.info('[Router] 使用模型: %s, effort=%s, verbosity=%s', routing.model, routing.effort, routing.verbosity);
-            } else if (routing.effort) {
-              console.info('[Router] 使用模型: %s, effort=%s', routing.model, routing.effort);
-            } else if (routing.verbosity) {
-              console.info('[Router] 使用模型: %s, verbosity=%s', routing.model, routing.verbosity);
-            } else {
-              console.info('[Router] 使用模型: %s', routing.model);
-            }
-          } else if (data.message?.model) {
-            console.info('[Router] 使用模型: %s', data.message.model);
-          }
+          // 运行日志已在服务端记录
         }
       }
     } catch (error) {
-      console.error('❌ [ChatInterface] 发送消息失败:', error);
       const errInfo = error instanceof Error ? {
         name: error.name,
         message: error.message,
@@ -287,7 +264,6 @@ export default function ChatInterface() {
         message: String(error),
         stack: undefined
       };
-      console.error('❌ [ChatInterface] 错误详情:', errInfo);
       setError(error instanceof Error ? error.message : '发送消息失败');
     } finally {
       setStreaming(false);

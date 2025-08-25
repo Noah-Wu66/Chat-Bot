@@ -1,4 +1,6 @@
 import { ReasoningEffort, Gpt5RoutingDecision, VerbosityLevel } from '@/lib/types';
+import { getRunLogModel } from '@/lib/models/RunLog';
+import { generateId } from '@/utils/helpers';
 import OpenAI from 'openai';
 
 /**
@@ -9,6 +11,17 @@ import OpenAI from 'openai';
  * 若返回不合法，则兜底到 gpt-5-chat。
  */
 export async function routeGpt5Decision(ai: OpenAI, userInputText: string): Promise<Gpt5RoutingDecision> {
+  const RunLog = await getRunLogModel();
+  const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  await RunLog.create({
+    id: generateId(),
+    requestId,
+    route: 'router',
+    level: 'info',
+    stage: 'routing.start',
+    message: '开始 GPT-5 路由判定',
+    meta: { sample: (userInputText || '').slice(0, 160) },
+  });
   // 保险处理：截断极长输入
   const inputForRouting = (userInputText || '').slice(0, 4000);
 
@@ -46,8 +59,26 @@ export async function routeGpt5Decision(ai: OpenAI, userInputText: string): Prom
 
     const json = extractFirstJsonObject(output);
     const decision = validateDecision(json);
+    await RunLog.create({
+      id: generateId(),
+      requestId,
+      route: 'router',
+      level: 'info',
+      stage: 'routing.done',
+      message: '路由器返回结果',
+      meta: { raw: output, parsed: json, decision },
+    });
     return decision;
-  } catch {
+  } catch (e: any) {
+    await RunLog.create({
+      id: generateId(),
+      requestId,
+      route: 'router',
+      level: 'error',
+      stage: 'routing.error',
+      message: '路由器判定失败，回退到 gpt-5-chat',
+      meta: { error: e?.message || String(e) },
+    });
     return { model: 'gpt-5-chat' } as Gpt5RoutingDecision;
   }
 }

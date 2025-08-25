@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getAIClient } from '@/lib/ai';
 import { getConversationModel } from '@/lib/models/Conversation';
 import { getCurrentUser } from '@/app/actions/auth';
+import { logInfo, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
@@ -28,14 +29,12 @@ export async function POST(req: NextRequest) {
     return m;
   };
   const modelToUse = normalizeModel(model);
-  console.info('[API/chat] request.start', {
-    requestId,
+  await logInfo('chat', 'request.start', '请求开始', {
     userId: user.sub,
     conversationId,
     model: modelToUse,
     stream: !!stream,
-    route: 'chat',
-  });
+  }, requestId);
 
   const ai = getAIClient();
 
@@ -105,9 +104,9 @@ export async function POST(req: NextRequest) {
 
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
           controller.close();
-          console.info('[API/chat] request.done', { requestId, conversationId, model: modelToUse });
+          await logInfo('chat', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
         } catch (e: any) {
-          console.error('[API/chat] request.error', { requestId, error: e?.message || String(e) });
+          await logError('chat', 'api.error', 'Chat Completions 流式失败，尝试非流式补偿', { error: e?.message || String(e) }, requestId);
           // 尝试以非流式补偿
           try {
             const completion = await ai.chat.completions.create({
@@ -122,11 +121,13 @@ export async function POST(req: NextRequest) {
             );
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
             controller.close();
+            await logInfo('chat', 'fallback.done', '非流式补偿完成', { conversationId, model: modelToUse }, requestId);
           } catch (e2: any) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e2?.message || String(e2) })}\n\n`)
             );
             controller.close();
+            await logError('chat', 'fallback.error', '非流式补偿失败', { error: e2?.message || String(e2) }, requestId);
           }
         }
       },
@@ -171,7 +172,7 @@ export async function POST(req: NextRequest) {
     }
   );
 
-  console.info('[API/chat] request.done', { requestId, conversationId, model: modelToUse });
+  await logInfo('chat', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
   return Response.json({
     message: { role: 'assistant', content, model: modelToUse },
     routing: { model: modelToUse },
