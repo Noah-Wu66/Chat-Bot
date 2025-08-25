@@ -183,6 +183,10 @@ export const useChatStore = create<ChatState>()(
             messages: [...state.currentConversation.messages, message],
             updatedAt: new Date(),
           };
+          try {
+            // eslint-disable-next-line no-console
+            console.log('[ChatStore] addMessage', { convId: updatedConversation.id, role: message.role, len: message.content?.length || 0, total: updatedConversation.messages.length });
+          } catch {}
           
           return {
             currentConversation: updatedConversation,
@@ -204,6 +208,10 @@ export const useChatStore = create<ChatState>()(
             ),
             updatedAt: new Date(),
           };
+          try {
+            // eslint-disable-next-line no-console
+            console.log('[ChatStore] updateMessage', { convId: updatedConversation.id, messageId });
+          } catch {}
           
           return {
             currentConversation: updatedConversation,

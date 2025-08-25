@@ -61,6 +61,7 @@ export default function ChatInterface() {
           model: currentModel,
           settings,
         } as any);
+        console.log('[Chat] created conversation', { id: newConversation?.id, model: currentModel });
         // 立刻让本地会话包含用户消息，避免短暂丢失
         const withFirstMessage = { ...newConversation, messages: [userMessage] } as any;
         setCurrentConversation(withFirstMessage);
@@ -70,6 +71,7 @@ export default function ChatInterface() {
         // 现有会话，直接追加本地消息
         addMessage(userMessage);
       }
+      console.log('[Chat] send start', { conversationId, model: currentModel, type: modelConfig.type });
 
       // 准备 API 请求
       const apiEndpoint = modelConfig.type === 'responses' ? '/api/responses' : '/api/chat';
@@ -145,10 +147,12 @@ export default function ChatInterface() {
         let routedModel: string | null = null;
         let routedEffort: string | undefined = undefined;
         let stopLogsWatcher: (() => void) | null = null;
+        let assistantAdded = false;
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
+            console.warn('[Chat] stream reader done');
             break;
           }
 
@@ -166,6 +170,9 @@ export default function ChatInterface() {
                   case 'content':
                     assistantContent += data.content;
                     setStreamingContent(assistantContent);
+                    if (chunkCount === 1 || chunkCount % 20 === 0) {
+                      console.log('[Chat] content chunk', { chunkCount, length: data.content?.length });
+                    }
                     break;
 
                   case 'reasoning':
@@ -178,6 +185,7 @@ export default function ChatInterface() {
                     routedEffort = data.effort;
                     const verbosity = data.verbosity as 'low' | 'medium' | 'high' | undefined;
                     // 运行日志已在服务端记录
+                    console.log('[Chat] routing', { model: routedModel, effort: routedEffort, verbosity });
                     break;
 
                   case 'start':
@@ -208,6 +216,8 @@ export default function ChatInterface() {
                       },
                     };
                     addMessage(assistantMessage);
+                    assistantAdded = true;
+                    console.log('[Chat] done -> addMessage', { length: assistantContent.length });
                     // 已本地追加消息，避免再拉取覆盖
                     // 归一化路由日志（done 时若未提前收到 routing 事件，则以当前模型作为兜底）
                     // 运行日志已在服务端记录
@@ -237,6 +247,8 @@ export default function ChatInterface() {
                             id: generateId(),
                             timestamp: new Date(),
                           });
+                          assistantAdded = true;
+                          console.warn('[Chat] stream->fallback non-stream added');
                         }
                         if (dataJson.requestId) {
                           await printRunLogsOnce(dataJson.requestId);
@@ -260,6 +272,18 @@ export default function ChatInterface() {
               }
             }
           }
+          // 如果没有收到 done 事件，但流已结束且有内容，则补写一条
+          if (!assistantAdded && assistantContent) {
+            console.warn('[Chat] finalize without done -> addMessage');
+            addMessage({
+              id: generateId(),
+              role: 'assistant',
+              content: assistantContent,
+              timestamp: new Date(),
+              model: routedModel || currentModel,
+              metadata: reasoning ? { reasoning, verbosity: settings.text?.verbosity } : undefined,
+            } as any);
+          }
         }
       } else {
         // 处理非流式响应
@@ -271,6 +295,7 @@ export default function ChatInterface() {
             id: generateId(),
             timestamp: new Date(),
           });
+          console.log('[Chat] non-stream -> addMessage');
           const routing = data.routing;
           // 运行日志已在服务端记录
         }
