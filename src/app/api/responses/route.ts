@@ -121,15 +121,20 @@ export async function POST(req: Request) {
           const maxOutputTokens = typeof settings?.maxTokens === 'number' ? settings.maxTokens : undefined;
           const temperature = typeof settings?.temperature === 'number' ? settings.temperature : undefined;
 
-          const response = await (ai as any).responses.create({
+          const reqPayloadStream: any = {
             model: apiModelStream,
             input: inputPayload,
-            ...(finalSettings.reasoning && modelToUse === 'gpt-5' ? { reasoning: finalSettings.reasoning } : {}),
-            ...(finalSettings.text ? { text: finalSettings.text } : {}),
-            ...(typeof temperature === 'number' && modelToUse !== 'gpt-5' ? { temperature } : {}),
-            ...(typeof maxOutputTokens === 'number' ? { max_output_tokens: maxOutputTokens } : {}),
             stream: true,
-          });
+            ...(typeof maxOutputTokens === 'number' ? { max_output_tokens: maxOutputTokens } : {}),
+          };
+          if (modelToUse === 'gpt-5') {
+            reqPayloadStream.reasoning = finalSettings.reasoning;
+            reqPayloadStream.text = finalSettings.text;
+          } else {
+            if (typeof temperature === 'number') reqPayloadStream.temperature = temperature;
+          }
+
+          const response = await (ai as any).responses.create(reqPayloadStream);
 
           // SSE: routing 事件（声明最终模型）
           controller.enqueue(
@@ -237,14 +242,19 @@ export async function POST(req: Request) {
   let content = '';
   try {
 
-    const resp = await (ai as any).responses.create({
+    const reqPayload: any = {
       model: apiModel,
       input: inputPayload,
-      ...(finalSettings.reasoning && modelToUse === 'gpt-5' ? { reasoning: finalSettings.reasoning } : {}),
-      ...(finalSettings.text ? { text: finalSettings.text } : {}),
-      ...(typeof temperature === 'number' && modelToUse !== 'gpt-5' ? { temperature } : {}),
       ...(typeof maxOutputTokens === 'number' ? { max_output_tokens: maxOutputTokens } : {}),
-    });
+    };
+    if (modelToUse === 'gpt-5') {
+      reqPayload.reasoning = finalSettings.reasoning;
+      reqPayload.text = finalSettings.text;
+    } else {
+      if (typeof temperature === 'number') reqPayload.temperature = temperature;
+    }
+
+    const resp = await (ai as any).responses.create(reqPayload);
 
     try {
       content = resp.output_text || '';
