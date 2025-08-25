@@ -38,10 +38,25 @@ export default function Sidebar() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<{ username: string; email: string } | null>(null);
 
   // 加载对话列表
   useEffect(() => {
     loadConversations();
+    // 加载当前用户
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setUser({ username: data.user?.username, email: data.user?.email });
+        } else {
+          setUser(null);
+        }
+      } catch {
+        setUser(null);
+      }
+    })();
   }, []);
 
   const loadConversations = async () => {
@@ -330,16 +345,24 @@ export default function Sidebar() {
 
       {/* 底部账户卡片 + 设置 */}
       <div className="border-t border-border p-4 space-y-3">
-        {/* 账户卡片（占位）*/}
+        {/* 账户卡片 */}
         <div className="flex items-center justify-between rounded-lg border p-3">
           <div className="flex items-center gap-2">
             <div className="h-6 w-6 rounded-full bg-muted" />
             <div className="text-sm">
-              <div className="font-medium">未登录</div>
-              <div className="text-xs text-muted-foreground">Plus</div>
+              <div className="font-medium">{user ? user.username : '未登录'}</div>
+              <div className="text-xs text-muted-foreground">{user ? user.email : 'Plus'}</div>
             </div>
           </div>
-          <button className="rounded-full border px-3 py-1 text-xs text-muted-foreground" disabled>管理</button>
+          <button
+            className="rounded-full border px-3 py-1 text-xs text-muted-foreground disabled:opacity-60"
+            disabled={!user}
+            onClick={() => {
+              if (user) {
+                window.location.href = '/settings';
+              }
+            }}
+          >管理</button>
         </div>
         <button
           onClick={() => setSettingsOpen(true)}
