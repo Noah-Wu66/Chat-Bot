@@ -175,12 +175,9 @@ export default function MessageList({
             </ReactMarkdown>
           </div>
 
-          {/* 元数据 */}
+          {/* 元数据（去除详细程度显示） */}
           {message.metadata && (
             <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-              {message.metadata.verbosity && (
-                <span>详细程度: {message.metadata.verbosity}</span>
-              )}
               {message.metadata.tokensUsed && (
                 <span>Token: {message.metadata.tokensUsed}</span>
               )}

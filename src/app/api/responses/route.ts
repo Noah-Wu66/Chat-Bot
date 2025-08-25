@@ -36,15 +36,8 @@ export async function POST(req: NextRequest) {
     routed = await routeGpt5Decision(ai, routingText);
   } catch {}
 
-  // 若用户强制指定了模型，则仍执行别名归一化，但以用户为准
-  const normalizeModel = (m?: string) => {
-    if (!m) return routed.model; // 若未显式指定，则使用路由结果
-    if (m === 'gpt-4o-mini') return 'gpt-4o';
-    // 5 系列别名统一到 gpt-5（但 gpt-5-chat 例外保留）
-    if (m === 'gpt-5-mini' || m === 'gpt-5-nano') return 'gpt-5';
-    return m;
-  };
-  const modelToUse = normalizeModel(model);
+  // 最终模型：严格使用路由器决策，忽略客户端传入的 model
+  const modelToUse = routed.model;
   console.info('[API/responses] request.start', {
     requestId,
     userId: user.sub,

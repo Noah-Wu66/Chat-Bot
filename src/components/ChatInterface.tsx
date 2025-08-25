@@ -93,7 +93,7 @@ export default function ChatInterface() {
           model: currentModel,
           settings,
           useTools: true,
-          stream: settings.stream !== false,
+          stream: true,
         };
       } else {
         // 对于 Chat API，保持原有格式
@@ -106,7 +106,7 @@ export default function ChatInterface() {
           model: currentModel,
           settings,
           useTools: true,
-          stream: settings.stream !== false,
+          stream: true,
         };
       }
 
@@ -124,7 +124,7 @@ export default function ChatInterface() {
       }
 
       const contentType = response.headers.get('Content-Type') || '';
-      const canStream = settings.stream !== false && contentType.includes('text/event-stream');
+      const canStream = contentType.includes('text/event-stream');
 
       if (canStream) {
         // 处理流式响应

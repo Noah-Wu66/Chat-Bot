@@ -296,48 +296,9 @@ export default function SettingsPanel() {
               </div>
             </div>
 
-            {/* 输出控制 */}
-            {modelConfig.supportsVerbosity && (
-              <div className="settings-panel">
-                <h3 className="font-medium mb-3">输出控制</h3>
-                <div className="space-y-4">
-                  <Select
-                    label="详细程度"
-                    value={settings.text?.verbosity || 'medium'}
-                    onChange={() => {}}
-                    options={[
-                      { value: 'low', label: '简洁' },
-                      { value: 'medium', label: '中等' },
-                      { value: 'high', label: '详细' },
-                    ]}
-                    description="控制回复的详细程度（由路由器自动决定）"
-                    disabled={true}
-                  />
-                </div>
-              </div>
-            )}
+            
 
-            {/* 功能开关 */}
-            <div className="settings-panel">
-              <h3 className="font-medium mb-3">功能开关</h3>
-              <div className="space-y-4">
-                <Switch
-                  label="流式输出"
-                  checked={settings.stream !== false}
-                  onChange={(checked) => setSettings({ stream: checked })}
-                  description="实时显示回复内容"
-                />
-
-                {modelConfig.supportsSearch && (
-                  <Switch
-                    label="网络搜索"
-                    checked={settings.webSearch || false}
-                    onChange={(checked) => setSettings({ webSearch: checked })}
-                    description="允许模型搜索最新信息"
-                  />
-                )}
-              </div>
-            </div>
+            
 
             {/* 帮助信息 */}
             <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950">
