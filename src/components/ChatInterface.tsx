@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS } from '@/lib/types';
 import { generateId, generateTitleFromMessage } from '@/utils/helpers';
+import { watchRunLogsToConsole, printRunLogsOnce } from '@/lib/loggerClient';
 import { createConversationAction } from '@/app/actions/conversations';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
@@ -138,6 +139,7 @@ export default function ChatInterface() {
         let chunkCount = 0;
         let routedModel: string | null = null;
         let routedEffort: string | undefined = undefined;
+        let stopLogsWatcher: (() => void) | null = null;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -174,6 +176,9 @@ export default function ChatInterface() {
                     break;
 
                   case 'start':
+                    if (!stopLogsWatcher && data.requestId) {
+                      stopLogsWatcher = watchRunLogsToConsole(data.requestId);
+                    }
                   case 'tool_call_start':
                     // 起始事件或工具调用开始事件，无需特殊处理
                     break;
@@ -202,6 +207,10 @@ export default function ChatInterface() {
                     // 运行日志已在服务端记录
                     setStreamingContent('');
                     setReasoningContent('');
+                    if (stopLogsWatcher) {
+                      stopLogsWatcher();
+                      stopLogsWatcher = null;
+                    }
                     break;
 
                   case 'error':
@@ -223,8 +232,15 @@ export default function ChatInterface() {
                             timestamp: new Date(),
                           });
                         }
+                        if (dataJson.requestId) {
+                          await printRunLogsOnce(dataJson.requestId);
+                        }
                         setStreamingContent('');
                         setReasoningContent('');
+                        if (stopLogsWatcher) {
+                          stopLogsWatcher();
+                          stopLogsWatcher = null;
+                        }
                         return; // 直接结束循环
                       }
                     } catch {}
