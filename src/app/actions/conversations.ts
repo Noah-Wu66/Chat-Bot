@@ -1,6 +1,4 @@
 'use server'
-
-import { revalidatePath } from 'next/cache';
 import { generateId } from '@/utils/helpers';
 import { getConversationModel } from '@/lib/models/Conversation';
 import { getCurrentUser } from '@/app/actions/auth';
@@ -37,7 +35,6 @@ export async function createConversationAction(input: {
     model: input.model,
     settings: input.settings || {},
   });
-  revalidatePath('/');
   return JSON.parse(JSON.stringify(doc));
 }
 
@@ -46,7 +43,6 @@ export async function updateConversationTitleAction(id: string, title: string) {
   if (!user) return { ok: false, error: '未登录' };
   const Conversation = await getConversationModel();
   await Conversation.updateOne({ id, userId: user.sub }, { $set: { title } });
-  revalidatePath('/');
   return { ok: true };
 }
 
@@ -55,7 +51,6 @@ export async function deleteConversationAction(id: string) {
   if (!user) return { ok: false, error: '未登录' };
   const Conversation = await getConversationModel();
   await Conversation.deleteOne({ id, userId: user.sub });
-  revalidatePath('/');
   return { ok: true };
 }
 

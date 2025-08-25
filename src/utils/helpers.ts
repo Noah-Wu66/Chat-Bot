@@ -6,10 +6,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// 格式化时间
-export function formatTime(date: Date): string {
+// 格式化时间（兼容字符串/Date）
+export function formatTime(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
   const now = new Date();
-  const diff = now.getTime() - date.getTime();
+  const diff = now.getTime() - d.getTime();
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
@@ -23,23 +24,24 @@ export function formatTime(date: Date): string {
   } else if (days < 7) {
     return `${days}天前`;
   } else {
-    return date.toLocaleDateString('zh-CN');
+    return d.toLocaleDateString('zh-CN');
   }
 }
 
-// 格式化相对时间
-export function formatRelativeTime(date: Date): string {
+// 格式化相对时间（兼容字符串/Date）
+export function formatRelativeTime(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today.getTime() - 86400000);
-  const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const messageDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
   if (messageDate.getTime() === today.getTime()) {
     return '今天';
   } else if (messageDate.getTime() === yesterday.getTime()) {
     return '昨天';
   } else {
-    return date.toLocaleDateString('zh-CN', {
+    return d.toLocaleDateString('zh-CN', {
       month: 'long',
       day: 'numeric',
     });
