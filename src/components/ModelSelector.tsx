@@ -6,7 +6,11 @@ import { useChatStore } from '@/store/chatStore';
 import { MODELS, ModelId, getModelConfig } from '@/lib/types';
 import { cn } from '@/utils/helpers';
 
-export default function ModelSelector() {
+interface Props {
+  variant?: 'default' | 'ghost';
+}
+
+export default function ModelSelector({ variant = 'default' }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const { currentModel, setCurrentModel } = useChatStore();
 
@@ -36,9 +40,11 @@ export default function ModelSelector() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "flex w-full items-center justify-between gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors",
-          "hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-          isOpen && "ring-2 ring-ring ring-offset-2"
+          variant === 'ghost'
+            ? "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+            : "flex w-full items-center justify-between gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground",
+          variant === 'ghost' ? "bg-transparent" : "",
+          isOpen && variant !== 'ghost' && "ring-2 ring-ring ring-offset-2"
         )}
       >
         <div className="flex items-center gap-2">
@@ -46,12 +52,16 @@ export default function ModelSelector() {
             const Icon = getModelIcon(currentModel);
             return <Icon className="h-4 w-4" />;
           })()}
-          <span className="font-medium">{currentModelConfig.name}</span>
-          <span className={getModelBadgeClass(currentModel)}>
-            {currentModelConfig.type === 'responses' ? 'Responses' : 'Chat'}
-          </span>
+          <span className={cn("font-medium", variant === 'ghost' && "text-sm")}>{currentModelConfig.name}</span>
+          {variant !== 'ghost' && (
+            <span className={getModelBadgeClass(currentModel)}>
+              {currentModelConfig.type === 'responses' ? 'Responses' : 'Chat'}
+            </span>
+          )}
         </div>
-        <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+        {variant !== 'ghost' && (
+          <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+        )}
       </button>
 
       {isOpen && (

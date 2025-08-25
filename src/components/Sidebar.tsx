@@ -11,7 +11,11 @@ import {
   Menu,
   X,
   MoreHorizontal,
-  LogOut
+  LogOut,
+  Compass,
+  Code2,
+  Film,
+  Bot
 } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { Conversation } from '@/lib/types';
@@ -176,26 +180,24 @@ export default function Sidebar() {
 
   const sidebarContent = (
     <div className="flex h-full flex-col bg-muted/30">
-      {/* 头部 */}
+      {/* 顶部：仅保留新建按钮，向 ChatGPT 靠拢 */}
       <div className="border-b border-border p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">对话历史</h2>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={createNewConversation}
+            className="flex w-full items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            <Plus className="h-4 w-4" />
+            新建对话
+          </button>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground lg:hidden"
+            className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground lg:hidden"
+            aria-label="关闭侧边栏"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
-
-        {/* 新建对话按钮 */}
-        <button
-          onClick={createNewConversation}
-          className="flex w-full items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-        >
-          <Plus className="h-4 w-4" />
-          新建对话
-        </button>
       </div>
 
       {/* 搜索 */}
@@ -212,8 +214,31 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* 对话列表 */}
+      {/* 导航分组 + 对话列表 */}
       <div className="flex-1 overflow-y-auto scrollbar-thin">
+        {/* 顶部应用导航（不可点占位）*/}
+        <div className="p-2">
+          <div className="space-y-1">
+            <div className="px-3 py-1 text-[11px] text-muted-foreground">探索调试</div>
+            <button className="sidebar-item disabled:opacity-60" disabled>
+              <Compass className="h-4 w-4" />
+              <span>广场</span>
+            </button>
+            <button className="sidebar-item disabled:opacity-60" disabled>
+              <Code2 className="h-4 w-4" />
+              <span>Codex</span>
+            </button>
+            <button className="sidebar-item disabled:opacity-60" disabled>
+              <Film className="h-4 w-4" />
+              <span>Sora</span>
+            </button>
+            <button className="sidebar-item disabled:opacity-60" disabled>
+              <Bot className="h-4 w-4" />
+              <span>GPT</span>
+            </button>
+          </div>
+        </div>
+
         {loading ? (
           <div className="flex items-center justify-center p-8">
             <div className="text-sm text-muted-foreground">加载中...</div>
@@ -303,8 +328,19 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* 底部设置 */}
-      <div className="border-t border-border p-4 space-y-2">
+      {/* 底部账户卡片 + 设置 */}
+      <div className="border-t border-border p-4 space-y-3">
+        {/* 账户卡片（占位）*/}
+        <div className="flex items-center justify-between rounded-lg border p-3">
+          <div className="flex items-center gap-2">
+            <div className="h-6 w-6 rounded-full bg-muted" />
+            <div className="text-sm">
+              <div className="font-medium">未登录</div>
+              <div className="text-xs text-muted-foreground">Plus</div>
+            </div>
+          </div>
+          <button className="rounded-full border px-3 py-1 text-xs text-muted-foreground" disabled>管理</button>
+        </div>
         <button
           onClick={() => setSettingsOpen(true)}
           className="sidebar-item w-full"

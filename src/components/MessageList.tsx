@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { User, Bot, Copy, RotateCcw, Brain } from 'lucide-react';
+import { User, Bot, Copy, RotateCcw, Brain, ThumbsUp, ThumbsDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -187,19 +187,27 @@ export default function MessageList({
             </div>
           )}
 
-          {/* 操作按钮 */}
-          <div className={cn(
-            "flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity",
-            isUser && "flex-row-reverse"
-          )}>
-            <button
-              onClick={() => handleCopy(message.content)}
-              className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              title="复制消息"
-            >
-              <Copy className="h-3 w-3" />
-            </button>
-          </div>
+          {/* 操作按钮（占位，统一样式）*/}
+          {!isUser && (
+            <div className="mt-1 flex items-center gap-1 text-muted-foreground">
+              <button className="rounded-full border px-2 py-1 text-[11px]" disabled>
+                <ThumbsUp className="h-3 w-3" />
+              </button>
+              <button className="rounded-full border px-2 py-1 text-[11px]" disabled>
+                <ThumbsDown className="h-3 w-3" />
+              </button>
+              <button
+                onClick={() => handleCopy(message.content)}
+                className="rounded-full border px-2 py-1 text-[11px] hover:bg-accent hover:text-accent-foreground"
+                title="复制"
+              >
+                <Copy className="h-3 w-3" />
+              </button>
+              <button className="rounded-full border px-2 py-1 text-[11px]" disabled title="重新生成">
+                <RotateCcw className="h-3 w-3" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -213,9 +221,7 @@ export default function MessageList({
             <Bot className="mx-auto h-12 w-12 text-muted-foreground" />
             <div>
               <h3 className="text-lg font-medium">开始新对话</h3>
-              <p className="text-muted-foreground">
-                选择一个模型并发送消息开始对话
-              </p>
+              <p className="text-muted-foreground">在下方输入框中输入内容即可开始</p>
             </div>
           </div>
         </div>
@@ -234,6 +240,7 @@ export default function MessageList({
                   <span className="font-medium">AI助手</span>
                   <span className="loading-dots">AI正在思考中</span>
                 </div>
+                {/* 顶部栏的等待 pill 已显示，这里只保留轻量骨架 */}
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <LoadingSpinner size="sm" />
                   <span>模型处理中...</span>

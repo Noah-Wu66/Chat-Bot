@@ -285,44 +285,81 @@ export default function ChatInterface() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* 头部 */}
-      <div className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-4">
-            <h1 className="text-xl font-semibold">
-              {currentConversation?.title || '新对话'}
-            </h1>
-            {currentConversation && (
-              <span className="text-sm text-muted-foreground">
-                {currentConversation.messages.length} 条消息
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-64">
-              <ModelSelector />
+      {/* 顶栏：当没有对话时隐藏，保持与 ChatGPT 一致的沉浸式首页 */}
+      {currentConversation && (
+        <div className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="flex items-center justify-between px-4 py-3">
+            {/* 左侧：模型切换（ghost 变体） */}
+            <div className="flex items-center gap-3">
+              <ModelSelector variant="ghost" />
+            </div>
+
+            {/* 中间：思考提示（占位 pill）*/}
+            <div className="flex-1 flex items-center justify-center">
+              {isStreaming ? (
+                <div className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground">
+                  <span>正在思考</span>
+                  <span className="loading-dots" />
+                  <button className="ml-2 rounded-full px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent" disabled>
+                    跳过
+                  </button>
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">{currentConversation?.title}</div>
+              )}
+            </div>
+
+            {/* 右侧：占位按钮（不可点击）*/}
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <button className="rounded-full border px-3 py-1 text-xs" disabled>分享</button>
+              <button className="rounded-full border px-3 py-1 text-xs" disabled>重命名</button>
+              <button className="rounded-full border px-3 py-1 text-xs" disabled>更多</button>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* 消息列表 */}
-      <MessageList
-        messages={currentConversation?.messages || []}
-        isStreaming={isStreaming}
-        streamingContent={streamingContent}
-        reasoningContent={reasoningContent}
-      />
-
-      {/* 输入区域 */}
-      <div className="border-t border-border bg-background p-4">
-        <div className="mx-auto max-w-4xl">
-          <MessageInput
-            onSendMessage={handleSendMessage}
-            disabled={isStreaming}
-          />
+      {/* 主体区域 */}
+      {(!currentConversation || currentConversation.messages.length === 0) ? (
+        // 首页空状态（仿 ChatGPT）
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto flex h-full max-w-3xl flex-col items-center justify-center gap-8 px-6 text-center">
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight">您在忙什么？</h1>
+              <p className="mt-2 text-sm text-muted-foreground">输入问题或指令，开始与智能助手对话</p>
+            </div>
+            <div className="w-full">
+              <MessageInput
+                onSendMessage={handleSendMessage}
+                disabled={isStreaming}
+                variant="center"
+                autoFocus
+              />
+            </div>
+            <div className="text-xs text-muted-foreground">ChatGPT 可能会出错，请核查重要信息。</div>
+          </div>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* 消息列表 */}
+          <MessageList
+            messages={currentConversation?.messages || []}
+            isStreaming={isStreaming}
+            streamingContent={streamingContent}
+            reasoningContent={reasoningContent}
+          />
+
+          {/* 输入区域 */}
+          <div className="border-t border-border bg-background p-4">
+            <div className="mx-auto max-w-4xl">
+              <MessageInput
+                onSendMessage={handleSendMessage}
+                disabled={isStreaming}
+              />
+            </div>
+          </div>
+        </>
+      )}
 
       {/* 设置面板 */}
       <SettingsPanel />

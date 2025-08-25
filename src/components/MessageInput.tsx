@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { Send, Paperclip, X, Image as ImageIcon } from 'lucide-react';
+import { Send, Paperclip, X, Image as ImageIcon, Plus, Mic, Volume2 } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS, ModelId } from '@/lib/types';
 import { cn, fileToBase64, compressImage } from '@/utils/helpers';
@@ -9,9 +9,13 @@ import { cn, fileToBase64, compressImage } from '@/utils/helpers';
 interface MessageInputProps {
   onSendMessage: (content: string, images?: string[]) => void;
   disabled?: boolean;
+  // UI 变体：默认底部输入，或首页居中大输入
+  variant?: 'default' | 'center';
+  placeholder?: string;
+  autoFocus?: boolean;
 }
 
-export default function MessageInput({ onSendMessage, disabled }: MessageInputProps) {
+export default function MessageInput({ onSendMessage, disabled, variant = 'default', placeholder, autoFocus }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -117,7 +121,7 @@ export default function MessageInput({ onSendMessage, disabled }: MessageInputPr
   const canSend = (message.trim() || images.length > 0) && !disabled && !isStreaming;
 
   return (
-    <div className="relative">
+    <div className={cn("relative", variant === 'center' && "max-w-2xl mx-auto")}>
       {/* 拖拽覆盖层 */}
       {isDragging && modelConfig.supportsVision && (
         <div className="drag-overlay flex items-center justify-center">
@@ -154,30 +158,45 @@ export default function MessageInput({ onSendMessage, disabled }: MessageInputPr
       {/* 输入区域 */}
       <div
         className={cn(
-          "relative rounded-lg border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
-          isDragging && "border-primary"
+          "relative border border-input bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
+          isDragging && "border-primary",
+          // 统一圆角风格
+          variant === 'center' ? "rounded-2xl shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/70" : "rounded-2xl"
         )}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
+        {/* 左侧 plus 图标（占位，不可点击）*/}
+        <div className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
+          <Plus className="h-4 w-4" />
+        </div>
         <textarea
           ref={textareaRef}
           value={message}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           placeholder={
-            modelConfig.supportsVision 
-              ? "输入消息或拖拽图片..." 
-              : "输入消息..."
+            placeholder ?? (
+              modelConfig.supportsVision
+                ? (variant === 'center' ? "您在忙什么？" : "输入消息或拖拽图片...")
+                : (variant === 'center' ? "您在忙什么？" : "输入消息...")
+            )
           }
-          className="chat-input w-full border-0 bg-transparent pr-20 focus:ring-0"
+          className={cn(
+            "chat-input w-full border-0 bg-transparent pr-28 pl-8 focus:ring-0",
+            variant === 'center' && "min-h-[56px] text-base px-5 py-4 rounded-2xl pr-32 pl-10"
+          )}
           disabled={disabled || isStreaming}
           rows={1}
+          autoFocus={autoFocus}
         />
 
         {/* 操作按钮 */}
-        <div className="absolute bottom-2 right-2 flex items-center gap-1">
+        <div className={cn(
+          "absolute flex items-center gap-1",
+          variant === 'center' ? "right-2 bottom-2" : "right-2 bottom-2"
+        )}>
           {/* 附件按钮 */}
           {modelConfig.supportsVision && (
             <>
@@ -208,6 +227,30 @@ export default function MessageInput({ onSendMessage, disabled }: MessageInputPr
             </>
           )}
 
+          {/* 语音与朗读占位按钮（不可点击）*/}
+          <button
+            type="button"
+            className={cn(
+              "rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+              "disabled:pointer-events-none disabled:opacity-60"
+            )}
+            title="语音输入"
+            disabled
+          >
+            <Mic className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className={cn(
+              "rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+              "disabled:pointer-events-none disabled:opacity-60"
+            )}
+            title="语音播放"
+            disabled
+          >
+            <Volume2 className="h-4 w-4" />
+          </button>
+
           {/* 发送按钮 */}
           <button
             type="button"
@@ -227,7 +270,7 @@ export default function MessageInput({ onSendMessage, disabled }: MessageInputPr
       </div>
 
       {/* 提示信息 */}
-      <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+      <div className={cn("mt-2 flex items-center justify-between text-xs text-muted-foreground", variant === 'center' && "px-1")}>
         <div className="flex items-center gap-4">
           <span>Enter 发送，Shift+Enter 换行</span>
           {modelConfig.supportsVision && (
