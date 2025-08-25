@@ -107,7 +107,7 @@ export type ModelId = keyof typeof MODELS;
 // 路由决策类型
 export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
 export type VerbosityLevel = 'low' | 'medium' | 'high';
-export type Gpt5TargetModel = 'gpt-5' | 'gpt-5-chat';
+export type Gpt5TargetModel = 'gpt-5' | 'gpt-5-chat-latest';
 export interface Gpt5RoutingDecision {
   model: Gpt5TargetModel;
   effort?: ReasoningEffort; // gpt-5-chat 时不返回

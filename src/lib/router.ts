@@ -1,7 +1,6 @@
 import { ReasoningEffort, Gpt5RoutingDecision, VerbosityLevel } from '@/lib/types';
 import { getRunLogModel } from '@/lib/models/RunLog';
 import { generateId } from '@/utils/helpers';
-import OpenAI from 'openai';
 
 /**
  * 使用 gpt-4o-mini 对用户输入进行难度判定并路由到目标模型。
@@ -10,7 +9,7 @@ import OpenAI from 'openai';
  * - gpt-5-chat (不传入 reasoning.effort)
  * 若返回不合法，则兜底到 gpt-5-chat。
  */
-export async function routeGpt5Decision(ai: OpenAI, userInputText: string, requestId?: string): Promise<Gpt5RoutingDecision> {
+export async function routeGpt5Decision(ai: any, userInputText: string, requestId?: string): Promise<Gpt5RoutingDecision> {
   const RunLog = await getRunLogModel();
   const rid = requestId || Date.now().toString(36) + Math.random().toString(36).slice(2);
   await RunLog.create({
@@ -29,8 +28,8 @@ export async function routeGpt5Decision(ai: OpenAI, userInputText: string, reque
     '你是一个“模型路由器”。你的任务是根据用户问题的难易程度，返回唯一的目标模型以及可选的 effort。',
     '只允许以下两种结果：',
     "1) { \"model\": \"gpt-5\", \"effort\": \"minimal|low|medium|high\", \"verbosity\": \"low|medium|high\" }",
-    "2) { \"model\": \"gpt-5-chat\", \"verbosity\": \"low|medium|high\" }",
-    '当问题属于简单类问题（不需要或几乎不需要推理，例如：寒暄/问候、单步事实问答、短文本改写/提取/格式化），选择 gpt-5-chat。',
+    "2) { \"model\": \"gpt-5-chat-latest\", \"verbosity\": \"low|medium|high\" }",
+    '当问题属于简单类问题（不需要或几乎不需要推理，例如：寒暄/问候、单步事实问答、短文本改写/提取/格式化），选择 gpt-5-chat-latest。',
     '当需要推理时，选择 gpt-5，并根据复杂度给出 effort；同时总是给出 verbosity（low/medium/high）以控制输出详细程度：',
     '- minimal: 几乎无需思考（提取、改写、非常短的事实）',
     '- low: 简单推理（一到两步思考）',
@@ -84,10 +83,10 @@ export async function routeGpt5Decision(ai: OpenAI, userInputText: string, reque
       route: 'router',
       level: 'warn',
       stage: 'routing.recover',
-      message: 'gpt-4o-mini 路由失败，回退到 gpt-5-chat',
+      message: 'gpt-4o-mini 路由失败，回退到 gpt-5-chat-latest',
       meta: { error: e1?.message || String(e1) },
     });
-    return { model: 'gpt-5-chat' } as Gpt5RoutingDecision;
+    return { model: 'gpt-5-chat-latest' } as Gpt5RoutingDecision;
   }
 }
 
@@ -111,13 +110,13 @@ function validateDecision(obj: any): Gpt5RoutingDecision {
   const verbosity = obj.verbosity as VerbosityLevel | undefined;
   const allowedVerbosity: VerbosityLevel[] = ['low', 'medium', 'high'];
 
-  if (model === 'gpt-5-chat') {
-    return { model: 'gpt-5-chat', ...(verbosity && allowedVerbosity.includes(verbosity) ? { verbosity } : {}) } as Gpt5RoutingDecision;
+  if (model === 'gpt-5-chat-latest') {
+    return { model: 'gpt-5-chat-latest', ...(verbosity && allowedVerbosity.indexOf(verbosity) !== -1 ? { verbosity } : {}) } as Gpt5RoutingDecision;
   }
 
   const allowedEfforts: ReasoningEffort[] = ['minimal', 'low', 'medium', 'high'];
-  if (model === 'gpt-5' && effort && allowedEfforts.includes(effort)) {
-    return { model: 'gpt-5', effort, ...(verbosity && allowedVerbosity.includes(verbosity) ? { verbosity } : {}) } as Gpt5RoutingDecision;
+  if (model === 'gpt-5' && effort && allowedEfforts.indexOf(effort) !== -1) {
+    return { model: 'gpt-5', effort, ...(verbosity && allowedVerbosity.indexOf(verbosity) !== -1 ? { verbosity } : {}) } as Gpt5RoutingDecision;
   }
 
   // 非法返回，兜底

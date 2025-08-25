@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+// 使用标准 Request 类型，避免对 next/server 类型的依赖
 import { getAIClient } from '@/lib/ai';
 import { routeGpt5Decision } from '@/lib/router';
 import { getConversationModel } from '@/lib/models/Conversation';
@@ -7,7 +7,7 @@ import { logInfo, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (!user) return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
 
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   const Conversation = await getConversationModel();
   const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
   // 新：由路由器决定最终模型（不再设置终极兜底，路由失败直接报错）
-  let routed: { model: 'gpt-5' | 'gpt-5-chat'; effort?: 'minimal' | 'low' | 'medium' | 'high'; verbosity?: 'low' | 'medium' | 'high' };
+  let routed: { model: 'gpt-5' | 'gpt-5-chat-latest'; effort?: 'minimal' | 'low' | 'medium' | 'high'; verbosity?: 'low' | 'medium' | 'high' };
   try {
     // 提取路由文本（若 input 为数组，优先取 input_text）
     let routingText = '';
@@ -78,6 +78,22 @@ export async function POST(req: NextRequest) {
     }
   );
 
+  // 归一化 Responses 输入为消息数组（为 gpt-5-chat-latest 按规范提供 input 数组）
+  const normalizeResponsesInput = (src: string | any[]): any[] => {
+    const dev = { role: 'developer', content: [{ type: 'input_text', text: '总是用中文回复' }] } as any;
+    if (Array.isArray(src)) {
+      // 若已是消息数组，则在前面注入 developer 指令
+      return [dev, ...src];
+    }
+    return [
+      dev,
+      { role: 'user', content: [{ type: 'input_text', text: String(src ?? '') }] },
+    ];
+  };
+
+  // 直接使用路由结果（路由已返回 gpt-5-chat-latest 或 gpt-5）
+  const apiModelStream = modelToUse;
+
   if (stream) {
     const encoder = new TextEncoder();
     const streamBody = new ReadableStream<Uint8Array>({
@@ -101,18 +117,24 @@ export async function POST(req: NextRequest) {
           if (!finalSettings.text) finalSettings.text = {};
           finalSettings.text.verbosity = (routed as any).verbosity || 'medium';
 
+          const inputPayload = normalizeResponsesInput(input);
+          const maxOutputTokens = typeof settings?.maxTokens === 'number' ? settings.maxTokens : undefined;
+          const temperature = typeof settings?.temperature === 'number' ? settings.temperature : undefined;
+
           const response = await (ai as any).responses.create({
-            model: modelToUse,
-            input,
-            ...(finalSettings.reasoning ? { reasoning: finalSettings.reasoning } : {}),
+            model: apiModelStream,
+            input: inputPayload,
+            ...(finalSettings.reasoning && modelToUse === 'gpt-5' ? { reasoning: finalSettings.reasoning } : {}),
             ...(finalSettings.text ? { text: finalSettings.text } : {}),
+            ...(typeof temperature === 'number' && modelToUse !== 'gpt-5' ? { temperature } : {}),
+            ...(typeof maxOutputTokens === 'number' ? { max_output_tokens: maxOutputTokens } : {}),
             stream: true,
           });
 
           // SSE: routing 事件（声明最终模型）
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ type: 'routing', model: modelToUse, effort: modelToUse === 'gpt-5' ? (routed as any).effort : undefined, verbosity: (routed as any).verbosity, requestId })}\n\n`
+              `data: ${JSON.stringify({ type: 'routing', model: apiModelStream, effort: modelToUse === 'gpt-5' ? (routed as any).effort : undefined, verbosity: (routed as any).verbosity, requestId })}\n\n`
             )
           );
 
@@ -163,7 +185,7 @@ export async function POST(req: NextRequest) {
               )
             );
 
-            for await (const chunk of chatStream as AsyncIterable<any>) {
+            for await (const chunk of (chatStream as any)) {
               const delta = chunk.choices?.[0]?.delta?.content || '';
               if (delta) {
                 controller.enqueue(
@@ -208,14 +230,20 @@ export async function POST(req: NextRequest) {
   // 覆盖 verbosity
   if (!finalSettings.text) finalSettings.text = {};
   finalSettings.text.verbosity = (routed as any).verbosity || 'medium';
+  const inputPayload = normalizeResponsesInput(input);
+  const apiModel = modelToUse;
+  const maxOutputTokens = typeof settings?.maxTokens === 'number' ? settings.maxTokens : undefined;
+  const temperature = typeof settings?.temperature === 'number' ? settings.temperature : undefined;
   let content = '';
   try {
 
     const resp = await (ai as any).responses.create({
-      model: modelToUse,
-      input,
-      ...(finalSettings.reasoning ? { reasoning: finalSettings.reasoning } : {}),
+      model: apiModel,
+      input: inputPayload,
+      ...(finalSettings.reasoning && modelToUse === 'gpt-5' ? { reasoning: finalSettings.reasoning } : {}),
       ...(finalSettings.text ? { text: finalSettings.text } : {}),
+      ...(typeof temperature === 'number' && modelToUse !== 'gpt-5' ? { temperature } : {}),
+      ...(typeof maxOutputTokens === 'number' ? { max_output_tokens: maxOutputTokens } : {}),
     });
 
     try {
