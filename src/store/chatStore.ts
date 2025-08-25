@@ -67,7 +67,6 @@ const defaultSettings: ConversationSettings = {
   text: {
     verbosity: 'medium',
   },
-  webSearch: false,
   stream: true,
 };
 

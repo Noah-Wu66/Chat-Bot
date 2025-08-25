@@ -25,7 +25,6 @@ export async function POST(req: NextRequest) {
   const normalizeModel = (m?: string) => {
     if (!m) return 'gpt-4o';
     if (m === 'gpt-4o-mini') return 'gpt-4o';
-    if (m === 'gpt-5-mini' || m === 'gpt-5-nano' || m === 'gpt-5-chat') return 'gpt-5';
     return m;
   };
   const modelToUse = normalizeModel(model);
@@ -83,6 +82,7 @@ export async function POST(req: NextRequest) {
             top_p: settings?.topP ?? 1,
             frequency_penalty: settings?.frequencyPenalty ?? 0,
             presence_penalty: settings?.presencePenalty ?? 0,
+            ...(typeof settings?.seed === 'number' ? { seed: settings.seed } : {}),
             stream: true,
           } as any);
 
@@ -114,6 +114,7 @@ export async function POST(req: NextRequest) {
               messages,
               temperature: settings?.temperature ?? 0.8,
               max_tokens: settings?.maxTokens ?? 1024,
+              ...(typeof settings?.seed === 'number' ? { seed: settings.seed } : {}),
             } as any);
             const content = completion.choices?.[0]?.message?.content || '';
             controller.enqueue(
@@ -151,6 +152,7 @@ export async function POST(req: NextRequest) {
     top_p: settings?.topP ?? 1,
     frequency_penalty: settings?.frequencyPenalty ?? 0,
     presence_penalty: settings?.presencePenalty ?? 0,
+    ...(typeof settings?.seed === 'number' ? { seed: settings.seed } : {}),
   } as any);
 
   const content = completion.choices?.[0]?.message?.content || '';

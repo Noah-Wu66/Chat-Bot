@@ -10,6 +10,3 @@ export function getAIClient() {
   });
 }
 
-export type WebSearchOptions = Record<string, any>;
-
-

@@ -94,7 +94,6 @@ export default function ChatInterface() {
           input,
           model: currentModel,
           settings,
-          useTools: true,
           stream: true,
         };
       } else {
@@ -107,7 +106,6 @@ export default function ChatInterface() {
           },
           model: currentModel,
           settings,
-          useTools: true,
           stream: true,
         };
       }

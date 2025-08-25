@@ -25,7 +25,6 @@ export default function SettingsPanel() {
       frequencyPenalty: 0,
       presencePenalty: 0,
       text: { verbosity: 'medium' },
-      webSearch: false,
       stream: true,
     });
   };

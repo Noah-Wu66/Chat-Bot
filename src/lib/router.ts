@@ -4,7 +4,7 @@ import { generateId } from '@/utils/helpers';
 import OpenAI from 'openai';
 
 /**
- * 使用 gpt-5-nano 对用户输入进行难度判定并路由到目标模型。
+ * 使用 gpt-4o-mini 对用户输入进行难度判定并路由到目标模型。
  * 目标集合：
  * - gpt-5 (effort: minimal | low | medium | high)
  * - gpt-5-chat (不传入 reasoning.effort)
@@ -39,10 +39,10 @@ export async function routeGpt5Decision(ai: OpenAI, userInputText: string, reque
     '严格输出一个 JSON 对象，不要包含任何解释文字。',
   ].join('\n');
 
-  // 优先使用 Chat Completions（gpt-4.1-nano）进行路由判定；失败则回退到 gpt-4o
+  // 优先使用 Chat Completions（gpt-4o-mini）进行路由判定；失败则回退到 gpt-4o
   try {
     const completion: any = await (ai as any).chat.completions.create({
-      model: 'gpt-4.1-nano',
+      model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: instruction },
         { role: 'user', content: `用户问题：\n${inputForRouting}` },
@@ -53,14 +53,14 @@ export async function routeGpt5Decision(ai: OpenAI, userInputText: string, reque
 
     let output = completion?.choices?.[0]?.message?.content || '';
 
-    // 追加：将 gpt-4.1-nano 的原始输出记录到运行日志，便于在浏览器控制台查看
+    // 追加：将 gpt-4o-mini 的原始输出记录到运行日志，便于在浏览器控制台查看
     await RunLog.create({
       id: generateId(),
       requestId: rid,
       route: 'router',
       level: 'info',
-      stage: 'routing.nano.output',
-      message: 'gpt-4.1-nano 原始输出',
+      stage: 'routing.mini.output',
+      message: 'gpt-4o-mini 原始输出',
       meta: { output },
     });
 
@@ -77,51 +77,17 @@ export async function routeGpt5Decision(ai: OpenAI, userInputText: string, reque
     });
     return decision;
   } catch (e1: any) {
-    // 主判定模型失败，回退到 gpt-4o 进行判定
+    // 主判定模型失败，单层兜底：直接回退到 gpt-5-chat
     await RunLog.create({
       id: generateId(),
       requestId: rid,
       route: 'router',
       level: 'warn',
       stage: 'routing.recover',
-      message: 'gpt-4.1-nano 路由失败，尝试使用 gpt-4o 判定',
+      message: 'gpt-4o-mini 路由失败，回退到 gpt-5-chat',
       meta: { error: e1?.message || String(e1) },
     });
-    try {
-      const completion: any = await (ai as any).chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: instruction },
-          { role: 'user', content: `用户问题：\n${inputForRouting}` },
-          { role: 'user', content: '只输出 JSON：' },
-        ],
-        temperature: 0,
-      } as any);
-      const output = completion?.choices?.[0]?.message?.content || '';
-      const json = extractFirstJsonObject(output);
-      const decision = validateDecision(json);
-      await RunLog.create({
-        id: generateId(),
-        requestId: rid,
-        route: 'router',
-        level: 'info',
-        stage: 'routing.done',
-        message: '路由器返回结果',
-        meta: { raw: output, parsed: json, decision },
-      });
-      return decision;
-    } catch (e2: any) {
-      await RunLog.create({
-        id: generateId(),
-        requestId: rid,
-        route: 'router',
-        level: 'error',
-        stage: 'routing.error',
-        message: '路由器判定失败，回退到 gpt-5-chat',
-        meta: { error: e2?.message || String(e2) },
-      });
-      return { model: 'gpt-5-chat' } as Gpt5RoutingDecision;
-    }
+    return { model: 'gpt-5-chat' } as Gpt5RoutingDecision;
   }
 }
 

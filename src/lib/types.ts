@@ -45,7 +45,6 @@ export interface ConversationSettings {
   text?: {
     verbosity: 'low' | 'medium' | 'high';
   };
-  webSearch?: boolean;
   stream?: boolean;
 }
 
@@ -89,40 +88,16 @@ export const MODELS: Record<string, ModelConfig> = {
     supportsVerbosity: false,
     maxTokens: 4096,
   },
-  'gpt-5-mini': {
-    name: 'GPT-5',
-    description: '最新的推理模型，支持深度思考',
-    type: 'responses',
-    supportsVision: false,
-    supportsSearch: false,
-    supportsTools: true,
-    supportsReasoning: true,
-    supportsVerbosity: true,
-    supportsTemperature: false,
-    maxTokens: 8192,
-  },
-  'gpt-5-nano': {
-    name: 'GPT-5',
-    description: '最新的推理模型，支持深度思考',
-    type: 'responses',
-    supportsVision: false,
-    supportsSearch: false,
-    supportsTools: true,
-    supportsReasoning: true,
-    supportsVerbosity: true,
-    supportsTemperature: false,
-    maxTokens: 8192,
-  },
   'gpt-5-chat': {
-    name: 'GPT-5',
-    description: '最新的推理模型，支持深度思考',
+    name: 'GPT-5 Chat',
+    description: '无推理的对话模型（Responses API 通道）',
     type: 'responses',
     supportsVision: false,
     supportsSearch: false,
     supportsTools: true,
-    supportsReasoning: true,
+    supportsReasoning: false,
     supportsVerbosity: true,
-    supportsTemperature: false,
+    supportsTemperature: true, // 通过 Responses API 也可不传温度，此处设置为 true 仅用于 UI 控制
     maxTokens: 8192,
   },
 };
