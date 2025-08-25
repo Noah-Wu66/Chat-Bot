@@ -10,6 +10,8 @@ import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import ModelSelector from './ModelSelector';
 import SettingsPanel from './SettingsPanel';
+import UserPanel from './UserPanel';
+import LoginModal from './LoginModal';
 
 export default function ChatInterface() {
   const {
@@ -298,39 +300,29 @@ export default function ChatInterface() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* 顶栏：当没有对话时隐藏，保持与 ChatGPT 一致的沉浸式首页 */}
-      {currentConversation && (
-        <div className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="flex items-center justify-between px-4 py-3">
-            {/* 左侧：模型切换（ghost 变体） */}
-            <div className="flex items-center gap-3">
-              <ModelSelector variant="ghost" />
-            </div>
+      {/* 顶栏：始终显示模型切换器 */}
+      <div className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex items-center justify-between px-4 py-3">
+          {/* 左侧：模型切换（ghost 变体） */}
+          <div className="flex items-center gap-3">
+            <ModelSelector variant="ghost" />
+          </div>
 
-            {/* 中间：思考提示（占位 pill）*/}
-            <div className="flex-1 flex items-center justify-center">
-              {isStreaming ? (
-                <div className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground">
-                  <span>正在思考</span>
-                  <span className="loading-dots" />
-                  <button className="ml-2 rounded-full px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent" disabled>
-                    跳过
-                  </button>
-                </div>
-              ) : (
-                <div className="text-xs text-muted-foreground">{currentConversation?.title}</div>
-              )}
-            </div>
+          {/* 中间：标题占位（移除顶部思考/跳过模块）*/}
+          <div className="flex-1 flex items-center justify-center">
+            {currentConversation?.title && (
+              <div className="text-xs text-muted-foreground">{currentConversation.title}</div>
+            )}
+          </div>
 
-            {/* 右侧：占位按钮（不可点击）*/}
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <button className="rounded-full border px-3 py-1 text-xs" disabled>分享</button>
-              <button className="rounded-full border px-3 py-1 text-xs" disabled>重命名</button>
-              <button className="rounded-full border px-3 py-1 text-xs" disabled>更多</button>
-            </div>
+          {/* 右侧：占位按钮（不可点击）*/}
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <button className="rounded-full border px-3 py-1 text-xs" disabled>分享</button>
+            <button className="rounded-full border px-3 py-1 text-xs" disabled>重命名</button>
+            <button className="rounded-full border px-3 py-1 text-xs" disabled>更多</button>
           </div>
         </div>
-      )}
+      </div>
 
       {/* 主体区域 */}
       {(!currentConversation || currentConversation.messages.length === 0) ? (
@@ -376,6 +368,10 @@ export default function ChatInterface() {
 
       {/* 设置面板 */}
       <SettingsPanel />
+      {/* 用户管理面板 */}
+      <UserPanel />
+      {/* 登录弹窗 */}
+      <LoginModal />
     </div>
   );
 }

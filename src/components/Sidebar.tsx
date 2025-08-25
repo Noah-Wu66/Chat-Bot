@@ -350,8 +350,20 @@ export default function Sidebar() {
           <div className="flex items-center gap-2">
             <div className="h-6 w-6 rounded-full bg-muted" />
             <div className="text-sm">
-              <div className="font-medium">{user ? user.username : '未登录'}</div>
-              <div className="text-xs text-muted-foreground">{user ? user.email : 'Plus'}</div>
+              {user ? (
+                <>
+                  <div className="font-medium">{user.username}</div>
+                  <div className="text-xs text-muted-foreground">{user.email}</div>
+                </>
+              ) : (
+                <>
+                  <button
+                    className="font-medium text-primary hover:underline"
+                    onClick={() => useChatStore.getState().setLoginOpen(true)}
+                  >未登录</button>
+                  <div className="text-xs text-muted-foreground">Plus</div>
+                </>
+              )}
             </div>
           </div>
           <button
@@ -359,7 +371,8 @@ export default function Sidebar() {
             disabled={!user}
             onClick={() => {
               if (user) {
-                window.location.href = '/settings';
+                // 打开用户管理侧边弹窗
+                useChatStore.getState().setUserPanelOpen(true);
               }
             }}
           >管理</button>

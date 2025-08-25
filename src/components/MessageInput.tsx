@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Send, Paperclip, X, Image as ImageIcon, Plus, Mic, Volume2 } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS, ModelId } from '@/lib/types';
@@ -21,8 +21,8 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
   const [isDragging, setIsDragging] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const { currentModel, isStreaming } = useChatStore();
+
+  const { currentModel, isStreaming, setLoginOpen } = useChatStore();
   const modelConfig = MODELS[currentModel];
 
   // 自动调整文本框高度
@@ -52,11 +52,15 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
   const handleSend = () => {
     if (!message.trim() && images.length === 0) return;
     if (disabled || isStreaming) return;
+    if (isLoggedIn === false) {
+      setLoginOpen(true);
+      return;
+    }
 
     onSendMessage(message.trim(), images.length > 0 ? images : undefined);
     setMessage('');
     setImages([]);
-    
+
     // 重置文本框高度
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -118,7 +122,22 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
     setImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const canSend = (message.trim() || images.length > 0) && !disabled && !isStreaming;
+  const canSend = (message.trim() || images.length > 0) && !disabled && !isStreaming && isLoggedIn !== false;
+
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  // 检查登录状态（不阻塞 UI）
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!cancelled) setIsLoggedIn(res.ok);
+      } catch {
+        if (!cancelled) setIsLoggedIn(false);
+      }
+    })();
+    return () => { cancelled = true };
+  }, []);
 
   return (
     <div className={cn("relative", variant === 'center' && "max-w-2xl mx-auto")}>
@@ -272,6 +291,14 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
       {/* 提示信息 */}
       <div className={cn("mt-2 flex items-center justify-between text-xs text-muted-foreground", variant === 'center' && "px-1")}>
         <div className="flex items-center gap-4">
+          {/* 未登录提示 */}
+          {isLoggedIn === false && (
+            <button
+              type="button"
+              onClick={() => setLoginOpen(true)}
+              className="text-primary hover:underline"
+            >请登录</button>
+          )}
           <span>Enter 发送，Shift+Enter 换行</span>
           {modelConfig.supportsVision && (
             <span>支持图片上传 ({images.length}/5)</span>

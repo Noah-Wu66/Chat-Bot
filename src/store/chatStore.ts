@@ -26,30 +26,34 @@ interface ChatState {
   isStreaming: boolean;
   sidebarOpen: boolean;
   settingsOpen: boolean;
-  
+  userPanelOpen: boolean;
+  loginOpen: boolean;
+
   // 错误状态
   error: string | null;
-  
+
   // Actions
   setCurrentConversation: (conversation: Conversation | null) => void;
   setConversations: (conversations: Conversation[]) => void;
   addConversation: (conversation: Conversation) => void;
   updateConversation: (id: string, updates: Partial<Conversation>) => void;
   deleteConversation: (id: string) => void;
-  
+
   setCurrentModel: (model: ModelId) => void;
   setSettings: (settings: Partial<ConversationSettings>) => void;
-  
+
   setLoading: (loading: boolean) => void;
   setStreaming: (streaming: boolean) => void;
   setSidebarOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
+  setUserPanelOpen: (open: boolean) => void;
+  setLoginOpen: (open: boolean) => void;
   setError: (error: string | null) => void;
-  
+
   // 消息操作
   addMessage: (message: Message) => void;
   updateMessage: (messageId: string, updates: Partial<Message>) => void;
-  
+
   // 重置状态
   reset: () => void;
 }
@@ -79,6 +83,8 @@ export const useChatStore = create<ChatState>()(
       isStreaming: false,
       sidebarOpen: true,
       settingsOpen: false,
+      userPanelOpen: false,
+      loginOpen: false,
       error: null,
 
       // Actions
@@ -157,6 +163,14 @@ export const useChatStore = create<ChatState>()(
         set({ settingsOpen: open });
       },
 
+      setUserPanelOpen: (open) => {
+        set({ userPanelOpen: open });
+      },
+
+      setLoginOpen: (open) => {
+        set({ loginOpen: open });
+      },
+
       setError: (error) => {
         set({ error });
       },
@@ -211,6 +225,8 @@ export const useChatStore = create<ChatState>()(
           isStreaming: false,
           sidebarOpen: true,
           settingsOpen: false,
+          userPanelOpen: false,
+          loginOpen: false,
           error: null,
         });
       },

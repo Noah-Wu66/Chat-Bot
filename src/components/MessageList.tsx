@@ -240,10 +240,15 @@ export default function MessageList({
                   <span className="font-medium">AI助手</span>
                   <span className="loading-dots">AI正在思考中</span>
                 </div>
-                {/* 顶部栏的等待 pill 已显示，这里只保留轻量骨架 */}
+                {/* 等待状态：思考中 + 下方跳过 */}
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <LoadingSpinner size="sm" />
-                  <span>模型处理中...</span>
+                  <span>思考中</span>
+                </div>
+                <div>
+                  <button className="mt-2 rounded-full border px-3 py-1 text-xs text-muted-foreground" disabled>
+                    跳过
+                  </button>
                 </div>
               </div>
             </div>
