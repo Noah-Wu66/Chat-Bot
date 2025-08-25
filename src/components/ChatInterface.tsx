@@ -68,22 +68,21 @@ export default function ChatInterface() {
 
       let requestBody: any;
       if (modelConfig.type === 'responses') {
-        // 对于 Responses API，需要正确格式化 input 参数
+        // Responses API 入参：
+        // - 纯文本：input 直接用 string
+        // - 图文：input 为 [{ role:'user', content: [ {type:'input_text'}, {type:'input_image'}... ] }]
         let input: string | any[];
         if (images && images.length > 0) {
-          // 如果有图像，使用数组格式
           input = [
             {
-              type: 'input_text',
-              text: content,
+              role: 'user',
+              content: [
+                { type: 'input_text', text: content },
+                ...images.map((imageUrl) => ({ type: 'input_image', image_url: imageUrl })),
+              ],
             },
-            ...images.map(imageUrl => ({
-              type: 'input_image',
-              image_url: imageUrl,
-            })),
           ];
         } else {
-          // 如果只有文本，使用字符串格式
           input = content;
         }
 

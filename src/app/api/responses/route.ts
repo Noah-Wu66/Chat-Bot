@@ -128,10 +128,43 @@ export async function POST(req: NextRequest) {
           }
         } catch (e: any) {
           console.error('[API/responses] request.error', { requestId, error: e?.message || String(e) });
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e.message })}\n\n`)
-          );
-          controller.close();
+          // Fallback: 使用 Chat Completions 流式
+          try {
+            const fallbackModel = 'gpt-4o';
+            const messages = [
+              { role: 'system', content: '总是用中文回复' },
+              { role: 'user', content: Array.isArray(input) ? (input.find((i: any) => i.type === 'input_text')?.text || '[复合输入]') : String(input ?? '') },
+            ] as any[];
+            const chatStream: any = await ai.chat.completions.create({
+              model: fallbackModel,
+              messages,
+              stream: true,
+              temperature: 0.7,
+            } as any);
+
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({ type: 'routing', model: fallbackModel, requestId })}\n\n`
+              )
+            );
+
+            for await (const chunk of chatStream as AsyncIterable<any>) {
+              const delta = chunk.choices?.[0]?.delta?.content || '';
+              if (delta) {
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ type: 'content', content: delta })}\n\n`)
+                );
+              }
+            }
+
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+            controller.close();
+          } catch (e2: any) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e2?.message || String(e2) })}\n\n`)
+            );
+            controller.close();
+          }
         }
       },
     });
@@ -157,18 +190,34 @@ export async function POST(req: NextRequest) {
   // 覆盖 verbosity
   if (!finalSettings.text) finalSettings.text = {};
   finalSettings.text.verbosity = (routed as any).verbosity || 'medium';
-  const resp = await (ai as any).responses.create({
-    model: modelToUse,
-    input,
-    ...(finalSettings.reasoning ? { reasoning: finalSettings.reasoning } : {}),
-    ...(finalSettings.text ? { text: finalSettings.text } : {}),
-  });
-
   let content = '';
   try {
-    content = resp.output_text || '';
-  } catch {
-    content = JSON.stringify(resp);
+    const resp = await (ai as any).responses.create({
+      model: modelToUse,
+      input,
+      ...(finalSettings.reasoning ? { reasoning: finalSettings.reasoning } : {}),
+      ...(finalSettings.text ? { text: finalSettings.text } : {}),
+    });
+
+    try {
+      content = resp.output_text || '';
+    } catch {
+      content = JSON.stringify(resp);
+    }
+  } catch (e: any) {
+    // 非流式也失败时回退到 Chat Completions
+    const fallbackModel = 'gpt-4o';
+    const messages = [
+      { role: 'system', content: '总是用中文回复' },
+      { role: 'user', content: Array.isArray(input) ? (input.find((i: any) => i.type === 'input_text')?.text || '[复合输入]') : String(input ?? '') },
+    ] as any[];
+    const completion = await ai.chat.completions.create({
+      model: fallbackModel,
+      messages,
+      temperature: 0.7,
+      max_tokens: 1024,
+    } as any);
+    content = completion.choices?.[0]?.message?.content || '';
   }
 
   await Conversation.updateOne(

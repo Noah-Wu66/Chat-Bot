@@ -108,10 +108,26 @@ export async function POST(req: NextRequest) {
           console.info('[API/chat] request.done', { requestId, conversationId, model: modelToUse });
         } catch (e: any) {
           console.error('[API/chat] request.error', { requestId, error: e?.message || String(e) });
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e.message })}\n\n`)
-          );
-          controller.close();
+          // 尝试以非流式补偿
+          try {
+            const completion = await ai.chat.completions.create({
+              model: modelToUse,
+              messages,
+              temperature: settings?.temperature ?? 0.8,
+              max_tokens: settings?.maxTokens ?? 1024,
+            } as any);
+            const content = completion.choices?.[0]?.message?.content || '';
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: 'content', content })}\n\n`)
+            );
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+            controller.close();
+          } catch (e2: any) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e2?.message || String(e2) })}\n\n`)
+            );
+            controller.close();
+          }
         }
       },
     });
