@@ -110,7 +110,7 @@ export default function ChatInterface() {
         };
       }
 
-      const response = await fetch(apiEndpoint, {
+      let response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
@@ -217,6 +217,29 @@ export default function ChatInterface() {
 
                   case 'error':
                     console.error('❌ [ChatInterface] 流式响应错误:', data.error, data.details);
+                    // 降级为非流式请求
+                    try {
+                      const fallbackBody = { ...requestBody, stream: false } as any;
+                      const fallbackResp = await fetch(apiEndpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(fallbackBody),
+                        credentials: 'include',
+                      });
+                      if (fallbackResp.ok) {
+                        const dataJson = await fallbackResp.json();
+                        if (dataJson.message) {
+                          addMessage({
+                            ...dataJson.message,
+                            id: generateId(),
+                            timestamp: new Date(),
+                          });
+                        }
+                        setStreamingContent('');
+                        setReasoningContent('');
+                        return; // 直接结束循环
+                      }
+                    } catch {}
                     throw new Error(data.error);
 
                   default:
