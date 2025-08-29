@@ -36,8 +36,8 @@ export default function UserPanel() {
 
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
-      <div className="fixed right-0 top-0 h-full w-full max-w-md border-l border-border bg-background shadow-lg">
-        <div className="flex h-full flex-col">
+      <div className="fixed left-1/2 top-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-background shadow-lg">
+        <div className="flex max-h-[85vh] flex-col">
           {/* 头部 */}
           <div className="flex items-center justify-between border-b border-border p-4">
             <div className="flex items-center gap-2">
