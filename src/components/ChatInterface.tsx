@@ -8,6 +8,8 @@ import { watchRunLogsToConsole, printRunLogsOnce } from '@/lib/loggerClient';
 import { createConversationAction } from '@/app/actions/conversations';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
+import SearchSourcesBar from './SearchSourcesBar';
+import SearchSourcesModal from './SearchSourcesModal';
 import ModelSelector from './ModelSelector';
 import SettingsPanel from './SettingsPanel';
 import UserPanel from './UserPanel';
@@ -29,6 +31,8 @@ export default function ChatInterface() {
 
   const [streamingContent, setStreamingContent] = useState('');
   const [reasoningContent, setReasoningContent] = useState('');
+  const [searchSources, setSearchSources] = useState<any[]>([]);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
 
   const modelConfig = MODELS[currentModel];
   const { webSearchEnabled } = useChatStore();
@@ -152,6 +156,7 @@ export default function ChatInterface() {
         let stopLogsWatcher: (() => void) | null = null;
         let assistantAdded = false;
         let searchUsed = false;
+        let latestSources: any[] = [];
 
         while (true) {
           const { done, value } = await reader.read();
@@ -180,6 +185,12 @@ export default function ChatInterface() {
                     break;
                   case 'search':
                     searchUsed = !!(data.used || data.searchUsed);
+                    break;
+                  case 'search_sources':
+                    if (Array.isArray(data.sources)) {
+                      latestSources = data.sources;
+                      setSearchSources(latestSources);
+                    }
                     break;
 
                   case 'reasoning':
@@ -221,6 +232,7 @@ export default function ChatInterface() {
                         reasoning: reasoning || undefined,
                         verbosity: settings.text?.verbosity,
                         searchUsed: searchUsed || undefined,
+                        sources: latestSources && latestSources.length > 0 ? latestSources : undefined,
                       },
                     };
                     addMessage(assistantMessage);
@@ -310,6 +322,9 @@ export default function ChatInterface() {
             id: generateId(),
             timestamp: new Date(),
           });
+          if (data.message?.metadata?.sources && Array.isArray(data.message.metadata.sources)) {
+            setSearchSources(data.message.metadata.sources);
+          }
           console.log('[Chat] non-stream -> addMessage');
           const routing = data.routing;
           // 运行日志已在服务端记录
@@ -393,6 +408,15 @@ export default function ChatInterface() {
             reasoningContent={reasoningContent}
           />
 
+          {/* 搜索来源聚合条 */}
+          {Array.isArray(searchSources) && searchSources.length > 0 && (
+            <div className="border-t border-border bg-background px-4 py-2">
+              <div className="mx-auto max-w-4xl">
+                <SearchSourcesBar sources={searchSources} onOpen={() => setSourcesOpen(true)} />
+              </div>
+            </div>
+          )}
+
           {/* 输入区域 */}
           <div className="border-t border-border bg-background p-4">
             <div className="mx-auto max-w-4xl">
@@ -411,6 +435,10 @@ export default function ChatInterface() {
       <UserPanel />
       {/* 登录弹窗 */}
       <LoginModal />
+      {/* 搜索来源弹窗 */}
+      {sourcesOpen && (
+        <SearchSourcesModal sources={searchSources} onClose={() => setSourcesOpen(false)} />
+      )}
     </div>
   );
 }

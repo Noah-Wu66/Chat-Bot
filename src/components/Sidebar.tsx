@@ -224,6 +224,24 @@ export default function Sidebar() {
         </div>
       </div>
 
+      {/* 探索调试 */}
+      <div className="border-b border-border p-4">
+        <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
+          探索调试
+        </div>
+        <div className="mt-2 space-y-1">
+          <a
+            href="https://generate.zephyr.top/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="sidebar-item w-full"
+          >
+            <span className="text-[16px] text-muted-foreground" aria-hidden="true" style={{ filter: 'grayscale(1)' }}>🍌</span>
+            Nano-Banana
+          </a>
+        </div>
+      </div>
+
       {/* 对话列表 */}
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         {loading ? (
@@ -315,23 +333,7 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* 探索调试 */}
-      <div className="border-t border-border p-4">
-        <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-          探索调试
-        </div>
-        <div className="mt-2 space-y-1">
-          <a
-            href="https://generate.zephyr.top/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="sidebar-item w-full"
-          >
-            <span className="text-[16px]" aria-hidden="true">🍌</span>
-            Nano-Banana
-          </a>
-        </div>
-      </div>
+      {/* 探索调试（旧位置已移除） */}
 
       {/* 底部账户卡片 + 设置 */}
       <div className="border-t border-border p-4 space-y-3">
@@ -403,10 +405,9 @@ export default function Sidebar() {
         <Menu className="h-4 w-4" />
       </button>
 
-      {/* 桌面端侧边栏 */}
+      {/* 桌面端侧边栏（始终显示） */}
       <div className={cn(
-        "hidden lg:flex lg:w-80 lg:flex-col lg:border-r lg:border-border",
-        !sidebarOpen && "lg:hidden"
+        "hidden lg:flex lg:w-80 lg:flex-col lg:border-r lg:border-border"
       )}>
         {sidebarContent}
       </div>

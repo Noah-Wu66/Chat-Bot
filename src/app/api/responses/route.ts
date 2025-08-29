@@ -105,6 +105,7 @@ export async function POST(req: Request) {
   // 可选：联网搜索（由路由器判定）
   let searchUsed = false;
   let injectedHistoryMsg: any | null = null;
+  let searchSources: any[] | null = null;
   if (webSearch) {
     try {
       const currText = Array.isArray(input)
@@ -117,10 +118,11 @@ export async function POST(req: Request) {
         : String(input ?? '');
       const decision = await routeWebSearchDecision(ai, currText, requestId);
       if (decision.shouldSearch) {
-        const { markdown, used } = await performWebSearchSummary(decision.query, 5);
+        const { markdown, used, sources } = await performWebSearchSummary(decision.query, 5);
         if (used && markdown) {
           injectedHistoryMsg = { role: 'system', content: [{ type: 'input_text', text: `以下为联网搜索到的材料（供参考，不保证准确）：\n\n${markdown}` }] } as any;
           searchUsed = true;
+          searchSources = Array.isArray(sources) ? sources : null;
         }
       }
     } catch {}
@@ -179,6 +181,11 @@ export async function POST(req: Request) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ type: 'search', used: true })}\n\n`)
             );
+            if (Array.isArray(searchSources) && searchSources.length > 0) {
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ type: 'search_sources', sources: searchSources })}\n\n`)
+              );
+            }
           }
 
           // SSE: routing 事件（声明最终模型）
@@ -213,14 +220,14 @@ export async function POST(req: Request) {
                         content: fullContent,
                         timestamp: new Date(),
                         model: modelToUse,
-                        metadata: searchUsed ? { searchUsed: true } : undefined,
+                        metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined,
                       },
                     },
                     $set: { updatedAt: new Date() },
                   }
                 );
               } catch {}
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\\n\\n`));
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
               controller.close();
               await logInfo('responses', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
             }
@@ -266,7 +273,7 @@ export async function POST(req: Request) {
               if (delta) {
                 fullContent2 += delta;
                 controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({ type: 'content', content: delta })}\\n\\n`)
+                  encoder.encode(`data: ${JSON.stringify({ type: 'content', content: delta })}\n\n`)
                 );
               }
             }
@@ -290,7 +297,7 @@ export async function POST(req: Request) {
               );
             } catch {}
 
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\\n\\n`));
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
             controller.close();
 
           } catch (e2: any) {
@@ -401,7 +408,7 @@ export async function POST(req: Request) {
 
   await logInfo('responses', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
   return Response.json({
-    message: { role: 'assistant', content, model: modelToUse, metadata: searchUsed ? { searchUsed: true } : undefined },
+    message: { role: 'assistant', content, model: modelToUse, metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined },
     routing: { model: modelToUse, effort: modelToUse === 'gpt-5' ? (routed as any).effort : undefined, verbosity: (routed as any).verbosity || 'medium' },
     requestId,
   });

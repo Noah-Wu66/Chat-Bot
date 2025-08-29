@@ -71,11 +71,12 @@ export async function POST(req: NextRequest) {
 
   // 可选：联网搜索（由路由器判定）
   let searchUsed = false;
+  let searchSources: any[] | null = null;
   try {
     if (webSearch) {
       const decision = await routeWebSearchDecision(ai, String(message?.content || ''), requestId);
       if (decision.shouldSearch) {
-        const { markdown, used } = await performWebSearchSummary(decision.query, 5);
+        const { markdown, used, sources } = await performWebSearchSummary(decision.query, 5);
         if (used && markdown) {
           messages = [
             { role: 'system', content: '总是用中文回复' },
@@ -86,6 +87,7 @@ export async function POST(req: NextRequest) {
               .map((m: any) => ({ role: m.role, content: String(m.content ?? '') })),
           ] as any[];
           searchUsed = true;
+          searchSources = Array.isArray(sources) ? sources : null;
         }
       }
     }
@@ -109,6 +111,11 @@ export async function POST(req: NextRequest) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ type: 'search', used: true })}\n\n`)
             );
+            if (Array.isArray(searchSources) && searchSources.length > 0) {
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ type: 'search_sources', sources: searchSources })}\n\n`)
+              );
+            }
           }
 
           const streamResp: any = await ai.chat.completions.create({
@@ -153,7 +160,7 @@ export async function POST(req: NextRequest) {
                     content: fullContent,
                     timestamp: new Date(),
                     model: modelToUse,
-                    metadata: searchUsed ? { searchUsed: true } : undefined,
+                    metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined,
                   },
                 },
                 $set: { updatedAt: new Date() },
@@ -254,7 +261,7 @@ export async function POST(req: NextRequest) {
 
   await logInfo('chat', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
   return Response.json({
-    message: { role: 'assistant', content, model: modelToUse, metadata: (typeof searchUsed !== 'undefined' && searchUsed) ? { searchUsed: true } : undefined },
+    message: { role: 'assistant', content, model: modelToUse, metadata: (typeof searchUsed !== 'undefined' && searchUsed) ? { searchUsed: true, sources: searchSources || undefined } : undefined },
     routing: { model: modelToUse },
     requestId,
   });
