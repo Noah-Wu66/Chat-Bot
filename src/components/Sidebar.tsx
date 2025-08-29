@@ -10,12 +10,7 @@ import {
   Edit3,
   Menu,
   X,
-  MoreHorizontal,
-  LogOut,
-  Compass,
-  Code2,
-  Film,
-  Bot
+  LogOut
 } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { Conversation } from '@/lib/types';
@@ -229,31 +224,8 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* 导航分组 + 对话列表 */}
+      {/* 对话列表 */}
       <div className="flex-1 overflow-y-auto scrollbar-thin">
-        {/* 顶部应用导航（不可点占位）*/}
-        <div className="p-2">
-          <div className="space-y-1">
-            <div className="px-3 py-1 text-[11px] text-muted-foreground">探索调试</div>
-            <button className="sidebar-item disabled:opacity-60" disabled>
-              <Compass className="h-4 w-4" />
-              <span>广场</span>
-            </button>
-            <button className="sidebar-item disabled:opacity-60" disabled>
-              <Code2 className="h-4 w-4" />
-              <span>Codex</span>
-            </button>
-            <button className="sidebar-item disabled:opacity-60" disabled>
-              <Film className="h-4 w-4" />
-              <span>Sora</span>
-            </button>
-            <button className="sidebar-item disabled:opacity-60" disabled>
-              <Bot className="h-4 w-4" />
-              <span>GPT</span>
-            </button>
-          </div>
-        </div>
-
         {loading ? (
           <div className="flex items-center justify-center p-8">
             <div className="text-sm text-muted-foreground">加载中...</div>
@@ -341,6 +313,24 @@ export default function Sidebar() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* 探索调试 */}
+      <div className="border-t border-border p-4">
+        <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
+          探索调试
+        </div>
+        <div className="mt-2 space-y-1">
+          <a
+            href="https://generate.zephyr.top/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="sidebar-item w-full"
+          >
+            <span className="text-[16px]" aria-hidden="true">🍌</span>
+            Nano-Banana
+          </a>
+        </div>
       </div>
 
       {/* 底部账户卡片 + 设置 */}

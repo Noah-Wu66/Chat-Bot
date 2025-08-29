@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Paperclip, X, Image as ImageIcon, Plus, Mic, Volume2 } from 'lucide-react';
+import { Send, Paperclip, X, Image as ImageIcon, Plus, Search } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS, ModelId } from '@/lib/types';
 import { cn, fileToBase64, compressImage } from '@/utils/helpers';
@@ -22,7 +22,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { currentModel, isStreaming, setLoginOpen } = useChatStore();
+  const { currentModel, isStreaming, setLoginOpen, webSearchEnabled, setWebSearchEnabled } = useChatStore();
   const modelConfig = MODELS[currentModel];
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
@@ -154,6 +154,27 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
         </div>
       )}
 
+      {/* 顶部栏：联网搜索开关 + 图片预览 */}
+      <div className={cn("mb-2 flex items-center justify-between", variant === 'center' && "px-1") }>
+        <button
+          type="button"
+          onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+          disabled={disabled || isStreaming}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs",
+            webSearchEnabled ? "bg-green-600 text-white border-green-600" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+            "disabled:pointer-events-none disabled:opacity-50"
+          )}
+          title={webSearchEnabled ? "已开启联网搜索" : "点击开启联网搜索"}
+        >
+          <Search className="h-3.5 w-3.5" />
+          <span>联网搜索</span>
+        </button>
+
+        {/* 右侧占位 */}
+        <div />
+      </div>
+
       {/* 图片预览 */}
       {images.length > 0 && (
         <div className="mb-3 flex flex-wrap gap-2">
@@ -247,29 +268,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
             </>
           )}
 
-          {/* 语音与朗读占位按钮（不可点击）*/}
-          <button
-            type="button"
-            className={cn(
-              "rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
-              "disabled:pointer-events-none disabled:opacity-60"
-            )}
-            title="语音输入"
-            disabled
-          >
-            <Mic className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className={cn(
-              "rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
-              "disabled:pointer-events-none disabled:opacity-60"
-            )}
-            title="语音播放"
-            disabled
-          >
-            <Volume2 className="h-4 w-4" />
-          </button>
+          {/* 移除语音与朗读占位按钮 */}
 
           {/* 发送按钮 */}
           <button

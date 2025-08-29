@@ -28,6 +28,9 @@ interface ChatState {
   settingsOpen: boolean;
   userPanelOpen: boolean;
   loginOpen: boolean;
+  
+  // 联网搜索开关
+  webSearchEnabled: boolean;
 
   // 错误状态
   error: string | null;
@@ -49,6 +52,7 @@ interface ChatState {
   setUserPanelOpen: (open: boolean) => void;
   setLoginOpen: (open: boolean) => void;
   setError: (error: string | null) => void;
+  setWebSearchEnabled: (enabled: boolean) => void;
 
   // 消息操作
   addMessage: (message: Message) => void;
@@ -84,6 +88,7 @@ export const useChatStore = create<ChatState>()(
       settingsOpen: false,
       userPanelOpen: false,
       loginOpen: false,
+      webSearchEnabled: false,
       error: null,
 
       // Actions
@@ -174,6 +179,10 @@ export const useChatStore = create<ChatState>()(
         set({ error });
       },
 
+      setWebSearchEnabled: (enabled) => {
+        set({ webSearchEnabled: enabled });
+      },
+
       addMessage: (message) => {
         set((state) => {
           if (!state.currentConversation) return state;
@@ -234,6 +243,7 @@ export const useChatStore = create<ChatState>()(
           settingsOpen: false,
           userPanelOpen: false,
           loginOpen: false,
+          webSearchEnabled: false,
           error: null,
         });
       },
@@ -244,6 +254,7 @@ export const useChatStore = create<ChatState>()(
         currentModel: state.currentModel,
         settings: state.settings,
         sidebarOpen: state.sidebarOpen,
+        webSearchEnabled: state.webSearchEnabled,
       }),
     }
   )

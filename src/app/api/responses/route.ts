@@ -1,6 +1,6 @@
 // 使用标准 Request 类型，避免对 next/server 类型的依赖
 import { getAIClient } from '@/lib/ai';
-import { routeGpt5Decision } from '@/lib/router';
+import { routeGpt5Decision, routeWebSearchDecision, performWebSearchSummary } from '@/lib/router';
 import { getConversationModel } from '@/lib/models/Conversation';
 import { getCurrentUser } from '@/app/actions/auth';
 import { logInfo, logError } from '@/lib/logger';
@@ -12,12 +12,13 @@ export async function POST(req: Request) {
   if (!user) return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
 
   const body = await req.json();
-  const { conversationId, input, model, settings, stream } = body as {
+  const { conversationId, input, model, settings, stream, webSearch } = body as {
     conversationId: string;
     input: string | any[];
     model: string;
     settings: any;
     stream?: boolean;
+    webSearch?: boolean;
   };
 
   const ai = getAIClient();
@@ -101,6 +102,29 @@ export async function POST(req: Request) {
 
   // 直接使用路由结果（路由已返回 gpt-5-chat-latest 或 gpt-5）
   const apiModelStream = modelToUse;
+  // 可选：联网搜索（由路由器判定）
+  let searchUsed = false;
+  let injectedHistoryMsg: any | null = null;
+  if (webSearch) {
+    try {
+      const currText = Array.isArray(input)
+        ? (() => {
+            const first = input.find((i: any) => Array.isArray(i?.content));
+            const contentArr = Array.isArray(first?.content) ? first.content : [];
+            const textItem = contentArr.find((c: any) => c?.type === 'input_text');
+            return textItem?.text || '';
+          })()
+        : String(input ?? '');
+      const decision = await routeWebSearchDecision(ai, currText, requestId);
+      if (decision.shouldSearch) {
+        const { markdown, used } = await performWebSearchSummary(decision.query, 5);
+        if (used && markdown) {
+          injectedHistoryMsg = { role: 'system', content: [{ type: 'input_text', text: `以下为联网搜索到的材料（供参考，不保证准确）：\n\n${markdown}` }] } as any;
+          searchUsed = true;
+        }
+      }
+    } catch {}
+  }
 
   if (stream) {
     const encoder = new TextEncoder();
@@ -125,7 +149,13 @@ export async function POST(req: Request) {
           if (!finalSettings.text) finalSettings.text = {};
           finalSettings.text.verbosity = (routed as any).verbosity || 'medium';
 
-          const inputPayload = buildResponsesInputWithHistory(input);
+          let inputPayload = buildResponsesInputWithHistory(input);
+          if (injectedHistoryMsg) {
+            // 将搜索材料放在历史之后、当前消息之前：buildResponsesInputWithHistory 已经返回了 [dev, history?, current...]
+            // 这里简化处理：如果 injected 存在，则在 dev 后面插入
+            const dev = inputPayload.shift();
+            inputPayload = [dev, injectedHistoryMsg, ...inputPayload];
+          }
           const maxOutputTokens = typeof settings?.maxTokens === 'number' ? settings.maxTokens : undefined;
           const temperature = typeof settings?.temperature === 'number' ? settings.temperature : undefined;
 
@@ -143,6 +173,13 @@ export async function POST(req: Request) {
           }
 
           const response = await (ai as any).responses.create(reqPayloadStream);
+
+          if (searchUsed) {
+            // 提前将搜索使用情况通知到前端
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: 'search', used: true })}\n\n`)
+            );
+          }
 
           // SSE: routing 事件（声明最终模型）
           controller.enqueue(
@@ -176,6 +213,7 @@ export async function POST(req: Request) {
                         content: fullContent,
                         timestamp: new Date(),
                         model: modelToUse,
+                        metadata: searchUsed ? { searchUsed: true } : undefined,
                       },
                     },
                     $set: { updatedAt: new Date() },
@@ -288,7 +326,11 @@ export async function POST(req: Request) {
   // 覆盖 verbosity
   if (!finalSettings.text) finalSettings.text = {};
   finalSettings.text.verbosity = (routed as any).verbosity || 'medium';
-  const inputPayload = buildResponsesInputWithHistory(input);
+  let inputPayload = buildResponsesInputWithHistory(input);
+  if (injectedHistoryMsg) {
+    const dev = inputPayload.shift();
+    inputPayload = [dev, injectedHistoryMsg, ...inputPayload];
+  }
   const apiModel = modelToUse;
   const maxOutputTokens = typeof settings?.maxTokens === 'number' ? settings.maxTokens : undefined;
   const temperature = typeof settings?.temperature === 'number' ? settings.temperature : undefined;
@@ -350,6 +392,7 @@ export async function POST(req: Request) {
           content,
           timestamp: new Date(),
           model: modelToUse,
+          metadata: searchUsed ? { searchUsed: true } : undefined,
         },
       },
       $set: { updatedAt: new Date() },
@@ -358,7 +401,7 @@ export async function POST(req: Request) {
 
   await logInfo('responses', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
   return Response.json({
-    message: { role: 'assistant', content, model: modelToUse },
+    message: { role: 'assistant', content, model: modelToUse, metadata: searchUsed ? { searchUsed: true } : undefined },
     routing: { model: modelToUse, effort: modelToUse === 'gpt-5' ? (routed as any).effort : undefined, verbosity: (routed as any).verbosity || 'medium' },
     requestId,
   });

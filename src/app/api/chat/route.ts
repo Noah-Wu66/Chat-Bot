@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getAIClient } from '@/lib/ai';
+import { routeWebSearchDecision, performWebSearchSummary } from '@/lib/router';
 import { getConversationModel } from '@/lib/models/Conversation';
 import { getCurrentUser } from '@/app/actions/auth';
 import { logInfo, logError } from '@/lib/logger';
@@ -13,12 +14,13 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { conversationId, message, model, settings, stream } = body as {
+  const { conversationId, message, model, settings, stream, webSearch } = body as {
     conversationId: string;
     message: { content: string; images?: string[] };
     model: string;
     settings: any;
     stream?: boolean;
+    webSearch?: boolean;
   };
 
   const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
@@ -59,13 +61,35 @@ export async function POST(req: NextRequest) {
   const MAX_HISTORY = 30;
   const doc = await Conversation.findOne({ id: conversationId, userId: user.sub }, { messages: 1 }).lean();
   const history = Array.isArray((doc as any)?.messages) ? (doc as any).messages : [];
-  const messages = ([
+  let messages = ([
     { role: 'system', content: '总是用中文回复' },
     ...history
       .slice(-MAX_HISTORY)
       .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant' || m.role === 'system'))
       .map((m: any) => ({ role: m.role, content: String(m.content ?? '') })),
   ]) as any[];
+
+  // 可选：联网搜索（由路由器判定）
+  let searchUsed = false;
+  try {
+    if (webSearch) {
+      const decision = await routeWebSearchDecision(ai, String(message?.content || ''), requestId);
+      if (decision.shouldSearch) {
+        const { markdown, used } = await performWebSearchSummary(decision.query, 5);
+        if (used && markdown) {
+          messages = [
+            { role: 'system', content: '总是用中文回复' },
+            { role: 'system', content: `以下为联网搜索到的材料（供参考，不保证准确）：\n\n${markdown}` },
+            ...history
+              .slice(-MAX_HISTORY)
+              .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant' || m.role === 'system'))
+              .map((m: any) => ({ role: m.role, content: String(m.content ?? '') })),
+          ] as any[];
+          searchUsed = true;
+        }
+      }
+    }
+  } catch {}
 
   // Chat Completions 标准调用
   if (stream) {
@@ -79,6 +103,13 @@ export async function POST(req: NextRequest) {
               `data: ${JSON.stringify({ type: 'start', requestId, route: 'chat', model: modelToUse })}\n\n`
             )
           );
+
+          // 若已使用联网搜索，先通知前端
+          if (searchUsed) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: 'search', used: true })}\n\n`)
+            );
+          }
 
           const streamResp: any = await ai.chat.completions.create({
             model: modelToUse,
@@ -122,6 +153,7 @@ export async function POST(req: NextRequest) {
                     content: fullContent,
                     timestamp: new Date(),
                     model: modelToUse,
+                    metadata: searchUsed ? { searchUsed: true } : undefined,
                   },
                 },
                 $set: { updatedAt: new Date() },
@@ -213,6 +245,7 @@ export async function POST(req: NextRequest) {
           content,
           timestamp: new Date(),
           model: modelToUse,
+          metadata: (typeof searchUsed !== 'undefined' && searchUsed) ? { searchUsed: true } : undefined,
         },
       },
       $set: { updatedAt: new Date() },
@@ -221,7 +254,7 @@ export async function POST(req: NextRequest) {
 
   await logInfo('chat', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
   return Response.json({
-    message: { role: 'assistant', content, model: modelToUse },
+    message: { role: 'assistant', content, model: modelToUse, metadata: (typeof searchUsed !== 'undefined' && searchUsed) ? { searchUsed: true } : undefined },
     routing: { model: modelToUse },
     requestId,
   });

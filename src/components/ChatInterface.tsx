@@ -31,6 +31,7 @@ export default function ChatInterface() {
   const [reasoningContent, setReasoningContent] = useState('');
 
   const modelConfig = MODELS[currentModel];
+  const { webSearchEnabled } = useChatStore();
 
   // 取消服务端强制刷新，改为纯前端追加，避免消息被旧数据覆盖
 
@@ -102,6 +103,7 @@ export default function ChatInterface() {
           model: currentModel,
           settings,
           stream: true,
+          webSearch: webSearchEnabled,
         };
       } else {
         // 对于 Chat API，保持原有格式
@@ -114,6 +116,7 @@ export default function ChatInterface() {
           model: currentModel,
           settings,
           stream: true,
+          webSearch: webSearchEnabled,
         };
       }
 
@@ -148,6 +151,7 @@ export default function ChatInterface() {
         let routedEffort: string | undefined = undefined;
         let stopLogsWatcher: (() => void) | null = null;
         let assistantAdded = false;
+        let searchUsed = false;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -173,6 +177,9 @@ export default function ChatInterface() {
                     if (chunkCount === 1 || chunkCount % 20 === 0) {
                       console.log('[Chat] content chunk', { chunkCount, length: data.content?.length });
                     }
+                    break;
+                  case 'search':
+                    searchUsed = !!(data.used || data.searchUsed);
                     break;
 
                   case 'reasoning':
@@ -213,6 +220,7 @@ export default function ChatInterface() {
                       metadata: {
                         reasoning: reasoning || undefined,
                         verbosity: settings.text?.verbosity,
+                        searchUsed: searchUsed || undefined,
                       },
                     };
                     addMessage(assistantMessage);
@@ -351,12 +359,7 @@ export default function ChatInterface() {
             )}
           </div>
 
-          {/* 右侧：占位按钮（不可点击）*/}
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <button className="rounded-full border px-3 py-1 text-xs" disabled>分享</button>
-            <button className="rounded-full border px-3 py-1 text-xs" disabled>重命名</button>
-            <button className="rounded-full border px-3 py-1 text-xs" disabled>更多</button>
-          </div>
+          {/* 移除占位按钮 */}
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { User, Bot, Copy, RotateCcw, Brain, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { User, Bot, Copy, Brain } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -192,24 +192,15 @@ export default function MessageList({
             </div>
           )}
 
-          {/* 操作按钮（占位，统一样式）*/}
+          {/* 操作：仅保留复制 */}
           {!isUser && (
             <div className="mt-1 flex items-center gap-1 text-muted-foreground">
-              <button className="rounded-full border px-2 py-1 text-[11px]" disabled>
-                <ThumbsUp className="h-3 w-3" />
-              </button>
-              <button className="rounded-full border px-2 py-1 text-[11px]" disabled>
-                <ThumbsDown className="h-3 w-3" />
-              </button>
               <button
                 onClick={() => handleCopy(message.content)}
                 className="rounded-full border px-2 py-1 text-[11px] hover:bg-accent hover:text-accent-foreground"
                 title="复制"
               >
                 <Copy className="h-3 w-3" />
-              </button>
-              <button className="rounded-full border px-2 py-1 text-[11px]" disabled title="重新生成">
-                <RotateCcw className="h-3 w-3" />
               </button>
             </div>
           )}
@@ -245,15 +236,9 @@ export default function MessageList({
                   <span className="font-medium">AI助手</span>
                   <span className="loading-dots">AI正在思考中</span>
                 </div>
-                {/* 等待状态：思考中 + 下方跳过 */}
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <LoadingSpinner size="sm" />
                   <span>思考中</span>
-                </div>
-                <div>
-                  <button className="mt-2 rounded-full border px-3 py-1 text-xs text-muted-foreground" disabled>
-                    跳过
-                  </button>
                 </div>
               </div>
             </div>
