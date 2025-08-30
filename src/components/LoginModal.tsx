@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useChatStore } from "@/store/chatStore";
+import { loginAction } from "@/app/actions/auth";
 
 export default function LoginModal() {
   const { loginOpen, setLoginOpen } = useChatStore();
@@ -28,18 +29,10 @@ export default function LoginModal() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ identifier, password, remember }),
-      });
-      const data = await res.json().catch(() => ({} as any));
-      if (!res.ok) {
-        throw new Error(data?.error || "登录失败");
-      }
+      const res = await loginAction({ identifier, password, remember });
+      if (!res?.ok) throw new Error((res as any)?.error || "登录失败");
       setLoginOpen(false);
-      window.location.reload();
+      window.location.href = (res as any)?.redirect || "/";
     } catch (e: any) {
       setError(e?.message || "登录失败");
     } finally {

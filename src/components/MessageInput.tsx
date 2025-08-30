@@ -5,6 +5,7 @@ import { Send, Paperclip, X, Image as ImageIcon, Plus, Search } from 'lucide-rea
 import { useChatStore } from '@/store/chatStore';
 import { MODELS, ModelId } from '@/lib/types';
 import { cn, fileToBase64, compressImage } from '@/utils/helpers';
+import { getCurrentUser } from '@/app/actions/auth';
 
 interface MessageInputProps {
   onSendMessage: (content: string, images?: string[]) => void;
@@ -31,8 +32,8 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' });
-        if (!cancelled) setIsLoggedIn(res.ok);
+        const user = await getCurrentUser();
+        if (!cancelled) setIsLoggedIn(!!user);
       } catch {
         if (!cancelled) setIsLoggedIn(false);
       }

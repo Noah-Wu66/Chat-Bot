@@ -15,7 +15,14 @@ import {
 import { useChatStore } from '@/store/chatStore';
 import { Conversation } from '@/lib/types';
 import { formatRelativeTime, truncateText, cn } from '@/utils/helpers';
-// 客户端组件中不直接使用 Server Actions，统一走内部 API 路由
+// 客户端默认使用 Server Actions 完成读写
+import {
+  listConversationsAction,
+  createConversationAction,
+  updateConversationTitleAction,
+  deleteConversationAction,
+} from '@/app/actions/conversations';
+import { getCurrentUser, logoutAction } from '@/app/actions/auth';
 
 export default function Sidebar() {
   const {
@@ -38,16 +45,12 @@ export default function Sidebar() {
   // 加载对话列表
   useEffect(() => {
     loadConversations();
-    // 加载当前用户
+    // 加载当前用户（Server Action）
     (async () => {
       try {
-        const res = await fetch('/api/auth/me', { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          setUser({ username: data.user?.username, email: data.user?.email });
-        } else {
-          setUser(null);
-        }
+        const u = await getCurrentUser();
+        if (u) setUser({ username: (u as any).username, email: (u as any).email });
+        else setUser(null);
       } catch {
         setUser(null);
       }
@@ -57,11 +60,8 @@ export default function Sidebar() {
   const loadConversations = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/conversations', { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        setConversations(data);
-      }
+      const data = await listConversationsAction();
+      setConversations(Array.isArray(data) ? data : []);
     } catch (error) {
       // 忽略错误
     } finally {
@@ -76,11 +76,8 @@ export default function Sidebar() {
       return;
     }
     try {
-      const res = await fetch(`/api/conversations?search=${encodeURIComponent(query)}`, { credentials: 'include' });
-      if (res.ok) {
-        const data = await res.json();
-        setConversations(data);
-      }
+      const data = await listConversationsAction(query);
+      setConversations(Array.isArray(data) ? data : []);
     } catch (error) {
       // 忽略错误
     }
@@ -89,17 +86,9 @@ export default function Sidebar() {
   // 创建新对话
   const createNewConversation = async () => {
     try {
-      const res = await fetch('/api/conversations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ title: '新对话', model: currentModel, settings: {} }),
-      });
-      if (res.ok) {
-        const newConversation = await res.json();
-        setConversations([newConversation, ...conversations]);
-        setCurrentConversation(newConversation);
-      }
+      const newConversation = await createConversationAction({ title: '新对话', model: currentModel, settings: {} } as any);
+      setConversations([newConversation as any, ...conversations]);
+      setCurrentConversation(newConversation as any);
     } catch (error) {
       // 忽略错误
     }
@@ -114,8 +103,8 @@ export default function Sidebar() {
     }
 
     try {
-      const res = await fetch(`/api/conversations?id=${id}`, { method: 'DELETE', credentials: 'include' });
-      if (res.ok) {
+      const res = await deleteConversationAction(id);
+      if ((res as any)?.ok) {
         setConversations(conversations.filter(conv => conv.id !== id));
         if (currentConversation?.id === id) {
           setCurrentConversation(null);
@@ -140,13 +129,8 @@ export default function Sidebar() {
     }
 
     try {
-      const res = await fetch('/api/conversations', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ id: editingId, title: editTitle.trim() }),
-      });
-      if (res.ok) {
+      const res = await updateConversationTitleAction(editingId, editTitle.trim());
+      if ((res as any)?.ok) {
         setConversations(conversations.map(conv => 
           conv.id === editingId 
             ? { ...conv, title: editTitle.trim() }
@@ -379,9 +363,8 @@ export default function Sidebar() {
         <button
           onClick={async () => {
             try {
-              const res = await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-              const data = await res.json().catch(() => ({} as any));
-              window.location.href = (data && data.redirect) || '/login';
+              const res = await logoutAction();
+              window.location.href = ((res as any)?.redirect) || '/login';
             } catch (e) {
               window.location.href = '/login';
             }
