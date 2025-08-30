@@ -337,7 +337,6 @@ export default function Sidebar() {
                     className="font-medium text-primary hover:underline"
                     onClick={() => useChatStore.getState().setLoginOpen(true)}
                   >未登录</button>
-                  <div className="text-xs text-muted-foreground">Plus</div>
                 </>
               )}
             </div>
