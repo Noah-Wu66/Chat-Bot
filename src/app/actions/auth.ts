@@ -66,7 +66,7 @@ export async function registerFormAction(formData: FormData): Promise<void> {
   const confirmPassword = String(formData.get('confirmPassword') || '');
   const res = await registerAction({ username, email, password, confirmPassword });
   if (!res.ok) {
-    redirect(`/register?error=${encodeURIComponent(res.error || '注册失败')}`);
+    redirect(`/login?mode=register&error=${encodeURIComponent(res.error || '注册失败')}`);
   }
   redirect(res.redirect || '/login');
 }

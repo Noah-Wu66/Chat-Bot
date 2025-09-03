@@ -215,12 +215,12 @@ export default function Sidebar() {
         </div>
         <div className="mt-2 space-y-1">
           <a
-            href="https://generate.zephyr.top/"
+            href="https://nano-banana.zephyrt.com/"
             target="_blank"
             rel="noopener noreferrer"
             className="sidebar-item w-full"
           >
-            <span className="text-[16px] text-muted-foreground" aria-hidden="true" style={{ filter: 'grayscale(1)' }}>🍌</span>
+            <span className="text-[16px] text-muted-foreground" aria-hidden="true">🍌</span>
             Nano-Banana
           </a>
         </div>
@@ -336,7 +336,7 @@ export default function Sidebar() {
                   <button
                     className="font-medium text-primary hover:underline"
                     onClick={() => useChatStore.getState().setLoginOpen(true)}
-                  >未登录</button>
+                  >登录/注册</button>
                 </>
               )}
             </div>
