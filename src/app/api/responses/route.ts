@@ -1,6 +1,6 @@
 // 使用标准 Request 类型，避免对 next/server 类型的依赖
 import { getAIClient } from '@/lib/ai';
-import { routeGpt5Decision, routeWebSearchDecision, performWebSearchSummary } from '@/lib/router';
+import { routeWebSearchDecision, performWebSearchSummary } from '@/lib/router';
 import { getConversationModel } from '@/lib/models/Conversation';
 import { getCurrentUser } from '@/app/actions/auth';
 import { logInfo, logError } from '@/lib/logger';
@@ -24,27 +24,8 @@ export async function POST(req: Request) {
   const ai = getAIClient();
   const Conversation = await getConversationModel();
   const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
-  // 新：由路由器决定最终模型（不再设置终极兜底，路由失败直接报错）
-  let routed: { model: 'gpt-5' | 'gpt-5-chat-latest'; effort?: 'minimal' | 'low' | 'medium' | 'high'; verbosity?: 'low' | 'medium' | 'high' };
-  try {
-    // 提取路由文本（若 input 为数组，优先取 input_text）
-    let routingText = '';
-    if (Array.isArray(input)) {
-      const first = input.find((i: any) => Array.isArray(i?.content));
-      const contentArr = Array.isArray(first?.content) ? first.content : [];
-      const textItem = contentArr.find((c: any) => c?.type === 'input_text');
-      routingText = textItem?.text || '';
-    } else {
-      routingText = String(input ?? '');
-    }
-    routed = await routeGpt5Decision(ai, routingText, requestId);
-  } catch (e: any) {
-    await logError('responses', 'routing.error', '路由器判定失败', { error: e?.message || String(e) }, requestId);
-    return new Response(JSON.stringify({ error: '路由器判定失败' }), { status: 500 });
-  }
-
-  // 最终模型：严格使用路由器决策，忽略客户端传入的 model
-  const modelToUse = routed.model;
+  // 移除模型路由：固定使用 gpt-5 并启用高强度推理
+  const modelToUse: 'gpt-5' = 'gpt-5';
   await logInfo('responses', 'request.start', '请求开始', {
     userId: user.sub,
     conversationId,
@@ -100,9 +81,9 @@ export async function POST(req: Request) {
     return [dev, ...(historyMsg ? [historyMsg] : []), ...current];
   };
 
-  // 直接使用路由结果（路由已返回 gpt-5-chat-latest 或 gpt-5）
+  // 模型固定为 gpt-5；可选：联网搜索（由 gpt-4o-mini 判定）
   const apiModelStream = modelToUse;
-  // 可选：联网搜索（由路由器判定）
+  // 可选：联网搜索（由 gpt-4o-mini 判定）
   let searchUsed = false;
   let injectedHistoryMsg: any | null = null;
   let searchSources: any[] | null = null;
@@ -139,17 +120,12 @@ export async function POST(req: Request) {
               `data: ${JSON.stringify({ type: 'start', requestId, route: 'responses', model: modelToUse })}\n\n`
             )
           );
-          // 应用路由器决策：若是 gpt-5 则传入 effort（在 settings.reasoning 下），若是 gpt-5-chat 则不传 effort
+          // 固定 gpt-5 为 high 推理；保留用户的 text 配置
           const finalSettings: any = { ...(settings?.text ? { text: settings.text } : {}) };
-          if (modelToUse === 'gpt-5') {
-            finalSettings.reasoning = {
-              ...(settings?.reasoning || {}),
-              ...(routed && 'effort' in routed && routed.effort ? { effort: routed.effort } : {}),
-            };
-          }
-          // 始终注入由路由器决定的输出详细程度（覆盖用户设置）
-          if (!finalSettings.text) finalSettings.text = {};
-          finalSettings.text.verbosity = (routed as any).verbosity || 'medium';
+          finalSettings.reasoning = {
+            ...(settings?.reasoning || {}),
+            effort: 'high',
+          };
 
           let inputPayload = buildResponsesInputWithHistory(input);
           if (injectedHistoryMsg) {
@@ -167,12 +143,8 @@ export async function POST(req: Request) {
             stream: true,
             ...(typeof maxOutputTokens === 'number' ? { max_output_tokens: maxOutputTokens } : {}),
           };
-          if (modelToUse === 'gpt-5') {
-            reqPayloadStream.reasoning = finalSettings.reasoning;
-            reqPayloadStream.text = finalSettings.text;
-          } else {
-            if (typeof temperature === 'number') reqPayloadStream.temperature = temperature;
-          }
+          reqPayloadStream.reasoning = finalSettings.reasoning;
+          reqPayloadStream.text = finalSettings.text;
 
           const response = await (ai as any).responses.create(reqPayloadStream);
 
@@ -191,7 +163,7 @@ export async function POST(req: Request) {
           // SSE: routing 事件（声明最终模型）
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ type: 'routing', model: apiModelStream, effort: modelToUse === 'gpt-5' ? (routed as any).effort : undefined, verbosity: (routed as any).verbosity, requestId })}\n\n`
+              `data: ${JSON.stringify({ type: 'routing', model: apiModelStream, effort: 'high', requestId })}\n\n`
             )
           );
 
@@ -324,15 +296,10 @@ export async function POST(req: Request) {
   // 非流式：同样应用路由决策（统一使用 Responses API）
 
   const finalSettings: any = { ...(settings?.text ? { text: settings.text } : {}) };
-  if (modelToUse === 'gpt-5') {
-    finalSettings.reasoning = {
-      ...(settings?.reasoning || {}),
-      ...(routed && 'effort' in routed && routed.effort ? { effort: routed.effort } : {}),
-    };
-  }
-  // 覆盖 verbosity
-  if (!finalSettings.text) finalSettings.text = {};
-  finalSettings.text.verbosity = (routed as any).verbosity || 'medium';
+  finalSettings.reasoning = {
+    ...(settings?.reasoning || {}),
+    effort: 'high',
+  };
   let inputPayload = buildResponsesInputWithHistory(input);
   if (injectedHistoryMsg) {
     const dev = inputPayload.shift();
@@ -348,13 +315,9 @@ export async function POST(req: Request) {
       model: apiModel,
       input: inputPayload,
       ...(typeof maxOutputTokens === 'number' ? { max_output_tokens: maxOutputTokens } : {}),
+      reasoning: finalSettings.reasoning,
+      text: finalSettings.text,
     };
-    if (modelToUse === 'gpt-5') {
-      reqPayload.reasoning = finalSettings.reasoning;
-      reqPayload.text = finalSettings.text;
-    } else {
-      if (typeof temperature === 'number') reqPayload.temperature = temperature;
-    }
 
     const resp = await (ai as any).responses.create(reqPayload);
 
@@ -409,7 +372,7 @@ export async function POST(req: Request) {
   await logInfo('responses', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
   return Response.json({
     message: { role: 'assistant', content, model: modelToUse, metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined },
-    routing: { model: modelToUse, effort: modelToUse === 'gpt-5' ? (routed as any).effort : undefined, verbosity: (routed as any).verbosity || 'medium' },
+    routing: { model: modelToUse, effort: 'high' },
     requestId,
   });
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { User, Bot, Copy, Brain } from 'lucide-react';
+import { User, Bot, Copy, Brain, Link as LinkIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -192,9 +192,9 @@ export default function MessageList({
             </div>
           )}
 
-          {/* 操作：仅保留复制 */}
+          {/* 操作：复制 + 数据来源 */}
           {!isUser && (
-            <div className="mt-1 flex items-center gap-1 text-muted-foreground">
+            <div className="mt-1 flex items-center gap-2 text-muted-foreground">
               <button
                 onClick={() => handleCopy(message.content)}
                 className="rounded-full border px-2 py-1 text-[11px] hover:bg-accent hover:text-accent-foreground"
@@ -202,6 +202,36 @@ export default function MessageList({
               >
                 <Copy className="h-3 w-3" />
               </button>
+
+              {Array.isArray(message?.metadata?.sources) && message.metadata!.sources!.length > 0 && (
+                <div className="ml-1 flex flex-wrap items-center gap-2 text-[11px]">
+                  <span className="inline-flex items-center gap-1 text-muted-foreground"><LinkIcon className="h-3 w-3" />数据来源</span>
+                  {message.metadata!.sources!.slice(0, 5).map((src: any, i: number) => {
+                    const title = src?.title || src?.domain || `来源${i + 1}`;
+                    const link = src?.link || '#';
+                    const domain = src?.domain || '';
+                    const favicon = src?.favicon || '';
+                    return (
+                      <a
+                        key={i}
+                        href={link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 hover:bg-accent hover:text-accent-foreground"
+                        title={title}
+                      >
+                        {favicon ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={favicon} alt={domain || title} className="h-3 w-3" />
+                        ) : (
+                          <LinkIcon className="h-3 w-3" />
+                        )}
+                        <span className="truncate max-w-[120px]">{domain || title}</span>
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
