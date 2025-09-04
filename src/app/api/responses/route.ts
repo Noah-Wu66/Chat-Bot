@@ -1,6 +1,6 @@
 // 使用标准 Request 类型，避免对 next/server 类型的依赖
 import { getAIClient } from '@/lib/ai';
-import { routeWebSearchDecision, performWebSearchSummary } from '@/lib/router';
+import { performWebSearchSummary } from '@/lib/router';
 import { getConversationModel } from '@/lib/models/Conversation';
 import { getCurrentUser } from '@/app/actions/auth';
 import { logInfo, logError } from '@/lib/logger';
@@ -81,33 +81,28 @@ export async function POST(req: Request) {
     return [dev, ...(historyMsg ? [historyMsg] : []), ...current];
   };
 
-  // 模型固定为 gpt-5；可选：联网搜索（由 gpt-4o-mini 判定）
-  const apiModelStream = modelToUse;
-  // 可选：联网搜索（由 gpt-4o-mini 判定）
+  // 模型固定为 gpt-5；OpenRouter 实际调用名使用 openai/gpt-5
+  const apiModelStream = 'openai/gpt-5';
+  // 可选：联网搜索（仅由用户开关决定）
   let searchUsed = false;
   let injectedHistoryMsg: any | null = null;
   let searchSources: any[] | null = null;
   if (webSearch) {
-    try {
-      const currText = Array.isArray(input)
-        ? (() => {
-            const first = input.find((i: any) => Array.isArray(i?.content));
-            const contentArr = Array.isArray(first?.content) ? first.content : [];
-            const textItem = contentArr.find((c: any) => c?.type === 'input_text');
-            return textItem?.text || '';
-          })()
-        : String(input ?? '');
-      const decision = await routeWebSearchDecision(ai, currText, requestId);
-      if (decision.shouldSearch) {
-        const webSize = (typeof settings?.web?.size === 'number' ? settings.web.size : 10) as number;
-        const { markdown, used, sources } = await performWebSearchSummary(decision.query, webSize);
-        if (used && markdown) {
-          injectedHistoryMsg = { role: 'system', content: [{ type: 'input_text', text: `以下为联网搜索到的材料（供参考，不保证准确）：\n\n${markdown}` }] } as any;
-          searchUsed = true;
-          searchSources = Array.isArray(sources) ? sources : null;
-        }
-      }
-    } catch {}
+    const currText = Array.isArray(input)
+      ? (() => {
+          const first = input.find((i: any) => Array.isArray(i?.content));
+          const contentArr = Array.isArray(first?.content) ? first.content : [];
+          const textItem = contentArr.find((c: any) => c?.type === 'input_text');
+          return textItem?.text || '';
+        })()
+      : String(input ?? '');
+    const webSize = (typeof settings?.web?.size === 'number' ? settings.web.size : 10) as number;
+    const { markdown, used, sources } = await performWebSearchSummary(currText, webSize);
+    if (used && markdown) {
+      injectedHistoryMsg = { role: 'system', content: [{ type: 'input_text', text: `以下为联网搜索到的材料（供参考，不保证准确）：\n\n${markdown}` }] } as any;
+      searchUsed = true;
+      searchSources = Array.isArray(sources) ? sources : null;
+    }
   }
 
   if (stream) {
@@ -121,13 +116,19 @@ export async function POST(req: Request) {
               `data: ${JSON.stringify({ type: 'start', requestId, route: 'responses', model: modelToUse })}\n\n`
             )
           );
-          // 应用前端传入的配置：reasoning.effort 与 text verbosity
-          const finalSettings: any = { ...(settings?.text ? { text: settings.text } : {}) };
+          // 应用前端传入的配置：reasoning.effort 与顶层 verbosity
+          const finalSettings: any = {};
           const selectedEffort = (settings?.reasoning?.effort || 'high') as any;
           finalSettings.reasoning = {
             ...(settings?.reasoning || {}),
             effort: selectedEffort,
           };
+          if (typeof settings?.text?.verbosity === 'string') {
+            finalSettings.verbosity = settings.text.verbosity;
+          }
+          if (typeof settings?.verbosity === 'string') {
+            finalSettings.verbosity = settings.verbosity;
+          }
 
           let inputPayload = buildResponsesInputWithHistory(input);
           if (injectedHistoryMsg) {
@@ -144,9 +145,10 @@ export async function POST(req: Request) {
             input: inputPayload,
             stream: true,
             ...(typeof maxOutputTokens === 'number' ? { max_output_tokens: maxOutputTokens } : {}),
+            ...(typeof temperature === 'number' ? { temperature } : {}),
           };
           reqPayloadStream.reasoning = finalSettings.reasoning;
-          reqPayloadStream.text = finalSettings.text;
+          if (finalSettings.verbosity) reqPayloadStream.verbosity = finalSettings.verbosity;
 
           const response = await (ai as any).responses.create(reqPayloadStream);
 
@@ -162,12 +164,7 @@ export async function POST(req: Request) {
             }
           }
 
-          // SSE: routing 事件（声明最终模型与参数）
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ type: 'routing', model: apiModelStream, effort: finalSettings.reasoning?.effort || 'high', verbosity: finalSettings.text?.verbosity, requestId })}\n\n`
-            )
-          );
+          // 无路由系统，不发送 routing 事件
 
           let fullContent = '';
           for await (const event of response) {
@@ -207,80 +204,11 @@ export async function POST(req: Request) {
             }
           }
         } catch (e: any) {
-          await logError('responses', 'api.error', 'Responses API 失败，准备回退', { error: e?.message || String(e) }, requestId);
-          // Fallback: 使用 Chat Completions 流式
-          try {
-            const fallbackModel = 'gpt-4o';
-            const fallbackUserText = Array.isArray(input)
-              ? (() => {
-                  const first = input.find((i: any) => Array.isArray(i?.content));
-                  const contentArr = Array.isArray(first?.content) ? first.content : [];
-                  const textItem = contentArr.find((c: any) => c?.type === 'input_text');
-                  return textItem?.text || '[复合输入]';
-                })()
-              : String(input ?? '');
-            const messages = ([
-              { role: 'system', content: '总是用中文回复' },
-              ...historyWithoutCurrent
-                .slice(-MAX_HISTORY)
-                .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant' || m.role === 'system'))
-                .map((m: any) => ({ role: m.role, content: String(m.content ?? '') })),
-              { role: 'user', content: fallbackUserText },
-            ]) as any[];
-
-            const chatStream: any = await ai.chat.completions.create({
-              model: fallbackModel,
-              messages,
-              stream: true,
-              temperature: 0.7,
-            } as any);
-
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({ type: 'routing', model: fallbackModel, requestId })}\n\n`
-              )
-            );
-
-            let fullContent2 = '';
-            for await (const chunk of (chatStream as any)) {
-              const delta = chunk.choices?.[0]?.delta?.content || '';
-              if (delta) {
-                fullContent2 += delta;
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({ type: 'content', content: delta })}\n\n`)
-                );
-              }
-            }
-
-            // 落库
-            try {
-              await Conversation.updateOne(
-                { id: conversationId, userId: user.sub },
-                {
-                  $push: {
-                    messages: {
-                      id: Date.now().toString(36),
-                      role: 'assistant',
-                      content: fullContent2,
-                      timestamp: new Date(),
-                      model: fallbackModel,
-                    },
-                  },
-                  $set: { updatedAt: new Date() },
-                }
-              );
-            } catch {}
-
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
-            controller.close();
-
-          } catch (e2: any) {
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e2?.message || String(e2) })}\n\n`)
-            );
-            controller.close();
-            await logError('responses', 'fallback.error', '回退失败', { error: e2?.message || String(e2) }, requestId);
-          }
+          await logError('responses', 'api.error', 'Responses API 流式失败', { error: e?.message || String(e) }, requestId);
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e?.message || String(e) })}\n\n`)
+          );
+          controller.close();
         }
       },
     });
@@ -295,19 +223,25 @@ export async function POST(req: Request) {
     });
   }
 
-  // 非流式：同样应用路由决策（统一使用 Responses API）
+  // 非流式：统一使用 Responses API
 
-  const finalSettings: any = { ...(settings?.text ? { text: settings.text } : {}) };
+  const finalSettings: any = {};
   finalSettings.reasoning = {
     ...(settings?.reasoning || {}),
     effort: (settings?.reasoning?.effort || 'high') as any,
   };
+  if (typeof settings?.text?.verbosity === 'string') {
+    finalSettings.verbosity = settings.text.verbosity;
+  }
+  if (typeof settings?.verbosity === 'string') {
+    finalSettings.verbosity = settings.verbosity;
+  }
   let inputPayload = buildResponsesInputWithHistory(input);
   if (injectedHistoryMsg) {
     const dev = inputPayload.shift();
     inputPayload = [dev, injectedHistoryMsg, ...inputPayload];
   }
-  const apiModel = modelToUse;
+  const apiModel = 'openai/gpt-5';
   const maxOutputTokens = typeof settings?.maxTokens === 'number' ? settings.maxTokens : undefined;
   const temperature = typeof settings?.temperature === 'number' ? settings.temperature : undefined;
   let content = '';
@@ -317,8 +251,9 @@ export async function POST(req: Request) {
       model: apiModel,
       input: inputPayload,
       ...(typeof maxOutputTokens === 'number' ? { max_output_tokens: maxOutputTokens } : {}),
+      ...(typeof temperature === 'number' ? { temperature } : {}),
       reasoning: finalSettings.reasoning,
-      text: finalSettings.text,
+      ...(finalSettings.verbosity ? { verbosity: finalSettings.verbosity } : {}),
     };
 
     const resp = await (ai as any).responses.create(reqPayload);
@@ -329,29 +264,8 @@ export async function POST(req: Request) {
       content = JSON.stringify(resp);
     }
   } catch (e: any) {
-    // 非流式也失败时回退到 Chat Completions
-    await logError('responses', 'api.error', 'Responses API 失败，准备回退（非流式）', { error: e?.message || String(e) }, requestId);
-    const fallbackModel = 'gpt-4o';
-    const fallbackUserText = Array.isArray(input)
-      ? (() => {
-          const first = input.find((i: any) => Array.isArray(i?.content));
-          const contentArr = Array.isArray(first?.content) ? first.content : [];
-          const textItem = contentArr.find((c: any) => c?.type === 'input_text');
-          return textItem?.text || '[复合输入]';
-        })()
-      : String(input ?? '');
-    const messages = [
-      { role: 'system', content: '总是用中文回复' },
-      { role: 'user', content: fallbackUserText },
-    ] as any[];
-    const completion = await ai.chat.completions.create({
-      model: fallbackModel,
-      messages,
-      temperature: 0.7,
-      max_tokens: 1024,
-    } as any);
-    content = completion.choices?.[0]?.message?.content || '';
-
+    await logError('responses', 'api.error', 'Responses API 非流式失败', { error: e?.message || String(e) }, requestId);
+    throw e;
   }
 
   await Conversation.updateOne(
@@ -374,7 +288,6 @@ export async function POST(req: Request) {
   await logInfo('responses', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
   return Response.json({
     message: { role: 'assistant', content, model: modelToUse, metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined },
-    routing: { model: modelToUse, effort: finalSettings.reasoning?.effort || 'high', verbosity: finalSettings.text?.verbosity },
     requestId,
   });
 }

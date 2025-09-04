@@ -141,10 +141,10 @@ export const useChatStore = create<ChatState>()(
         const modelConfig = MODELS[model];
         const newSettings = { ...get().settings };
         
-        // GPT-5 默认不支持 temperature
+        // 依据模型能力启用/禁用 temperature
         if (modelConfig.supportsTemperature === false) {
           delete newSettings.temperature;
-        } else if (!newSettings.temperature) {
+        } else if (typeof newSettings.temperature !== 'number') {
           newSettings.temperature = 0.8;
         }
         

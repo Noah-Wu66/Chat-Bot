@@ -55,7 +55,7 @@ export interface ConversationSettings {
   stream?: boolean;
 }
 
-// 支持的模型列表（仅对外可用：GPT-4o 与 GPT-5）
+// 支持的模型列表（取消任何路由与保底回退）
 export const MODELS: Record<string, ModelConfig> = {
   // GPT-4o（面向聊天，多模态）
   'gpt-4o': {
@@ -74,39 +74,30 @@ export const MODELS: Record<string, ModelConfig> = {
     name: 'GPT-5',
     description: '最新的推理模型，支持深度思考',
     type: 'responses',
-    supportsVision: false,
+    supportsVision: true,
     supportsSearch: false,
     supportsTools: true,
     supportsReasoning: true,
     supportsVerbosity: true,
-    supportsTemperature: false, // GPT-5 不支持 temperature/top_p
+    supportsTemperature: true,
     maxTokens: 8192,
   },
 
-  // 兼容性别名（不在 UI 中展示，仅为旧数据兜底）：
-  'gpt-4o-mini': {
-    name: 'GPT-4o',
-    description: '多模态对话模型，支持文本和图像',
+  // Gemini 2.5 Flash Image Preview（图像生成/编辑，Chat Completions 通道）
+  'gemini-image': {
+    name: 'Gemini 2.5 Flash Image Preview',
+    description: '图像生成与编辑，支持文本与图像输出',
     type: 'chat',
     supportsVision: true,
     supportsSearch: false,
-    supportsTools: true,
+    supportsTools: false,
     supportsReasoning: false,
     supportsVerbosity: false,
+    supportsTemperature: true,
     maxTokens: 4096,
   },
-  'gpt-5-chat': {
-    name: 'GPT-5 Chat',
-    description: '无推理的对话模型（Responses API 通道）',
-    type: 'responses',
-    supportsVision: false,
-    supportsSearch: false,
-    supportsTools: true,
-    supportsReasoning: false,
-    supportsVerbosity: true,
-    supportsTemperature: true, // 通过 Responses API 也可不传温度，此处设置为 true 仅用于 UI 控制
-    maxTokens: 8192,
-  },
+
+  // 注意：移除 gpt-4o-mini 与任何“路由别名”模型
 };
 
 export type ModelId = keyof typeof MODELS;
@@ -201,7 +192,9 @@ export interface Tool {
 // 图像输入类型
 export interface ImageInput {
   type: 'input_image';
-  image_url: string;
+  image_url?: string;
+  image_data?: string; // base64 数据（不含 data: 前缀）
+  mime_type?: string;  // 如 'image/png'
 }
 
 // 文本输入类型

@@ -27,6 +27,8 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
   const modelConfig = MODELS[currentModel];
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  // 互斥弹窗：effort / verbosity / search
+  const [activePopover, setActivePopover] = useState<'effort' | 'verbosity' | 'search' | null>(null);
   // 检查登录状态（不阻塞 UI）
   useEffect(() => {
     let cancelled = false;
@@ -158,41 +160,51 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
       {/* 顶部栏：联网搜索开关 + 额外控制按钮 */}
       <div className={cn("mb-2 flex items-center justify-between", variant === 'center' && "px-1") }>
         <div className="flex items-center gap-2 relative">
-          <button
-            type="button"
-            onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-            disabled={disabled || isStreaming}
-            className={cn(
-              "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs",
-              webSearchEnabled ? "bg-green-600 text-white border-green-600" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-              "disabled:pointer-events-none disabled:opacity-50"
-            )}
-            title={webSearchEnabled ? "已开启联网搜索" : "点击开启联网搜索"}
-          >
-            <Search className="h-3.5 w-3.5" />
-            <span>联网搜索</span>
-          </button>
+          {currentModel !== 'gemini-image' && (
+            <>
+              <button
+                type="button"
+                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                disabled={disabled || isStreaming}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs",
+                  webSearchEnabled ? "bg-green-600 text-white border-green-600" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  "disabled:pointer-events-none disabled:opacity-50"
+                )}
+                title={webSearchEnabled ? "已开启联网搜索" : "点击开启联网搜索"}
+              >
+                <Search className="h-3.5 w-3.5" />
+                <span>联网搜索</span>
+              </button>
 
-          {/* effort 按钮 */}
-          <EffortPopover
-            value={(settings?.reasoning?.effort as any) || 'high'}
-            disabled={disabled || isStreaming}
-            onChange={(v) => setSettings({ reasoning: { ...(settings?.reasoning || {}), effort: v as any } })}
-          />
+              {/* effort 按钮 */}
+              <EffortPopover
+                value={(settings?.reasoning?.effort as any) || 'high'}
+                disabled={disabled || isStreaming}
+                onChange={(v) => setSettings({ reasoning: { ...(settings?.reasoning || {}), effort: v as any } })}
+                open={activePopover === 'effort'}
+                onOpenChange={(o) => setActivePopover(o ? 'effort' : null)}
+              />
 
-          {/* verbosity 按钮 */}
-          <VerbosityPopover
-            value={(settings?.text?.verbosity as any) || 'medium'}
-            disabled={disabled || isStreaming}
-            onChange={(v) => setSettings({ text: { ...(settings?.text || {}), verbosity: v as any } })}
-          />
+              {/* verbosity 按钮 */}
+              <VerbosityPopover
+                value={(settings?.text?.verbosity as any) || 'medium'}
+                disabled={disabled || isStreaming}
+                onChange={(v) => setSettings({ text: { ...(settings?.text || {}), verbosity: v as any } })}
+                open={activePopover === 'verbosity'}
+                onOpenChange={(o) => setActivePopover(o ? 'verbosity' : null)}
+              />
 
-          {/* search size 按钮 */}
-          <SearchSizePopover
-            value={Number(settings?.web?.size) || 10}
-            disabled={disabled || isStreaming}
-            onChange={(v) => setSettings({ web: { ...(settings?.web || {}), size: v } })}
-          />
+              {/* search size 按钮 */}
+              <SearchSizePopover
+                value={Number(settings?.web?.size) || 10}
+                disabled={disabled || isStreaming}
+                onChange={(v) => setSettings({ web: { ...(settings?.web || {}), size: v } })}
+                open={activePopover === 'search'}
+                onOpenChange={(o) => setActivePopover(o ? 'search' : null)}
+              />
+            </>
+          )}
         </div>
 
         {/* 右侧占位 */}
@@ -336,8 +348,10 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
   );
 }
 
-function EffortPopover({ value, disabled, onChange }: { value: 'minimal' | 'low' | 'medium' | 'high'; disabled?: boolean; onChange: (v: 'minimal' | 'low' | 'medium' | 'high') => void }) {
-  const [open, setOpen] = useState(false);
+function EffortPopover({ value, disabled, onChange, open, onOpenChange }: { value: 'minimal' | 'low' | 'medium' | 'high'; disabled?: boolean; onChange: (v: 'minimal' | 'low' | 'medium' | 'high') => void; open?: boolean; onOpenChange?: (o: boolean) => void }) {
+  const [innerOpen, setInnerOpen] = useState(false);
+  const isOpen = typeof open === 'boolean' ? open : innerOpen;
+  const toggle = () => (onOpenChange ? onOpenChange(!isOpen) : setInnerOpen(o => !o));
   const steps: Array<{ v: 'minimal'|'low'|'medium'|'high'; label: string }> = [
     { v: 'minimal', label: '极低' },
     { v: 'low', label: '较低' },
@@ -356,18 +370,18 @@ function EffortPopover({ value, disabled, onChange }: { value: 'minimal' | 'low'
       <button
         type="button"
         disabled={disabled}
-        onClick={() => setOpen(o => !o)}
+        onClick={toggle}
         className={cn(
           "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] hover:bg-accent hover:text-accent-foreground",
           "disabled:pointer-events-none disabled:opacity-50"
         )}
-        title="推理强度"
+        title="推理深度"
       >
         <Brain className="h-3.5 w-3.5" />
-        <span>推理:{current}</span>
+        <span>推理深度:{current}</span>
         <ChevronDown className="h-3 w-3" />
       </button>
-      {open && (
+      {isOpen && (
         <div className="absolute bottom-full left-0 mb-2 z-10 w-[220px] rounded-md border bg-background p-2 text-xs shadow">
           <div className="mb-2 flex items-center justify-between">
             {steps.map((s, i) => (
@@ -395,8 +409,10 @@ function EffortPopover({ value, disabled, onChange }: { value: 'minimal' | 'low'
   );
 }
 
-function VerbosityPopover({ value, disabled, onChange }: { value: 'low' | 'medium' | 'high'; disabled?: boolean; onChange: (v: 'low' | 'medium' | 'high') => void }) {
-  const [open, setOpen] = useState(false);
+function VerbosityPopover({ value, disabled, onChange, open, onOpenChange }: { value: 'low' | 'medium' | 'high'; disabled?: boolean; onChange: (v: 'low' | 'medium' | 'high') => void; open?: boolean; onOpenChange?: (o: boolean) => void }) {
+  const [innerOpen, setInnerOpen] = useState(false);
+  const isOpen = typeof open === 'boolean' ? open : innerOpen;
+  const toggle = () => (onOpenChange ? onOpenChange(!isOpen) : setInnerOpen(o => !o));
   const steps: Array<{ v: 'low'|'medium'|'high'; label: string }> = [
     { v: 'low', label: '简洁' },
     { v: 'medium', label: '适中' },
@@ -413,18 +429,18 @@ function VerbosityPopover({ value, disabled, onChange }: { value: 'low' | 'mediu
       <button
         type="button"
         disabled={disabled}
-        onClick={() => setOpen(o => !o)}
+        onClick={toggle}
         className={cn(
           "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] hover:bg-accent hover:text-accent-foreground",
           "disabled:pointer-events-none disabled:opacity-50"
         )}
-        title="回复长度"
+        title="输出篇幅"
       >
         <AlignLeft className="h-3.5 w-3.5" />
-        <span>长度:{current}</span>
+        <span>输出篇幅:{current}</span>
         <ChevronDown className="h-3 w-3" />
       </button>
-      {open && (
+      {isOpen && (
         <div className="absolute bottom-full left-0 mb-2 z-10 w-[220px] rounded-md border bg-background p-2 text-xs shadow">
           <div className="mb-2 flex items-center justify-between">
             {steps.map((s, i) => (
@@ -446,8 +462,10 @@ function VerbosityPopover({ value, disabled, onChange }: { value: 'low' | 'mediu
   );
 }
 
-function SearchSizePopover({ value, disabled, onChange }: { value: number; disabled?: boolean; onChange: (v: number) => void }) {
-  const [open, setOpen] = useState(false);
+function SearchSizePopover({ value, disabled, onChange, open, onOpenChange }: { value: number; disabled?: boolean; onChange: (v: number) => void; open?: boolean; onOpenChange?: (o: boolean) => void }) {
+  const [innerOpen, setInnerOpen] = useState(false);
+  const isOpen = typeof open === 'boolean' ? open : innerOpen;
+  const toggle = () => (onOpenChange ? onOpenChange(!isOpen) : setInnerOpen(o => !o));
   const steps = [10, 20, 30, 40, 50, 100];
   const idx = Math.max(0, steps.findIndex(s => s === value));
   const display = String(value || steps[0]);
@@ -461,18 +479,18 @@ function SearchSizePopover({ value, disabled, onChange }: { value: number; disab
       <button
         type="button"
         disabled={disabled}
-        onClick={() => setOpen(o => !o)}
+        onClick={toggle}
         className={cn(
           "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] hover:bg-accent hover:text-accent-foreground",
           "disabled:pointer-events-none disabled:opacity-50"
         )}
-        title="联网搜索条数"
+        title="搜索深度"
       >
         <ListFilter className="h-3.5 w-3.5" />
-        <span>条数:{display}</span>
+        <span>搜索深度:{display}</span>
         <ChevronDown className="h-3 w-3" />
       </button>
-      {open && (
+      {isOpen && (
         <div className="absolute bottom-full left-0 mb-2 z-10 w-[240px] rounded-md border bg-background p-2 text-xs shadow">
           <div className="mb-2 flex items-center justify-between">
             {steps.map((n, i) => (

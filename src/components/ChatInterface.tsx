@@ -83,9 +83,24 @@ export default function ChatInterface() {
 
       let requestBody: any;
       if (modelConfig.type === 'responses') {
-        // Responses API 入参：
+        // Responses API 入参：文本或图文
         // - 纯文本：input 直接用 string
         // - 图文：input 为 [{ role:'user', content: [ {type:'input_text'}, {type:'input_image'}... ] }]
+        const toImageItem = (img: string) => {
+          // 兼容两种：
+          // 1) dataURL -> 拆出 mime 与 base64（去掉前缀）
+          // 2) 普通 URL -> 直接作为 image_url
+          if (typeof img === 'string' && img.startsWith('data:')) {
+            const match = img.match(/^data:([^;]+);base64,(.*)$/);
+            if (match) {
+              const mime = match[1];
+              const b64 = match[2];
+              return { type: 'input_image', image_data: b64, mime_type: mime } as any;
+            }
+          }
+          return { type: 'input_image', image_url: img } as any;
+        };
+
         let input: string | any[];
         if (images && images.length > 0) {
           input = [
@@ -93,7 +108,7 @@ export default function ChatInterface() {
               role: 'user',
               content: [
                 { type: 'input_text', text: content },
-                ...images.map((imageUrl) => ({ type: 'input_image', image_url: imageUrl })),
+                ...images.map(toImageItem),
               ],
             },
           ];
@@ -111,6 +126,7 @@ export default function ChatInterface() {
         };
       } else {
         // 对于 Chat API，保持原有格式
+        const isGemini = currentModel === 'gemini-image';
         requestBody = {
           conversationId,
           message: {
@@ -120,7 +136,7 @@ export default function ChatInterface() {
           model: currentModel,
           settings,
           stream: true,
-          webSearch: webSearchEnabled,
+          webSearch: isGemini ? false : webSearchEnabled,
         };
       }
 
@@ -149,10 +165,10 @@ export default function ChatInterface() {
         }
 
         let assistantContent = '';
+        let assistantImages: string[] = [];
         let reasoning = '';
         let chunkCount = 0;
         let routedModel: string | null = null;
-        let routedEffort: string | undefined = undefined;
         let stopLogsWatcher: (() => void) | null = null;
         let assistantAdded = false;
         let searchUsed = false;
@@ -183,6 +199,11 @@ export default function ChatInterface() {
                       console.log('[Chat] content chunk', { chunkCount, length: data.content?.length });
                     }
                     break;
+                  case 'images':
+                    if (Array.isArray(data.images)) {
+                      assistantImages = data.images.filter((u: any) => typeof u === 'string' && u);
+                    }
+                    break;
                   case 'search':
                     searchUsed = !!(data.used || data.searchUsed);
                     break;
@@ -198,13 +219,7 @@ export default function ChatInterface() {
                     setReasoningContent(reasoning);
                     break;
 
-                  case 'routing':
-                    routedModel = data.model;
-                    routedEffort = data.effort;
-                    const verbosity = data.verbosity as 'low' | 'medium' | 'high' | undefined;
-                    // 运行日志已在服务端记录
-                    console.log('[Chat] routing', { model: routedModel, effort: routedEffort, verbosity });
-                    break;
+                  // 无 routing 事件
 
                   case 'start':
                     if (!stopLogsWatcher && data.requestId) {
@@ -228,6 +243,7 @@ export default function ChatInterface() {
                       content: assistantContent,
                       timestamp: new Date(),
                       model: routedModel || currentModel,
+                      images: assistantImages && assistantImages.length > 0 ? assistantImages : undefined,
                       metadata: {
                         reasoning: reasoning || undefined,
                         verbosity: settings.text?.verbosity,
@@ -250,38 +266,6 @@ export default function ChatInterface() {
                     break;
 
                   case 'error':
-                    // 降级为非流式请求
-                    try {
-                      const fallbackBody = { ...requestBody, stream: false } as any;
-                      const fallbackResp = await fetch(apiEndpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(fallbackBody),
-                        credentials: 'include',
-                      });
-                      if (fallbackResp.ok) {
-                        const dataJson = await fallbackResp.json();
-                        if (dataJson.message) {
-                          addMessage({
-                            ...dataJson.message,
-                            id: generateId(),
-                            timestamp: new Date(),
-                          });
-                          assistantAdded = true;
-                          console.warn('[Chat] stream->fallback non-stream added');
-                        }
-                        if (dataJson.requestId) {
-                          await printRunLogsOnce(dataJson.requestId);
-                        }
-                        setStreamingContent('');
-                        setReasoningContent('');
-                        if (stopLogsWatcher) {
-                          stopLogsWatcher();
-                          stopLogsWatcher = null;
-                        }
-                        return; // 直接结束循环
-                      }
-                    } catch {}
                     throw new Error(data.error);
 
                   default:
