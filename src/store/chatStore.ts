@@ -71,6 +71,12 @@ const defaultSettings: ConversationSettings = {
   text: {
     verbosity: 'medium',
   },
+  reasoning: {
+    effort: 'low',
+  },
+  web: {
+    size: 10,
+  },
   stream: true,
 };
 

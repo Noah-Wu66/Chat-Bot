@@ -99,7 +99,8 @@ export async function POST(req: Request) {
         : String(input ?? '');
       const decision = await routeWebSearchDecision(ai, currText, requestId);
       if (decision.shouldSearch) {
-        const { markdown, used, sources } = await performWebSearchSummary(decision.query, 5);
+        const webSize = (typeof settings?.web?.size === 'number' ? settings.web.size : 10) as number;
+        const { markdown, used, sources } = await performWebSearchSummary(decision.query, webSize);
         if (used && markdown) {
           injectedHistoryMsg = { role: 'system', content: [{ type: 'input_text', text: `以下为联网搜索到的材料（供参考，不保证准确）：\n\n${markdown}` }] } as any;
           searchUsed = true;
@@ -120,11 +121,12 @@ export async function POST(req: Request) {
               `data: ${JSON.stringify({ type: 'start', requestId, route: 'responses', model: modelToUse })}\n\n`
             )
           );
-          // 固定 gpt-5 为 high 推理；保留用户的 text 配置
+          // 应用前端传入的配置：reasoning.effort 与 text verbosity
           const finalSettings: any = { ...(settings?.text ? { text: settings.text } : {}) };
+          const selectedEffort = (settings?.reasoning?.effort || 'high') as any;
           finalSettings.reasoning = {
             ...(settings?.reasoning || {}),
-            effort: 'high',
+            effort: selectedEffort,
           };
 
           let inputPayload = buildResponsesInputWithHistory(input);
@@ -160,10 +162,10 @@ export async function POST(req: Request) {
             }
           }
 
-          // SSE: routing 事件（声明最终模型）
+          // SSE: routing 事件（声明最终模型与参数）
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ type: 'routing', model: apiModelStream, effort: 'high', requestId })}\n\n`
+              `data: ${JSON.stringify({ type: 'routing', model: apiModelStream, effort: finalSettings.reasoning?.effort || 'high', verbosity: finalSettings.text?.verbosity, requestId })}\n\n`
             )
           );
 
@@ -298,7 +300,7 @@ export async function POST(req: Request) {
   const finalSettings: any = { ...(settings?.text ? { text: settings.text } : {}) };
   finalSettings.reasoning = {
     ...(settings?.reasoning || {}),
-    effort: 'high',
+    effort: (settings?.reasoning?.effort || 'high') as any,
   };
   let inputPayload = buildResponsesInputWithHistory(input);
   if (injectedHistoryMsg) {
@@ -372,7 +374,7 @@ export async function POST(req: Request) {
   await logInfo('responses', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
   return Response.json({
     message: { role: 'assistant', content, model: modelToUse, metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined },
-    routing: { model: modelToUse, effort: 'high' },
+    routing: { model: modelToUse, effort: finalSettings.reasoning?.effort || 'high', verbosity: finalSettings.text?.verbosity },
     requestId,
   });
 }

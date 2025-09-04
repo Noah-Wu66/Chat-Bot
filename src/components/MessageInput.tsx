@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Paperclip, X, Image as ImageIcon, Plus, Search } from 'lucide-react';
+import { Send, Paperclip, X, Image as ImageIcon, Plus, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS, ModelId } from '@/lib/types';
 import { cn, fileToBase64, compressImage } from '@/utils/helpers';
@@ -23,7 +23,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { currentModel, isStreaming, setLoginOpen, webSearchEnabled, setWebSearchEnabled } = useChatStore();
+  const { currentModel, isStreaming, setLoginOpen, webSearchEnabled, setWebSearchEnabled, settings, setSettings } = useChatStore();
   const modelConfig = MODELS[currentModel];
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
@@ -155,22 +155,45 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
         </div>
       )}
 
-      {/* 顶部栏：联网搜索开关 + 图片预览 */}
+      {/* 顶部栏：联网搜索开关 + 额外控制按钮 */}
       <div className={cn("mb-2 flex items-center justify-between", variant === 'center' && "px-1") }>
-        <button
-          type="button"
-          onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-          disabled={disabled || isStreaming}
-          className={cn(
-            "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs",
-            webSearchEnabled ? "bg-green-600 text-white border-green-600" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-            "disabled:pointer-events-none disabled:opacity-50"
-          )}
-          title={webSearchEnabled ? "已开启联网搜索" : "点击开启联网搜索"}
-        >
-          <Search className="h-3.5 w-3.5" />
-          <span>联网搜索</span>
-        </button>
+        <div className="flex items-center gap-2 relative">
+          <button
+            type="button"
+            onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+            disabled={disabled || isStreaming}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs",
+              webSearchEnabled ? "bg-green-600 text-white border-green-600" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+              "disabled:pointer-events-none disabled:opacity-50"
+            )}
+            title={webSearchEnabled ? "已开启联网搜索" : "点击开启联网搜索"}
+          >
+            <Search className="h-3.5 w-3.5" />
+            <span>联网搜索</span>
+          </button>
+
+          {/* effort 按钮 */}
+          <EffortPopover
+            value={(settings?.reasoning?.effort as any) || 'high'}
+            disabled={disabled || isStreaming}
+            onChange={(v) => setSettings({ reasoning: { ...(settings?.reasoning || {}), effort: v as any } })}
+          />
+
+          {/* verbosity 按钮 */}
+          <VerbosityPopover
+            value={(settings?.text?.verbosity as any) || 'medium'}
+            disabled={disabled || isStreaming}
+            onChange={(v) => setSettings({ text: { ...(settings?.text || {}), verbosity: v as any } })}
+          />
+
+          {/* search size 按钮 */}
+          <SearchSizePopover
+            value={Number(settings?.web?.size) || 10}
+            disabled={disabled || isStreaming}
+            onChange={(v) => setSettings({ web: { ...(settings?.web || {}), size: v } })}
+          />
+        </div>
 
         {/* 右侧占位 */}
         <div />
@@ -309,6 +332,170 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
           <span>{message.length} 字符</span>
         )}
       </div>
+    </div>
+  );
+}
+
+function EffortPopover({ value, disabled, onChange }: { value: 'minimal' | 'low' | 'medium' | 'high'; disabled?: boolean; onChange: (v: 'minimal' | 'low' | 'medium' | 'high') => void }) {
+  const [open, setOpen] = useState(false);
+  const steps: Array<{ v: 'minimal'|'low'|'medium'|'high'; label: string }> = [
+    { v: 'minimal', label: '极低' },
+    { v: 'low', label: '较低' },
+    { v: 'medium', label: '中等' },
+    { v: 'high', label: '高' },
+  ];
+  const idx = Math.max(0, steps.findIndex(s => s.v === value));
+  const current = steps[idx]?.label || '较低';
+  const setIdx = (i: number) => {
+    const ii = Math.min(Math.max(0, i), steps.length - 1);
+    onChange(steps[ii].v);
+  };
+  const showWarn = idx >= 2; // medium 或更高
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen(o => !o)}
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] hover:bg-accent hover:text-accent-foreground",
+          "disabled:pointer-events-none disabled:opacity-50"
+        )}
+        title="推理强度"
+      >
+        <Brain className="h-3.5 w-3.5" />
+        <span>推理:{current}</span>
+        <ChevronDown className="h-3 w-3" />
+      </button>
+      {open && (
+        <div className="absolute bottom-full left-0 mb-2 z-10 w-[220px] rounded-md border bg-background p-2 text-xs shadow">
+          <div className="mb-2 flex items-center justify-between">
+            {steps.map((s, i) => (
+              <span key={s.v} className={cn("px-1", i === idx ? "text-foreground" : "text-muted-foreground")}>{s.label}</span>
+            ))}
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={steps.length - 1}
+            step={1}
+            value={idx}
+            onChange={(e) => setIdx(parseInt(e.target.value))}
+            className="w-full"
+          />
+          {showWarn && (
+            <div className="mt-2 flex items-start gap-1 text-[11px] text-amber-600">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5" />
+              <span>当前推理深度过高，会极大延长模型的思考时间，仅当您需要回答极为复杂的问题时才建议使用。</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VerbosityPopover({ value, disabled, onChange }: { value: 'low' | 'medium' | 'high'; disabled?: boolean; onChange: (v: 'low' | 'medium' | 'high') => void }) {
+  const [open, setOpen] = useState(false);
+  const steps: Array<{ v: 'low'|'medium'|'high'; label: string }> = [
+    { v: 'low', label: '简洁' },
+    { v: 'medium', label: '适中' },
+    { v: 'high', label: '详细' },
+  ];
+  const idx = Math.max(0, steps.findIndex(s => s.v === value));
+  const current = steps[idx]?.label || '适中';
+  const setIdx = (i: number) => {
+    const ii = Math.min(Math.max(0, i), steps.length - 1);
+    onChange(steps[ii].v);
+  };
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen(o => !o)}
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] hover:bg-accent hover:text-accent-foreground",
+          "disabled:pointer-events-none disabled:opacity-50"
+        )}
+        title="回复长度"
+      >
+        <AlignLeft className="h-3.5 w-3.5" />
+        <span>长度:{current}</span>
+        <ChevronDown className="h-3 w-3" />
+      </button>
+      {open && (
+        <div className="absolute bottom-full left-0 mb-2 z-10 w-[220px] rounded-md border bg-background p-2 text-xs shadow">
+          <div className="mb-2 flex items-center justify-between">
+            {steps.map((s, i) => (
+              <span key={s.v} className={cn("px-1", i === idx ? "text-foreground" : "text-muted-foreground")}>{s.label}</span>
+            ))}
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={steps.length - 1}
+            step={1}
+            value={idx}
+            onChange={(e) => setIdx(parseInt(e.target.value))}
+            className="w-full"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SearchSizePopover({ value, disabled, onChange }: { value: number; disabled?: boolean; onChange: (v: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const steps = [10, 20, 30, 40, 50, 100];
+  const idx = Math.max(0, steps.findIndex(s => s === value));
+  const display = String(value || steps[0]);
+  const setIdx = (i: number) => {
+    const ii = Math.min(Math.max(0, i), steps.length - 1);
+    onChange(steps[ii]);
+  };
+  const showWarn = (value || steps[idx]) >= 50;
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen(o => !o)}
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] hover:bg-accent hover:text-accent-foreground",
+          "disabled:pointer-events-none disabled:opacity-50"
+        )}
+        title="联网搜索条数"
+      >
+        <ListFilter className="h-3.5 w-3.5" />
+        <span>条数:{display}</span>
+        <ChevronDown className="h-3 w-3" />
+      </button>
+      {open && (
+        <div className="absolute bottom-full left-0 mb-2 z-10 w-[240px] rounded-md border bg-background p-2 text-xs shadow">
+          <div className="mb-2 flex items-center justify-between">
+            {steps.map((n, i) => (
+              <span key={n} className={cn("px-1", i === idx ? "text-foreground" : "text-muted-foreground")}>{n}</span>
+            ))}
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={steps.length - 1}
+            step={1}
+            value={idx}
+            onChange={(e) => setIdx(parseInt(e.target.value))}
+            className="w-full"
+          />
+          {showWarn && (
+            <div className="mt-2 flex items-start gap-1 text-[11px] text-amber-600">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5" />
+              <span>当前来源过多，会极大的增加模型的幻觉率，仅当您需要搜索极为少见的问题或多来源验证时才建议使用。</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

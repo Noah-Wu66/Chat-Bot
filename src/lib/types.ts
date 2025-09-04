@@ -46,6 +46,12 @@ export interface ConversationSettings {
   text?: {
     verbosity: 'low' | 'medium' | 'high';
   };
+  reasoning?: {
+    effort?: ReasoningEffort;
+  };
+  web?: {
+    size?: number; // 联网搜索条目数量
+  };
   stream?: boolean;
 }
 

@@ -76,7 +76,8 @@ export async function POST(req: NextRequest) {
     if (webSearch) {
       const decision = await routeWebSearchDecision(ai, String(message?.content || ''), requestId);
       if (decision.shouldSearch) {
-        const { markdown, used, sources } = await performWebSearchSummary(decision.query, 5);
+        const webSize = (typeof settings?.web?.size === 'number' ? settings.web.size : 10) as number;
+        const { markdown, used, sources } = await performWebSearchSummary(decision.query, webSize);
         if (used && markdown) {
           messages = [
             { role: 'system', content: '总是用中文回复' },
