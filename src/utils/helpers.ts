@@ -233,7 +233,7 @@ export function formatFileSize(bytes: number): string {
 
 // 验证环境变量
 export function validateEnvVars() {
-  const required = ['AIHUBMIX_API_KEY', 'MONGODB_URI'];
+  const required = ['MONGODB_URI', 'OPENROUTER_API_KEY'];
   const missing = required.filter(key => !process.env[key]);
   
   if (missing.length > 0) {

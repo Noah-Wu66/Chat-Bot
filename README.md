@@ -1,6 +1,6 @@
 # AI Chat Bot - 智能对话应用
 
-基于 Aihubmix OpenAI API 构建的现代化 AI 对话应用，支持 GPT-4o 和 GPT-5 模型。
+基于现代 OpenAI 兼容接口构建的 AI 对话应用，支持 GPT-4o 和 GPT-5 模型。
 
 ## 功能特性
 
@@ -35,7 +35,7 @@
 - **样式**: Tailwind CSS
 - **状态管理**: Zustand
 - **数据库**: MongoDB + Mongoose
-- **API**: Aihubmix OpenAI API
+- **API**: OpenAI 兼容 API
 - **UI 组件**: 自定义组件库
 - **Markdown**: React Markdown + 语法高亮
 
@@ -44,7 +44,7 @@
 ### 1. 环境要求
 - Node.js 18+
 - MongoDB 数据库
-- Aihubmix API Key
+- API Key
 
 ### 2. 安装依赖
 ```bash
@@ -55,8 +55,6 @@ npm install
 在部署平台中设置以下环境变量：
 
 ```env
-AIHUBMIX_API_KEY=sk-your-aihubmix-api-key-here
-AIHUBMIX_BASE_URL=https://aihubmix.com/v1
 MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/ai-chat-bot
 NEXTAUTH_SECRET=your-nextauth-secret-here
 NEXTAUTH_URL=https://your-app.example.com
