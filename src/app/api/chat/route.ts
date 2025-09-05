@@ -139,12 +139,60 @@ export async function POST(req: NextRequest) {
 
             // 不再发送 routing 事件
 
-            const content = completion?.choices?.[0]?.message?.content || '';
-            const images: string[] = Array.isArray(completion?.choices?.[0]?.message?.images)
-              ? (completion.choices[0].message.images as any[])
-                  .map((im: any) => im?.image_url?.url)
-                  .filter((u: any) => typeof u === 'string' && u)
-              : [];
+            // 兼容不同提供方的返回结构：
+            // - OpenAI 兼容：choices[0].message.content 为 string 或数组
+            // - 一些模型：choices[0].message.images 或 content 数组中的 image_url 项
+            const choice: any = completion?.choices?.[0] || {};
+            const msg: any = choice?.message || {};
+
+            // 文本内容：若为数组，则拼接所有 text 片段
+            let content = '' as string;
+            if (typeof msg?.content === 'string') {
+              content = msg.content;
+            } else if (Array.isArray(msg?.content)) {
+              try {
+                content = msg.content
+                  .filter((p: any) => p && (p.type === 'text' || typeof p.text === 'string'))
+                  .map((p: any) => (typeof p === 'string' ? p : (p.text ?? p.content ?? '')))
+                  .filter((t: any) => typeof t === 'string' && t)
+                  .join('\n\n');
+              } catch {
+                content = '';
+              }
+            }
+
+            // 图片内容：优先读取 message.images；否则从 content 数组中提取 image_url
+            const images: string[] = (() => {
+              const urls: string[] = [];
+              const pushUrl = (u: any) => {
+                if (typeof u === 'string' && u) urls.push(u);
+              };
+              // 1) message.images 形态
+              if (Array.isArray(msg?.images)) {
+                for (const im of msg.images as any[]) {
+                  if (!im) continue;
+                  if (typeof im === 'string') pushUrl(im);
+                  else if (typeof im?.image_url === 'string') pushUrl(im.image_url);
+                  else if (typeof im?.image_url?.url === 'string') pushUrl(im.image_url.url);
+                  else if (typeof im?.url === 'string') pushUrl(im.url);
+                }
+              }
+              // 2) content 数组中的 image_url 形态
+              if (Array.isArray(msg?.content)) {
+                for (const part of msg.content as any[]) {
+                  if (!part) continue;
+                  if (part.type === 'image_url') {
+                    if (typeof part.image_url === 'string') pushUrl(part.image_url);
+                    else if (typeof part.image_url?.url === 'string') pushUrl(part.image_url.url);
+                  } else if (part.type === 'image' || part.type === 'output_image') {
+                    if (typeof part.url === 'string') pushUrl(part.url);
+                    else if (typeof part.image_url?.url === 'string') pushUrl(part.image_url.url);
+                  }
+                }
+              }
+              // 去重
+              return Array.from(new Set(urls));
+            })();
 
             if (content) {
               controller.enqueue(
