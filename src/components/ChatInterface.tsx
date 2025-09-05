@@ -59,7 +59,7 @@ export default function ChatInterface() {
 
       // 如果没有当前对话，或当前对话模型与所选模型不一致，则创建新对话，并确保本地立即包含首条用户消息
       let conversationId = currentConversation?.id;
-      if (!conversationId || currentConversation.model !== currentModel) {
+      if (!conversationId || currentConversation?.model !== currentModel) {
         const title = generateTitleFromMessage(content);
         const newConversation = await createConversationAction({
           title,
