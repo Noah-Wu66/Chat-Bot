@@ -6,6 +6,7 @@ import { useChatStore } from '@/store/chatStore';
 import { MODELS, ModelId } from '@/lib/types';
 import { cn, fileToBase64, compressImage } from '@/utils/helpers';
 import { getCurrentUser } from '@/app/actions/auth';
+import ModelSelector from './ModelSelector';
 
 interface MessageInputProps {
   onSendMessage: (content: string, images?: string[]) => void;
@@ -157,9 +158,12 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
         </div>
       )}
 
-      {/* 顶部栏：联网搜索开关 + 额外控制按钮 */}
+      {/* 顶部栏：模型切换 + 联网搜索开关 + 额外控制按钮 */}
       <div className={cn("mb-2 flex items-center justify-between", variant === 'center' && "px-1") }>
         <div className="flex items-center gap-2 relative">
+          {/* 切换模型按钮（在联网搜索按钮左侧） */}
+          <ModelSelector variant="ghost" />
+
           {currentModel !== 'gemini-image' && (
             <>
               <button

@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { ChevronDown, Zap, Search, Brain, MessageSquare } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
+import { createConversationAction } from '@/app/actions/conversations';
+import { generateTitleFromMessage } from '@/utils/helpers';
 import { MODELS, ModelId, getModelConfig } from '@/lib/types';
 import { cn } from '@/utils/helpers';
 
@@ -12,7 +14,7 @@ interface Props {
 
 export default function ModelSelector({ variant = 'default' }: Props) {
   const [isOpen, setIsOpen] = useState(false);
-  const { currentModel, setCurrentModel } = useChatStore();
+  const { currentModel, setCurrentModel, currentConversation, setCurrentConversation, addConversation, settings } = useChatStore();
 
   const currentModelConfig = getModelConfig(currentModel);
 
@@ -89,9 +91,22 @@ export default function ModelSelector({ variant = 'default' }: Props) {
                     return (
                       <button
                         key={model}
-                        onClick={() => {
+                        onClick={async () => {
+                          if (currentModel === model) {
+                            setIsOpen(false);
+                            return;
+                          }
                           setCurrentModel(model);
                           setIsOpen(false);
+                          // 每个对话仅允许一种模型：切换模型时开启新对话
+                          try {
+                            const title = generateTitleFromMessage('新对话');
+                            const newConv = await createConversationAction({ title, model, settings } as any);
+                            setCurrentConversation({ ...newConv, messages: [] } as any);
+                            addConversation({ ...newConv, messages: [] } as any);
+                          } catch (e) {
+                            // 静默失败
+                          }
                         }}
                         className={cn(
                           "flex w-full items-start gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors",

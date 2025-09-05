@@ -94,7 +94,7 @@ export const useChatStore = create<ChatState>()(
       settingsOpen: false,
       userPanelOpen: false,
       loginOpen: false,
-      webSearchEnabled: true,
+      webSearchEnabled: false,
       error: null,
 
       // Actions
@@ -249,7 +249,7 @@ export const useChatStore = create<ChatState>()(
           settingsOpen: false,
           userPanelOpen: false,
           loginOpen: false,
-          webSearchEnabled: true,
+          webSearchEnabled: false,
           error: null,
         });
       },

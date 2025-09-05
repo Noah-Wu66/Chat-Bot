@@ -192,20 +192,20 @@ export default function MessageList({
             </div>
           )}
 
-          {/* 操作：复制 + 数据来源 */}
+          {/* 操作：复制 + 数据来源（缩小并并排显示）*/}
           {!isUser && (
-            <div className="mt-1 flex items-center gap-2 text-muted-foreground">
+            <div className="mt-1 flex items-center gap-2 text-muted-foreground text-[10px]">
               <button
                 onClick={() => handleCopy(message.content)}
-                className="rounded-full border px-2 py-1 text-[11px] hover:bg-accent hover:text-accent-foreground"
+                className="rounded-full border px-1.5 py-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground"
                 title="复制"
               >
                 <Copy className="h-3 w-3" />
               </button>
 
               {Array.isArray(message?.metadata?.sources) && message.metadata!.sources!.length > 0 && (
-                <div className="ml-1 flex flex-wrap items-center gap-2 text-[11px]">
-                  <span className="inline-flex items-center gap-1 text-muted-foreground"><LinkIcon className="h-3 w-3" />数据来源</span>
+                <div className="ml-1 flex flex-wrap items-center gap-2 text-[10px]">
+                  <span className="inline-flex items-center gap-1 text-muted-foreground"><LinkIcon className="h-3 w-3" />来源</span>
                   {message.metadata!.sources!.slice(0, 5).map((src: any, i: number) => {
                     const title = src?.title || src?.domain || `来源${i + 1}`;
                     const link = src?.link || '#';
@@ -217,7 +217,7 @@ export default function MessageList({
                         href={link}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 hover:bg-accent hover:text-accent-foreground"
+                        className="inline-flex items-center gap-1 rounded border px-1 py-[1px] hover:bg-accent hover:text-accent-foreground"
                         title={title}
                       >
                         {favicon ? (
@@ -226,7 +226,7 @@ export default function MessageList({
                         ) : (
                           <LinkIcon className="h-3 w-3" />
                         )}
-                        <span className="truncate max-w-[120px]">{domain || title}</span>
+                        <span className="truncate max-w-[96px] text-[10px]">{domain || title}</span>
                       </a>
                     );
                   })}
