@@ -337,6 +337,70 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // 非流式分支
+  if (isGeminiImageModel) {
+    // 对于 Gemini 图像模型，使用 Chat Completions 非流式并启用 modalities 以拿到图片
+    const completion: any = await ai.chat.completions.create({
+      model: modelToUse,
+      messages,
+      temperature: settings?.temperature ?? 0.8,
+      max_tokens: settings?.maxTokens ?? 1024,
+      top_p: settings?.topP ?? 1,
+      frequency_penalty: settings?.frequencyPenalty ?? 0,
+      presence_penalty: settings?.presencePenalty ?? 0,
+      ...(typeof settings?.seed === 'number' ? { seed: settings.seed } : {}),
+      modalities: ['image', 'text'],
+    } as any);
+
+    const msg = completion?.choices?.[0]?.message || {};
+    const content = msg?.content || '';
+    // 解析 images: choices[n].message.images[].image_url.url -> Data URL 或链接
+    const collectImages = (resp: any): string[] => {
+      try {
+        const choiceArr = Array.isArray(resp?.choices) ? resp.choices : [];
+        const all = choiceArr.flatMap((c: any) => (c?.message?.images || c?.delta?.images || []));
+        const urls = all
+          .map((img: any) => {
+            const u = img?.image_url?.url || img?.url || '';
+            return typeof u === 'string' ? u : '';
+          })
+          .filter((u: string) => !!u);
+        return Array.from(new Set(urls));
+      } catch {
+        return [];
+      }
+    };
+    const images = collectImages(completion);
+
+    // 保存助手消息
+    await Conversation.updateOne(
+      { id: conversationId, userId: user.sub },
+      {
+        $push: {
+          messages: {
+            id: Date.now().toString(36),
+            role: 'assistant',
+            content,
+            timestamp: new Date(),
+            model: modelToUse,
+            images: images.length > 0 ? images : undefined,
+            metadata: (typeof searchUsed !== 'undefined' && searchUsed) ? { searchUsed: true } : undefined,
+          },
+        },
+        $set: { updatedAt: new Date() },
+      }
+    );
+
+    await logInfo('chat', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
+    return Response.json(
+      {
+        message: { role: 'assistant', content, model: modelToUse, images: images.length > 0 ? images : undefined, metadata: (typeof searchUsed !== 'undefined' && searchUsed) ? { searchUsed: true, sources: searchSources || undefined } : undefined },
+        requestId,
+      },
+      { headers: { 'X-Request-Id': requestId, 'X-Model': modelToUse } }
+    );
+  }
+
   const completion = await ai.chat.completions.create({
     model: modelToUse,
     messages,
