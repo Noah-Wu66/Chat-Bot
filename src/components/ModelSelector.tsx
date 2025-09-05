@@ -34,7 +34,7 @@ export default function ModelSelector({ variant = 'default' }: Props) {
   };
 
   const modelGroups = {
-    '可用模型': ['gpt-4o', 'gpt-5', 'gemini-image'],
+    '可用模型': ['gpt-5', 'gemini-image'],
   } as const;
 
   return (

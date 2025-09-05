@@ -1,18 +1,18 @@
 # AI Chat Bot - 智能对话应用
 
-基于现代 OpenAI 兼容接口构建的 AI 对话应用，支持 GPT-4o 和 GPT-5 模型。
+基于现代 OpenAI 兼容接口构建的 AI 对话应用，支持 GPT-5 和 Gemini 图像模型。
 
 ## 功能特性
 
 ### 🤖 多模型支持
-- **GPT-4o**: `gpt-4o` - 最新的多模态模型，支持文本和图像
-- **GPT-5**: `gpt-5` - 外部统一入口，内部通过 `gpt-5-nano` 自动路由到 `gpt-5`、`gpt-5-mini` 或 `gpt-5-nano`，按问题难度选择最合适的推理模型
+- **GPT-5**: `gpt-5` - 最新的推理模型，支持深度思考
+- **Gemini Image**: `gemini-image` - 图像生成与编辑，支持文本与图像输出
 
 ### 🎯 核心功能
-- **Chat Completions API**: 标准对话模式（GPT-4o）
+- **Chat Completions API**: 标准对话模式（Gemini Image）
 - **Responses API**: 高级多功能接口（GPT-5）
 - **流式输出**: 实时显示回复内容
-- **图像识别**: 支持图片上传和分析（GPT-4o 专属）
+- **图像生成**: 支持图像生成和编辑（Gemini Image 专属）
 - **函数调用**: 内置工具函数（天气查询、数学计算、时间获取）
 - **输出篇幅控制**: 可调节回复详细程度（GPT-5 专属）
 
@@ -71,7 +71,7 @@ npm start
 ## API 使用说明
 
 ### Chat Completions API
-适用于 GPT-4o 模型的标准对话：
+适用于 Gemini Image 模型的标准对话：
 
 ```typescript
 // 基本对话
@@ -80,7 +80,7 @@ const response = await fetch('/api/chat', {
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     message: { content: '你好' },
-    model: 'gpt-4o',
+    model: 'gemini-image',
     settings: {
       temperature: 0.8,
       maxTokens: 4096,
@@ -89,16 +89,15 @@ const response = await fetch('/api/chat', {
   })
 });
 
-// 图像识别
+// 图像生成
 const response = await fetch('/api/chat', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     message: {
-      content: '这张图片里有什么？',
-      images: ['data:image/jpeg;base64,...']
+      content: '生成一个美丽的风景图'
     },
-    model: 'gpt-4o',
+    model: 'gemini-image',
     settings: { stream: true }
   })
 });
@@ -108,7 +107,7 @@ const response = await fetch('/api/chat', {
 适用于 GPT-5 模型的高级功能：
 
 ```typescript
-// GPT-5 自动路由示例
+// GPT-5 推理示例
 const response = await fetch('/api/responses', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
@@ -127,10 +126,8 @@ const response = await fetch('/api/responses', {
 
 | 模型 | API 类型 | 视觉 | 工具 | 推理 | 最大 Token |
 |------|----------|------|------|------|------------|
-| gpt-4o | Chat | ✅ | ✅ | ❌ | 4096 |
-| gpt-5 | Responses | ❌ | ✅ | ✅ | 8192 |
-| gpt-5-mini | Responses | ❌ | ✅ | ✅ | 4096 |
-| gpt-5-nano | Responses | ❌ | ✅ | ✅ | 2048 |
+| gpt-5 | Responses | ✅ | ✅ | ✅ | 8192 |
+| gemini-image | Chat | ✅ | ❌ | ❌ | 4096 |
 
 ## 内置工具函数
 

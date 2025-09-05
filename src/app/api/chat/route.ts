@@ -25,8 +25,7 @@ export async function POST(req: NextRequest) {
 
   const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
   const normalizeModel = (m?: string) => {
-    if (!m) return 'openai/gpt-4o';
-    if (m === 'gpt-4o') return 'openai/gpt-4o';
+    if (!m) return 'openai/gpt-5';
     if (m === 'gpt-5') return 'openai/gpt-5';
     if (m === 'gemini-image') return 'google/gemini-2.5-flash-image-preview';
     return m;

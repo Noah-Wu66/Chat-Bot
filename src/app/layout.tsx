@@ -6,8 +6,8 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'AI Chat Bot - 智能对话助手',
-  description: '现代化 AI 对话应用，支持 GPT-4o 和 GPT-5 模型',
-  keywords: ['AI', 'ChatBot', '人工智能', '对话', 'GPT-4o', 'GPT-5'],
+  description: '现代化 AI 对话应用，支持 GPT-5 和 Gemini 图像模型',
+  keywords: ['AI', 'ChatBot', '人工智能', '对话', 'GPT-5', 'Gemini'],
   authors: [{ name: 'AI Chat Bot' }],
 };
 

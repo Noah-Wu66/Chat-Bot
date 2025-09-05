@@ -57,18 +57,6 @@ export interface ConversationSettings {
 
 // 支持的模型列表（取消任何路由与保底回退）
 export const MODELS: Record<string, ModelConfig> = {
-  // GPT-4o（面向聊天，多模态）
-  'gpt-4o': {
-    name: 'GPT-4o',
-    description: '多模态对话模型，支持文本和图像',
-    type: 'chat',
-    supportsVision: true,
-    supportsSearch: false,
-    supportsTools: true,
-    supportsReasoning: false,
-    supportsVerbosity: false,
-    maxTokens: 4096,
-  },
   // GPT-5（面向 Responses API 的推理模型）
   'gpt-5': {
     name: 'GPT-5',
@@ -96,8 +84,6 @@ export const MODELS: Record<string, ModelConfig> = {
     supportsTemperature: true,
     maxTokens: 4096,
   },
-
-  // 注意：移除 gpt-4o-mini 与任何“路由别名”模型
 };
 
 export type ModelId = keyof typeof MODELS;
