@@ -130,71 +130,104 @@ export async function POST(req: NextRequest) {
               encoder.encode(`data: ${JSON.stringify({ type: 'start', requestId, route: 'chat', model: modelToUse })}\n\n`)
             );
 
-            // 调用非流式，携带 modalities 以启用图像输出
-            const completion: any = await ai.chat.completions.create({
-              model: modelToUse,
-              messages,
-              temperature: settings?.temperature ?? 0.8,
-              max_tokens: settings?.maxTokens ?? 1024,
-              top_p: settings?.topP ?? 1,
-              frequency_penalty: settings?.frequencyPenalty ?? 0,
-              presence_penalty: settings?.presencePenalty ?? 0,
-              ...(typeof settings?.seed === 'number' ? { seed: settings.seed } : {}),
-              modalities: ['image', 'text'],
-            } as any);
-
-            // 不再发送 routing 事件
-
-            const content = completion?.choices?.[0]?.message?.content || '';
-            const images: string[] = Array.isArray(completion?.choices?.[0]?.message?.images)
-              ? (completion.choices[0].message.images as any[])
-                  .map((im: any) => im?.image_url?.url)
-                  .filter((u: any) => typeof u === 'string' && u)
-              : [];
-
-            await logInfo('chat', 'gemini.result', 'Gemini 返回结果', { imageCount: images.length, hasText: !!content }, requestId);
-
-            if (content) {
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ type: 'content', content })}\n\n`)
-              );
-            }
-            if (images.length > 0) {
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ type: 'images', images })}\n\n`)
-              );
-            }
-
-            // 保存助手消息（包含 images）
-            try {
-              await Conversation.updateOne(
-                { id: conversationId, userId: user.sub },
-                {
-                  $push: {
-                    messages: {
-                      id: Date.now().toString(36),
-                      role: 'assistant',
-                      content: content || '',
-                      timestamp: new Date(),
-                      model: modelToUse,
-                      images: images.length > 0 ? images : undefined,
-                      metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined,
-                    },
-                  },
-                  $set: { updatedAt: new Date() },
+            // 使用 Responses API 以支持图像输出（modalities: ['image', 'text']）
+            const toInputImage = (img: string): any => {
+              if (typeof img === 'string' && img.startsWith('data:')) {
+                const match = img.match(/^data:([^;]+);base64,(.*)$/);
+                if (match) {
+                  return { type: 'input_image', image_data: match[2], mime_type: match[1] } as any;
                 }
-              );
-            } catch {}
+              }
+              return { type: 'input_image', image_url: img } as any;
+            };
+            const parts: any[] = [];
+            if (typeof message?.content === 'string' && message.content.trim()) {
+              parts.push({ type: 'input_text', text: message.content.trim() });
+            }
+            (message.images || []).forEach((img) => parts.push(toInputImage(img)));
 
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
-            controller.close();
-            await logInfo('chat', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
+            const inputPayload: any[] = [
+              { role: 'developer', content: [{ type: 'input_text', text: '总是用中文回复' }] },
+              { role: 'user', content: parts },
+            ];
+
+            const req: any = {
+              model: modelToUse,
+              input: inputPayload,
+              stream: true,
+              modalities: ['image', 'text'],
+              ...(typeof settings?.temperature === 'number' ? { temperature: settings.temperature } : {}),
+              ...(typeof settings?.maxTokens === 'number' ? { max_output_tokens: settings.maxTokens } : {}),
+            };
+
+            const response = await (ai as any).responses.create(req);
+
+            let fullContent = '';
+            const imageUrls: string[] = [];
+
+            for await (const event of response as AsyncIterable<any>) {
+              if (event.type === 'response.output_text.delta') {
+                const delta = event.delta || '';
+                if (delta) {
+                  fullContent += delta;
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ type: 'content', content: delta })}\n\n`)
+                  );
+                }
+              } else if (event.type === 'response.output_image.delta') {
+                // 兼容多种结构：image_url 或 base64 数据
+                try {
+                  const d = (event as any).delta || {};
+                  let url: string | null = null;
+                  if (typeof d?.image_url === 'string') url = d.image_url;
+                  if (!url && typeof d?.url === 'string') url = d.url;
+                  if (!url && d?.image_url?.url) url = d.image_url.url;
+                  if (!url && (d?.b64_json || d?.data)) {
+                    const mime = d?.mime_type || 'image/png';
+                    const b64 = d?.b64_json || d?.data;
+                    url = `data:${mime};base64,${b64}`;
+                  }
+                  if (url) {
+                    imageUrls.push(url);
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify({ type: 'images', images: [url] })}\n\n`)
+                    );
+                  }
+                } catch {}
+              } else if (event.type === 'response.completed') {
+                // 写入 DB 并收尾
+                try {
+                  await Conversation.updateOne(
+                    { id: conversationId, userId: user.sub },
+                    {
+                      $push: {
+                        messages: {
+                          id: Date.now().toString(36),
+                          role: 'assistant',
+                          content: fullContent,
+                          timestamp: new Date(),
+                          model: modelToUse,
+                          images: imageUrls.length > 0 ? imageUrls : undefined,
+                          metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined,
+                        },
+                      },
+                      $set: { updatedAt: new Date() },
+                    }
+                  );
+                } catch {}
+
+                await logInfo('chat', 'gemini.result', 'Gemini 返回结果', { imageCount: imageUrls.length, hasText: !!fullContent }, requestId);
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+                controller.close();
+                await logInfo('chat', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
+              }
+            }
           } catch (e: any) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e?.message || String(e) })}\n\n`)
             );
             controller.close();
-            await logError('chat', 'api.error', 'Gemini 图像模型非流式失败', { error: e?.message || String(e) }, requestId);
+            await logError('chat', 'api.error', 'Gemini 图像模型流式失败', { error: e?.message || String(e) }, requestId);
           }
         },
       });
