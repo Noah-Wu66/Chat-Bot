@@ -255,8 +255,8 @@ export default function MessageList({
         <div className="group">
           {messages.map(renderMessage)}
 
-          {/* 等待模型响应时的占位加载：若无文本但存在推理流，也显示“正在回复”块 */}
-          {isStreaming && !streamingContent && !reasoningContent && (
+          {/* 等待模型响应时的占位加载 */}
+          {isStreaming && !streamingContent && (
             <div className="chat-message flex gap-3 p-4">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
                 <Bot className="h-4 w-4" />
@@ -274,8 +274,8 @@ export default function MessageList({
             </div>
           )}
 
-          {/* 流式输出（包含仅有推理的情况）*/}
-          {isStreaming && (streamingContent || reasoningContent) && (
+          {/* 流式输出 */}
+          {isStreaming && streamingContent && (
             <div className="chat-message flex gap-3 p-4">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
                 <Bot className="h-4 w-4" />
@@ -300,8 +300,7 @@ export default function MessageList({
                   </div>
                 )}
 
-                {streamingContent && (
-                  <div className="message-content">
+                <div className="message-content">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
@@ -312,8 +311,7 @@ export default function MessageList({
                     {streamingContent}
                   </ReactMarkdown>
                   <span className="stream-cursor" />
-                  </div>
-                )}
+                </div>
               </div>
             </div>
           )}

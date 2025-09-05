@@ -27,6 +27,16 @@ export async function logRun(
   } catch (e) {
     // 避免日志失败影响主流程
   }
+  // 同步输出到服务端控制台，便于在 Vercel Logs 查看
+  try {
+    const ts = new Date().toISOString();
+    const prefix = `[RunLog][${route}][${level}] ${stage} @ ${ts}`;
+    const payload = meta ? { requestId, meta } : { requestId };
+    // eslint-disable-next-line no-console
+    (console as any)[level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log'](prefix, message, payload);
+  } catch {
+    // ignore console failure
+  }
 }
 
 export const logInfo = (route: LogRoute, stage: string, message: string, meta?: Record<string, any>, requestId?: string) =>

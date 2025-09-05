@@ -219,6 +219,8 @@ export async function POST(req: Request) {
         'Cache-Control': 'no-cache, no-transform',
         Connection: 'keep-alive',
         'X-Accel-Buffering': 'no',
+        'X-Request-Id': requestId,
+        'X-Model': modelToUse,
       },
     });
   }
@@ -286,10 +288,13 @@ export async function POST(req: Request) {
   );
 
   await logInfo('responses', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
-  return Response.json({
-    message: { role: 'assistant', content, model: modelToUse, metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined },
-    requestId,
-  });
+  return Response.json(
+    {
+      message: { role: 'assistant', content, model: modelToUse, metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined },
+      requestId,
+    },
+    { headers: { 'X-Request-Id': requestId, 'X-Model': modelToUse } }
+  );
 }
 
 
