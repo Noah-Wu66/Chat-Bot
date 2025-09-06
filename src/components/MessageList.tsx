@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { User, Bot, Copy, Brain, Link as LinkIcon } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { User, Bot, Copy, Brain, Link as LinkIcon, ExternalLink } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -9,6 +9,7 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Message } from '@/lib/types';
 import { formatTime, copyToClipboard, cn } from '@/utils/helpers';
 import LoadingSpinner from './LoadingSpinner';
+import SearchSourcesModal from './SearchSourcesModal';
 
 interface MessageListProps {
   messages: Message[];
@@ -24,6 +25,8 @@ export default function MessageList({
   reasoningContent
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [sourcesModalOpen, setSourcesModalOpen] = useState(false);
+  const [sourcesForModal, setSourcesForModal] = useState<any[]>([]);
 
   // 自动滚动到底部
   useEffect(() => {
@@ -187,7 +190,7 @@ export default function MessageList({
             </div>
           )}
 
-          {/* 操作：复制 + 数据来源（缩小并并排显示）*/}
+          {/* 操作：复制 + 数据来源（圆角长方形容器 + 查看来源）*/}
           {!isUser && (
             <div className="mt-1 flex items-center gap-2 text-muted-foreground text-[10px]">
               <button
@@ -199,32 +202,48 @@ export default function MessageList({
               </button>
 
               {Array.isArray(message?.metadata?.sources) && message.metadata!.sources!.length > 0 && (
-                <div className="ml-1 flex flex-wrap items-center gap-2 text-[10px]">
-                  <span className="inline-flex items-center gap-1 text-muted-foreground"><LinkIcon className="h-3 w-3" />来源</span>
-                  {message.metadata!.sources!.slice(0, 5).map((src: any, i: number) => {
-                    const title = src?.title || src?.domain || `来源${i + 1}`;
-                    const link = src?.link || '#';
-                    const domain = src?.domain || '';
-                    const favicon = src?.favicon || '';
-                    return (
-                      <a
-                        key={i}
-                        href={link}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 rounded border px-1 py-[1px] hover:bg-accent hover:text-accent-foreground"
-                        title={title}
-                      >
-                        {favicon ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={favicon} alt={domain || title} className="h-3 w-3" />
-                        ) : (
-                          <LinkIcon className="h-3 w-3" />
-                        )}
-                        <span className="truncate max-w-[96px] text-[10px]">{domain || title}</span>
-                      </a>
-                    );
-                  })}
+                <div className="ml-1 flex flex-1 items-center gap-2">
+                  <div className="flex min-w-0 flex-1 items-center justify-between rounded-md border bg-card/60 px-2 py-1">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 whitespace-nowrap text-muted-foreground"><LinkIcon className="h-3 w-3" />来源</span>
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        {message.metadata!.sources!.slice(0, 5).map((src: any, i: number) => {
+                          const title = src?.title || src?.domain || `来源${i + 1}`;
+                          const link = src?.link || '#';
+                          const domain = src?.domain || '';
+                          const favicon = src?.favicon || '';
+                          return (
+                            <a
+                              key={i}
+                              href={link}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 rounded border px-1 py-[1px] hover:bg-accent hover:text-accent-foreground"
+                              title={title}
+                            >
+                              {favicon ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={favicon} alt={domain || title} className="h-3 w-3" />
+                              ) : (
+                                <LinkIcon className="h-3 w-3" />
+                              )}
+                              <span className="truncate max-w-[96px] text-[10px]">{domain || title}</span>
+                            </a>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="ml-2 inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground"
+                      onClick={() => {
+                        setSourcesForModal(message.metadata!.sources!);
+                        setSourcesModalOpen(true);
+                      }}
+                    >
+                      查看来源 <ExternalLink className="h-3 w-3" />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -249,6 +268,13 @@ export default function MessageList({
       ) : (
         <div className="group">
           {messages.map(renderMessage)}
+
+          {sourcesModalOpen && (
+            <SearchSourcesModal
+              sources={sourcesForModal}
+              onClose={() => setSourcesModalOpen(false)}
+            />
+          )}
 
           {/* 等待模型响应时的占位加载 */}
           {isStreaming && !streamingContent && (

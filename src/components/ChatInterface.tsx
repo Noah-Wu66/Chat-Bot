@@ -1,14 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS } from '@/lib/types';
 import { generateId, generateTitleFromMessage } from '@/utils/helpers';
 import { createConversationAction } from '@/app/actions/conversations';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
-import SearchSourcesBar from './SearchSourcesBar';
-import SearchSourcesModal from './SearchSourcesModal';
+// 删除顶部来源条相关导入
 import ModelSelector from './ModelSelector';
 import UserPanel from './UserPanel';
 import LoginModal from './LoginModal';
@@ -28,10 +27,7 @@ export default function ChatInterface() {
 
   const [streamingContent, setStreamingContent] = useState('');
   const [reasoningContent, setReasoningContent] = useState('');
-  const [searchSources, setSearchSources] = useState<any[]>([]);
-  const [sourcesOpen, setSourcesOpen] = useState(false);
-
-  const modelConfig = MODELS[currentModel];
+  // 已移除顶部来源条，不再在此维护来源弹窗状态
   const { webSearchEnabled } = useChatStore();
 
 
@@ -175,7 +171,6 @@ export default function ChatInterface() {
                   case 'search_sources':
                     if (Array.isArray(data.sources)) {
                       latestSources = data.sources;
-                      setSearchSources(latestSources);
                     }
                     break;
 
@@ -258,9 +253,7 @@ export default function ChatInterface() {
             id: generateId(),
             timestamp: new Date(),
           });
-          if (data.message?.metadata?.sources && Array.isArray(data.message.metadata.sources)) {
-            setSearchSources(data.message.metadata.sources);
-          }
+          // 顶部来源条已移除，不再维护全局来源列表
           const routing = data.routing;
           // 运行日志已在服务端记录
         }
@@ -342,14 +335,7 @@ export default function ChatInterface() {
             reasoningContent={reasoningContent}
           />
 
-          {/* 搜索来源聚合条 */}
-          {Array.isArray(searchSources) && searchSources.length > 0 && (
-            <div className="border-t border-border bg-background px-4 py-2">
-              <div className="mx-auto max-w-4xl">
-                <SearchSourcesBar sources={searchSources} onOpen={() => setSourcesOpen(true)} />
-              </div>
-            </div>
-          )}
+          {/* 顶部来源条已按需求移除 */}
 
           {/* 输入区域 */}
           <div className="border-t border-border bg-background p-4">
@@ -367,10 +353,7 @@ export default function ChatInterface() {
       <UserPanel />
       {/* 登录弹窗 */}
       <LoginModal />
-      {/* 搜索来源弹窗 */}
-      {sourcesOpen && (
-        <SearchSourcesModal sources={searchSources} onClose={() => setSourcesOpen(false)} />
-      )}
+      {/* 顶部来源条及其弹窗已移除 */}
     </div>
   );
 }
