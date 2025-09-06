@@ -211,6 +211,9 @@ export default function ChatInterface() {
                       latestSources = data.sources;
                     }
                     break;
+                  case 'debug':
+                    console.log('[SSE][debug]', data);
+                    break;
 
                   case 'reasoning':
                     reasoning += data.content;

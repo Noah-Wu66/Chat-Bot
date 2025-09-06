@@ -186,6 +186,31 @@ export async function POST(req: Request) {
     return { text, images: uniqueImages };
   };
 
+  // 调试：分析返回消息结构，便于前端定位
+  const analyzeMessageStructure = (msg: any): any => {
+    const info: any = {
+      contentType: typeof msg?.content,
+      contentIsArray: Array.isArray(msg?.content),
+      parts: 0,
+      types: [] as string[],
+      hasImageUrl: 0,
+      hasInlineData: 0,
+      hasImageObj: 0,
+    };
+    const arr = Array.isArray(msg?.content) ? (msg as any).content : [];
+    info.parts = arr.length;
+    for (const p of arr) {
+      try {
+        const t = (p as any)?.type;
+        if (typeof t === 'string') info.types.push(t);
+        if ((p as any)?.image_url) info.hasImageUrl++;
+        if ((p as any)?.inlineData || (p as any)?.inline_data) info.hasInlineData++;
+        if ((p as any)?.image) info.hasImageObj++;
+      } catch {}
+    }
+    return info;
+  };
+
   // 从用户输入里提取主要文本（用于必要时触发图像生成的兜底）
   const extractPrimaryTextFromInput = (src: string | any[]): string => {
     if (Array.isArray(src)) {
@@ -260,6 +285,12 @@ export async function POST(req: Request) {
           const choice = resp?.choices?.[0];
           const msg = choice?.message || {};
           const parsed = extractTextAndImagesFromMessage(msg);
+          try {
+            const dbg = analyzeMessageStructure(msg);
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: 'debug', stage: 'parsed', dbg, textLen: parsed.text.length, images: parsed.images.length })}\n\n`)
+            );
+          } catch {}
           let textContent = parsed.text;
           let images = parsed.images.slice();
 
@@ -281,6 +312,11 @@ export async function POST(req: Request) {
                   if (typeof b64 === 'string' && b64) images.push(`data:image/png;base64,${b64}`);
                   if (typeof url === 'string' && url) images.push(url);
                 }
+                try {
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ type: 'debug', stage: 'fallback_images_generate', generated: Array.isArray(arr) ? arr.length : 0 })}\n\n`)
+                  );
+                } catch {}
               }
             } catch {}
           }
