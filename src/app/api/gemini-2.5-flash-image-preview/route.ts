@@ -186,6 +186,17 @@ export async function POST(req: Request) {
     return { text, images: uniqueImages };
   };
 
+  // 从用户输入里提取主要文本（用于必要时触发图像生成的兜底）
+  const extractPrimaryTextFromInput = (src: string | any[]): string => {
+    if (Array.isArray(src)) {
+      const first = src.find((i: any) => Array.isArray(i?.content));
+      const contentArr = Array.isArray(first?.content) ? first.content : [];
+      const textItem = contentArr.find((c: any) => c?.type === 'input_text');
+      return textItem?.text || '';
+    }
+    return String(src ?? '');
+  };
+
   // 可选：联网搜索
   let searchUsed = false;
   let injectedHistoryMsg: any | null = null;
@@ -248,7 +259,31 @@ export async function POST(req: Request) {
 
           const choice = resp?.choices?.[0];
           const msg = choice?.message || {};
-          const { text: textContent, images } = extractTextAndImagesFromMessage(msg);
+          const parsed = extractTextAndImagesFromMessage(msg);
+          let textContent = parsed.text;
+          let images = parsed.images.slice();
+
+          // 若未返回图片，尝试使用 Images API 进行兜底生成
+          if (images.length === 0) {
+            try {
+              const promptText = extractPrimaryTextFromInput(input);
+              if (promptText) {
+                const imgResp: any = await (ai as any).images.generate({
+                  model: modelToUse,
+                  prompt: promptText,
+                  size: '1024x1024',
+                  n: 1,
+                });
+                const arr = (imgResp?.data || []) as any[];
+                for (const item of arr) {
+                  const b64 = item?.b64_json || item?.data || '';
+                  const url = item?.url || '';
+                  if (typeof b64 === 'string' && b64) images.push(`data:image/png;base64,${b64}`);
+                  if (typeof url === 'string' && url) images.push(url);
+                }
+              }
+            } catch {}
+          }
 
           if (textContent) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'content', content: textContent })}\n\n`));
@@ -326,7 +361,29 @@ export async function POST(req: Request) {
     const msg = choice?.message || {};
     const result = extractTextAndImagesFromMessage(msg);
     content = result.text;
-    imagesNonStream = result.images;
+    imagesNonStream = result.images.slice();
+
+    // 若没有图片，使用 Images API 兜底一次
+    if (!imagesNonStream || imagesNonStream.length === 0) {
+      try {
+        const promptText = extractPrimaryTextFromInput(input);
+        if (promptText) {
+          const imgResp: any = await (ai as any).images.generate({
+            model: modelToUse,
+            prompt: promptText,
+            size: '1024x1024',
+            n: 1,
+          });
+          const arr = (imgResp?.data || []) as any[];
+          for (const item of arr) {
+            const b64 = item?.b64_json || item?.data || '';
+            const url = item?.url || '';
+            if (typeof b64 === 'string' && b64) imagesNonStream.push(`data:image/png;base64,${b64}`);
+            if (typeof url === 'string' && url) imagesNonStream.push(url);
+          }
+        }
+      } catch {}
+    }
   } catch (e: any) {
     console.error('[Gemini] 非流式请求失败:', e?.message || String(e));
     throw e;

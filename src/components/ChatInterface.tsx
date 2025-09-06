@@ -111,6 +111,21 @@ export default function ChatInterface() {
         ...(MODELS[currentModel]?.supportsSearch ? { webSearch: webSearchEnabled } : {}),
       };
 
+      // 调试：请求概览（不含敏感信息）
+      try {
+        const inputType = Array.isArray(input) ? 'array' : 'string';
+        const imgCount = Array.isArray(images) ? images.length : 0;
+        console.log('[Chat] sending request', {
+          endpoint: apiEndpoint,
+          model: currentModel,
+          inputType,
+          hasImages: imgCount > 0,
+          imagesCount: imgCount,
+          stream: true,
+          webSearch: MODELS[currentModel]?.supportsSearch ? webSearchEnabled : undefined,
+        });
+      } catch {}
+
       let response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -126,6 +141,15 @@ export default function ChatInterface() {
 
       const contentType = response.headers.get('Content-Type') || '';
       const canStream = contentType.includes('text/event-stream');
+
+      // 调试：响应头
+      try {
+        console.log('[Chat] response headers', {
+          contentType,
+          xModel: response.headers.get('X-Model'),
+          xRequestId: response.headers.get('X-Request-Id'),
+        });
+      } catch {}
 
       if (canStream) {
         // 处理流式响应
@@ -165,11 +189,19 @@ export default function ChatInterface() {
                   case 'content':
                     assistantContent += data.content;
                     setStreamingContent(assistantContent);
+                    // 调试：文本增量长度
+                    if (data.content) {
+                      console.debug('[SSE] content delta', { length: String(data.content).length });
+                    }
                     break;
                   case 'images':
                     if (Array.isArray(data.images)) {
                       assistantImages = data.images.filter((u: any) => typeof u === 'string' && u);
                     }
+                    console.log('[SSE] images event received', {
+                      count: Array.isArray(data.images) ? data.images.length : 0,
+                      sample: Array.isArray(data.images) && data.images.length > 0 ? data.images[0]?.slice?.(0, 64) : undefined,
+                    });
                     break;
                   case 'search':
                     searchUsed = !!(data.used || data.searchUsed);
@@ -215,6 +247,10 @@ export default function ChatInterface() {
                       },
                     };
                     addMessage(assistantMessage);
+                    console.log('[SSE] done: assistant message appended', {
+                      textLength: assistantContent.length,
+                      images: assistantImages?.length || 0,
+                    });
                     assistantAdded = true;
                     // 已本地追加消息，避免再拉取覆盖
                     // 归一化路由日志（done 时若未提前收到 routing 事件，则以当前模型作为兜底）
@@ -231,6 +267,7 @@ export default function ChatInterface() {
                 }
               } catch (parseError) {
                 // 忽略解析错误
+                console.debug('[SSE] parse error', parseError);
               }
             }
           }
@@ -254,6 +291,10 @@ export default function ChatInterface() {
         const data = await response.json();
 
         if (data.message) {
+          console.log('[HTTP] non-stream message', {
+            hasImages: Array.isArray(data?.message?.images) && data.message.images.length > 0,
+            imagesCount: Array.isArray(data?.message?.images) ? data.message.images.length : 0,
+          });
           addMessage({
             ...data.message,
             id: generateId(),
@@ -269,6 +310,7 @@ export default function ChatInterface() {
       if (aborted) {
         // 用户主动停止：静默处理
       } else {
+      console.error('[Chat] request failed', error);
       const errInfo = error instanceof Error ? {
         name: error.name,
         message: error.message,
