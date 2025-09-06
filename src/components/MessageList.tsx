@@ -10,6 +10,7 @@ import { Message } from '@/lib/types';
 import { formatTime, copyToClipboard, cn } from '@/utils/helpers';
 import LoadingSpinner from './LoadingSpinner';
 import SearchSourcesModal from './SearchSourcesModal';
+import ImagePreviewModal from './ImagePreviewModal';
 
 interface MessageListProps {
   messages: Message[];
@@ -27,6 +28,7 @@ export default function MessageList({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [sourcesModalOpen, setSourcesModalOpen] = useState(false);
   const [sourcesForModal, setSourcesForModal] = useState<any[]>([]);
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
 
   // 自动滚动到底部
   useEffect(() => {
@@ -132,14 +134,23 @@ export default function MessageList({
 
           {/* 图片 */}
           {message.images && message.images.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-3">
               {message.images.map((image, imgIndex) => (
-                <img
+                <button
                   key={imgIndex}
-                  src={image}
-                  alt={`消息图片 ${imgIndex + 1}`}
-                  className="image-preview max-h-32"
-                />
+                  className="group relative overflow-hidden rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary"
+                  onClick={() => {
+                    setPreviewSrc(image);
+                  }}
+                  title="点击预览大图"
+                >
+                  <img
+                    src={image}
+                    alt={`消息图片 ${imgIndex + 1}`}
+                    className="h-48 max-h-72 w-auto max-w-full object-contain"
+                  />
+                  <div className="pointer-events-none absolute inset-0 hidden items-end justify-end gap-1 p-1 group-hover:flex" />
+                </button>
               ))}
             </div>
           )}
@@ -280,6 +291,10 @@ export default function MessageList({
               sources={sourcesForModal}
               onClose={() => setSourcesModalOpen(false)}
             />
+          )}
+
+          {previewSrc && (
+            <ImagePreviewModal src={previewSrc} onClose={() => setPreviewSrc(null)} />
           )}
 
           {/* 等待模型响应时的占位加载 */}
