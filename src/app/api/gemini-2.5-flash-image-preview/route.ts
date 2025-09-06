@@ -196,13 +196,11 @@ export async function POST(req: Request) {
                     images.push(imageUrl);
                   }
                 }
-                // inline_data / inlineData: { data, mime_type|mimeType }
-                const inlineSnake = (part as any).inline_data;
-                const inlineCamel = (part as any).inlineData;
-                const inline = inlineSnake || inlineCamel;
-                if (inline && typeof inline === 'object') {
-                  const data = inline.data;
-                  const mime = inline.mime_type || inline.mimeType || 'image/png';
+                // inlineData: { data, mimeType } - 根据官方文档使用驼峰式
+                const inlineData = (part as any).inlineData;
+                if (inlineData && typeof inlineData === 'object') {
+                  const data = inlineData.data;
+                  const mime = inlineData.mimeType || 'image/png';
                   if (typeof data === 'string' && data) {
                     images.push(`data:${mime};base64,${data}`);
                   }
@@ -220,23 +218,26 @@ export async function POST(req: Request) {
             }
           } catch {}
 
-          // 2) 兼容：multi_mod_content/multiModContent（旧字段）
-          try {
-            const mm: any[] = (msg as any).multi_mod_content || (msg as any).multiModContent || [];
-            if (Array.isArray(mm)) {
-              for (const part of mm) {
-                const hasSnake = part && typeof part === 'object' && part.inline_data;
-                const hasCamel = part && typeof part === 'object' && part.inlineData;
-                const data = hasSnake ? part.inline_data?.data : hasCamel ? part.inlineData?.data : undefined;
-                const mime = hasSnake ? (part.inline_data?.mime_type || 'image/png') : hasCamel ? (part.inlineData?.mimeType || 'image/png') : 'image/png';
-                const text = typeof part?.text === 'string' ? part.text : '';
-                if (text) textContent += (textContent ? '\n' : '') + text;
-                if (typeof data === 'string' && data) {
-                  images.push(`data:${mime};base64,${data}`);
+          // 2) 兼容：multi_mod_content/multiModContent
+          // 只有在 content 不是数组时才处理，避免重复
+          if (!Array.isArray((msg as any).content)) {
+            try {
+              const mm: any[] = (msg as any).multi_mod_content || (msg as any).multiModContent || [];
+              if (Array.isArray(mm)) {
+                for (const part of mm) {
+                  // 根据官方文档，使用 inlineData 和 mimeType
+                  const inlineData = part?.inlineData;
+                  const data = inlineData?.data;
+                  const mime = inlineData?.mimeType || 'image/png';
+                  const text = typeof part?.text === 'string' ? part.text : '';
+                  if (text) textContent += (textContent ? '\n' : '') + text;
+                  if (typeof data === 'string' && data) {
+                    images.push(`data:${mime};base64,${data}`);
+                  }
                 }
               }
-            }
-          } catch {}
+            } catch {}
+          }
 
           if (textContent) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'content', content: textContent })}\n\n`));
@@ -333,12 +334,10 @@ export async function POST(req: Request) {
               imagesNonStream.push(imageUrl);
             }
           }
-          const inlineSnake = (part as any).inline_data;
-          const inlineCamel = (part as any).inlineData;
-          const inline = inlineSnake || inlineCamel;
-          if (inline && typeof inline === 'object') {
-            const data = inline.data;
-            const mime = inline.mime_type || inline.mimeType || 'image/png';
+          const inlineData = (part as any).inlineData;
+          if (inlineData && typeof inlineData === 'object') {
+            const data = inlineData.data;
+            const mime = inlineData.mimeType || 'image/png';
             if (typeof data === 'string' && data) {
               imagesNonStream.push(`data:${mime};base64,${data}`);
             }
@@ -356,22 +355,24 @@ export async function POST(req: Request) {
     } catch {}
 
     // 2) 兼容旧字段 multi_mod_content/multiModContent
-    try {
-      const mm: any[] = (msg as any).multi_mod_content || (msg as any).multiModContent || [];
-      if (Array.isArray(mm)) {
-        for (const part of mm) {
-          const hasSnake = part && typeof part === 'object' && part.inline_data;
-          const hasCamel = part && typeof part === 'object' && part.inlineData;
-          const data = hasSnake ? part.inline_data?.data : hasCamel ? part.inlineData?.data : undefined;
-          const mime = hasSnake ? (part.inline_data?.mime_type || 'image/png') : hasCamel ? (part.inlineData?.mimeType || 'image/png') : 'image/png';
-          const text = typeof part?.text === 'string' ? part.text : '';
-          if (text) content += (content ? '\n' : '') + text;
-          if (typeof data === 'string' && data) {
-            imagesNonStream.push(`data:${mime};base64,${data}`);
+    // 只有在 content 不是数组时才处理，避免重复
+    if (!Array.isArray((msg as any).content)) {
+      try {
+        const mm: any[] = (msg as any).multi_mod_content || (msg as any).multiModContent || [];
+        if (Array.isArray(mm)) {
+          for (const part of mm) {
+            const inlineData = part?.inlineData;
+            const data = inlineData?.data;
+            const mime = inlineData?.mimeType || 'image/png';
+            const text = typeof part?.text === 'string' ? part.text : '';
+            if (text) content += (content ? '\n' : '') + text;
+            if (typeof data === 'string' && data) {
+              imagesNonStream.push(`data:${mime};base64,${data}`);
+            }
           }
         }
-      }
-    } catch {}
+      } catch {}
+    }
   } catch (e: any) {
     console.error('[Gemini] 非流式请求失败:', e?.message || String(e));
     throw e;
