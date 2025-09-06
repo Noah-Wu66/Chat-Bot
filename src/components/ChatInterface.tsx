@@ -354,19 +354,23 @@ export default function ChatInterface() {
     <div className="flex h-full flex-col">
       {/* 顶栏：始终显示模型切换器 */}
       <div className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center justify-between px-4 py-3 md:px-6">
           {/* 左侧：模型切换（ghost 变体） */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             <ModelSelector variant="ghost" />
           </div>
 
-          {/* 中间：标题占位 */}
-          <div className="flex-1 flex items-center justify-center">
+          {/* 中间：标题占位 - 移动端隐藏过长标题 */}
+          <div className="flex-1 flex items-center justify-center px-2">
             {currentConversation?.title && (
-              <div className="text-xs text-muted-foreground">{currentConversation.title}</div>
+              <div className="text-xs text-muted-foreground truncate max-w-[120px] sm:max-w-[200px] md:max-w-none">{currentConversation.title}</div>
             )}
           </div>
 
+          {/* 右侧：用户面板按钮 - 移动端 */}
+          <div className="flex items-center">
+            <UserPanel />
+          </div>
         </div>
       </div>
 
@@ -374,12 +378,12 @@ export default function ChatInterface() {
       {(!currentConversation || currentConversation.messages.length === 0) ? (
         // 首页空状态（仿 ChatGPT）
         <div className="flex-1 overflow-y-auto">
-          <div className="mx-auto flex h-full max-w-3xl flex-col items-center justify-center gap-8 px-6 text-center">
+          <div className="mx-auto flex h-full max-w-3xl flex-col items-center justify-center gap-6 md:gap-8 px-4 sm:px-6 text-center">
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight">您在忙什么？</h1>
-              <p className="mt-2 text-sm text-muted-foreground">输入问题或指令，开始与智能助手对话</p>
+              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">您在忙什么？</h1>
+              <p className="mt-2 text-sm text-muted-foreground px-4">输入问题或指令，开始与智能助手对话</p>
             </div>
-            <div className="w-full">
+            <div className="w-full max-w-2xl">
               <MessageInput
                 onSendMessage={handleSendMessage}
                 disabled={isStreaming}
@@ -388,7 +392,7 @@ export default function ChatInterface() {
                 onStop={handleStopStreaming}
               />
             </div>
-            <div className="text-xs text-muted-foreground">ChatGPT 可能会出错，请核查重要信息。</div>
+            <div className="text-xs text-muted-foreground px-4">AI助手可能会出错，请核查重要信息。</div>
           </div>
         </div>
       ) : (
@@ -404,7 +408,7 @@ export default function ChatInterface() {
           {/* 顶部来源条已按需求移除 */}
 
           {/* 输入区域 */}
-          <div className="border-t border-border bg-background p-4">
+          <div className="border-t border-border bg-background p-3 sm:p-4 pb-safe-area-inset-bottom">
             <div className="mx-auto max-w-4xl">
               <MessageInput
                 onSendMessage={handleSendMessage}
@@ -416,8 +420,6 @@ export default function ChatInterface() {
         </>
       )}
 
-      {/* 用户管理面板 */}
-      <UserPanel />
       {/* 登录弹窗 */}
       <LoginModal />
       {/* 顶部来源条及其弹窗已移除 */}

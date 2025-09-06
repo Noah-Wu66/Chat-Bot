@@ -101,31 +101,31 @@ export default function MessageList({
       <div
         key={message.id}
         className={cn(
-          "chat-message flex gap-3 p-4",
+          "chat-message flex gap-2 sm:gap-3 p-3 sm:p-4",
           isUser && "flex-row-reverse bg-muted/30",
           isSystem && "bg-accent/50"
         )}
       >
         {/* 头像 */}
         <div className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+          "flex h-6 w-6 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full",
           isUser ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
         )}>
-          {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+          {isUser ? <User className="h-3 w-3 sm:h-4 sm:w-4" /> : <Bot className="h-3 w-3 sm:h-4 sm:w-4" />}
         </div>
 
         {/* 消息内容 */}
         <div className="flex-1 space-y-2">
           {/* 消息头部 */}
           <div className={cn(
-            "flex items-center gap-2 text-sm text-muted-foreground",
+            "flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-muted-foreground flex-wrap",
             isUser && "flex-row-reverse"
           )}>
             <span className="font-medium">
               {isUser ? '你' : isSystem ? '系统' : 'AI助手'}
             </span>
             {message.model && (
-              <span className="rounded bg-muted px-1.5 py-0.5 text-xs">
+              <span className="rounded bg-muted px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-xs hidden sm:inline">
                 {message.model}
               </span>
             )}
@@ -134,11 +134,11 @@ export default function MessageList({
 
           {/* 图片 */}
           {message.images && message.images.length > 0 && (
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
               {message.images.map((image, imgIndex) => (
                 <button
                   key={imgIndex}
-                  className="group relative overflow-hidden rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="group relative overflow-hidden rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary touch-manipulation"
                   onClick={() => {
                     setPreviewSrc(image);
                   }}
@@ -147,7 +147,7 @@ export default function MessageList({
                   <img
                     src={image}
                     alt={`消息图片 ${imgIndex + 1}`}
-                    className="h-48 max-h-72 w-auto max-w-full object-contain"
+                    className="h-32 sm:h-48 max-h-48 sm:max-h-72 w-auto max-w-full object-contain"
                   />
                   <div className="pointer-events-none absolute inset-0 hidden items-end justify-end gap-1 p-1 group-hover:flex" />
                 </button>
@@ -159,10 +159,10 @@ export default function MessageList({
           {message.metadata?.reasoning && (
             <div className="reasoning-panel">
               <div className="flex items-center gap-2 mb-2">
-                <Brain className="h-4 w-4" />
-                <span className="font-medium">推理过程</span>
+                <Brain className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="font-medium text-sm">推理过程</span>
               </div>
-              <div className="whitespace-pre-wrap text-sm">
+              <div className="whitespace-pre-wrap text-xs sm:text-sm">
                 {message.metadata.reasoning}
               </div>
             </div>
@@ -171,14 +171,14 @@ export default function MessageList({
           {/* 函数调用 */}
           {message.functionCall && (
             <div className="function-call">
-              <div className="font-medium">函数调用: {message.functionCall.name}</div>
-              <pre className="mt-1 text-sm overflow-x-auto">
+              <div className="font-medium text-sm">函数调用: {message.functionCall.name}</div>
+              <pre className="mt-1 text-xs sm:text-sm overflow-x-auto">
                 {message.functionCall.arguments}
               </pre>
               {message.functionResult && (
                 <div className="function-result">
-                  <div className="font-medium">执行结果:</div>
-                  <div className="mt-1">{message.functionResult.result}</div>
+                  <div className="font-medium text-sm">执行结果:</div>
+                  <div className="mt-1 text-xs sm:text-sm">{message.functionResult.result}</div>
                 </div>
               )}
             </div>
@@ -202,9 +202,9 @@ export default function MessageList({
 
           {/* 元数据（去除详细程度显示） */}
           {message.metadata && (
-            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap gap-1 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground">
               {message.metadata.tokensUsed && (
-                <span>Token: {message.metadata.tokensUsed}</span>
+                <span className="hidden sm:inline">Token: {message.metadata.tokensUsed}</span>
               )}
               {message.metadata.searchUsed && (
                 <span className="text-green-600">使用了网络搜索</span>
@@ -214,36 +214,36 @@ export default function MessageList({
 
           {/* 操作：复制 + 数据来源（圆角长方形容器 + 查看来源）*/}
           {!isUser && (
-            <div className="mt-1 flex items-center gap-2 text-muted-foreground text-[10px]">
+            <div className="mt-1 flex items-center gap-1 sm:gap-2 text-muted-foreground text-[10px] flex-wrap">
               <button
                 onClick={() => handleCopy(message.content)}
-                className="rounded-full border px-1.5 py-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground"
+                className="rounded-full border px-1.5 py-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground touch-manipulation"
                 title="复制"
               >
                 <Copy className="h-3 w-3" />
               </button>
 
               {Array.isArray(message?.metadata?.sources) && message.metadata!.sources!.length > 0 && (
-                <div className="ml-1 flex items-center gap-2">
-                  <div className="inline-flex items-center gap-2 rounded-md border bg-card/60 px-2 py-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="inline-flex items-center gap-1 whitespace-nowrap text-muted-foreground"><LinkIcon className="h-3 w-3" />来源</span>
-                      <div className="flex items-center gap-1.5">
-                        {message.metadata!.sources!.slice(0, 5).map((src: any, i: number) => {
+                <div className="ml-1 flex items-center gap-1 sm:gap-2 flex-wrap">
+                  <div className="inline-flex items-center gap-1 sm:gap-2 rounded-md border bg-card/60 px-1.5 sm:px-2 py-1">
+                    <div className="flex items-center gap-1 sm:gap-1.5">
+                      <span className="inline-flex items-center gap-1 whitespace-nowrap text-muted-foreground"><LinkIcon className="h-2.5 w-2.5 sm:h-3 sm:w-3" /><span className="hidden sm:inline">来源</span></span>
+                      <div className="flex items-center gap-1">
+                        {message.metadata!.sources!.slice(0, 3).map((src: any, i: number) => {
                           const title = src?.title || src?.domain || `来源${i + 1}`;
                           const domain = src?.domain || '';
                           const favicon = src?.favicon || '';
                           return (
                             <span
                               key={i}
-                              className="inline-flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-muted ring-1 ring-border"
+                              className="inline-flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center overflow-hidden rounded-full bg-muted ring-1 ring-border"
                               title={title}
                             >
                               {favicon ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={favicon} alt={domain || title} className="h-5 w-5" />
+                                <img src={favicon} alt={domain || title} className="h-4 w-4 sm:h-5 sm:w-5" />
                               ) : (
-                                <LinkIcon className="h-3 w-3" />
+                                <LinkIcon className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                               )}
                             </span>
                           );
@@ -252,13 +252,15 @@ export default function MessageList({
                     </div>
                     <button
                       type="button"
-                      className="ml-1 inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground"
+                      className="ml-1 inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] hover:bg-accent hover:text-accent-foreground touch-manipulation"
                       onClick={() => {
                         setSourcesForModal(message.metadata!.sources!);
                         setSourcesModalOpen(true);
                       }}
                     >
-                      查看来源 <ExternalLink className="h-3 w-3" />
+                      <span className="hidden sm:inline">查看来源</span>
+                      <span className="sm:hidden">查看</span>
+                      <ExternalLink className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                     </button>
                   </div>
                 </div>
@@ -299,18 +301,18 @@ export default function MessageList({
 
           {/* 等待模型响应时的占位加载 */}
           {isStreaming && !streamingContent && (
-            <div className="chat-message flex gap-3 p-4">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
-                <Bot className="h-4 w-4" />
+            <div className="chat-message flex gap-2 sm:gap-3 p-3 sm:p-4">
+              <div className="flex h-6 w-6 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
+                <Bot className="h-3 w-3 sm:h-4 sm:w-4" />
               </div>
               <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                   <span className="font-medium">AI助手</span>
                   <span className="loading-dots">AI正在思考中</span>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <LoadingSpinner size="sm" />
-                  <span>思考中</span>
+                  <span className="text-xs sm:text-sm">思考中</span>
                 </div>
               </div>
             </div>
@@ -318,12 +320,12 @@ export default function MessageList({
 
           {/* 流式输出 */}
           {isStreaming && streamingContent && (
-            <div className="chat-message flex gap-3 p-4">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
-                <Bot className="h-4 w-4" />
+            <div className="chat-message flex gap-2 sm:gap-3 p-3 sm:p-4">
+              <div className="flex h-6 w-6 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
+                <Bot className="h-3 w-3 sm:h-4 sm:w-4" />
               </div>
               <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                   <span className="font-medium">AI助手</span>
                   <span className="loading-dots">正在回复</span>
                 </div>
@@ -332,10 +334,10 @@ export default function MessageList({
                 {reasoningContent && (
                   <div className="reasoning-panel">
                     <div className="flex items-center gap-2 mb-2">
-                      <Brain className="h-4 w-4" />
-                      <span className="font-medium">推理过程</span>
+                      <Brain className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                      <span className="font-medium text-sm">推理过程</span>
                     </div>
-                    <div className="whitespace-pre-wrap text-sm">
+                    <div className="whitespace-pre-wrap text-xs sm:text-sm">
                       {reasoningContent}
                       <span className="stream-cursor" />
                     </div>

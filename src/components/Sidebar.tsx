@@ -173,18 +173,18 @@ export default function Sidebar() {
   const sidebarContent = (
     <div className="flex h-full flex-col bg-muted/30">
       {/* 顶部：仅保留新建按钮，向 ChatGPT 靠拢 */}
-      <div className="border-b border-border p-4">
+      <div className="border-b border-border p-3 sm:p-4">
         <div className="flex items-center gap-2">
           <button
             onClick={createNewConversation}
-            className="flex w-full items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="flex w-full items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 touch-manipulation"
           >
             <Plus className="h-4 w-4" />
             新建对话
           </button>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground lg:hidden"
+            className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground lg:hidden touch-manipulation"
             aria-label="关闭侧边栏"
           >
             <X className="h-4 w-4" />
@@ -193,7 +193,7 @@ export default function Sidebar() {
       </div>
 
       {/* 搜索 */}
-      <div className="border-b border-border p-4">
+      <div className="border-b border-border p-3 sm:p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -225,7 +225,7 @@ export default function Sidebar() {
         ) : (
           <div className="p-2">
             {Object.entries(groupedConversations).map(([date, convs]) => (
-              <div key={date} className="mb-4">
+              <div key={date} className="mb-3 sm:mb-4">
                 <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
                   {date}
                 </div>
@@ -240,7 +240,7 @@ export default function Sidebar() {
                         }
                       }}
                       className={cn(
-                        "group relative cursor-pointer rounded-lg p-2 transition-colors hover:bg-accent",
+                        "group relative cursor-pointer rounded-lg p-2 transition-colors hover:bg-accent touch-manipulation",
                         currentConversation?.id === conversation.id && "bg-accent"
                       )}
                     >
@@ -260,7 +260,7 @@ export default function Sidebar() {
                       ) : (
                         <>
                           <div className="flex items-start justify-between">
-                            <div className="flex-1 min-w-0">
+                            <div className="flex-1 min-w-0 mr-2">
                               <h3 className="text-sm font-medium truncate">
                                 {conversation.title}
                               </h3>
@@ -269,18 +269,21 @@ export default function Sidebar() {
                               </p>
                             </div>
                             
-                            {/* 操作按钮 */}
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {/* 操作按钮 - 移动端总是显示 */}
+                            <div className={cn(
+                              "flex items-center gap-1 transition-opacity",
+                              "opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                            )}>
                               <button
                                 onClick={(e) => startEditing(conversation, e)}
-                                className="rounded p-1 text-muted-foreground hover:bg-background hover:text-foreground"
+                                className="rounded p-1 text-muted-foreground hover:bg-background hover:text-foreground touch-manipulation"
                                 title="编辑标题"
                               >
                                 <Edit3 className="h-3 w-3" />
                               </button>
                               <button
                                 onClick={(e) => deleteConversation(conversation.id, e)}
-                                className="rounded p-1 text-muted-foreground hover:bg-destructive hover:text-destructive-foreground"
+                                className="rounded p-1 text-muted-foreground hover:bg-destructive hover:text-destructive-foreground touch-manipulation"
                                 title="删除对话"
                               >
                                 <Trash2 className="h-3 w-3" />
@@ -300,21 +303,21 @@ export default function Sidebar() {
 
 
       {/* 底部账户卡片 */}
-      <div className="border-t border-border p-4 space-y-3">
+      <div className="border-t border-border p-3 sm:p-4 space-y-3">
         {/* 账户卡片 */}
-        <div className="flex items-center justify-between rounded-lg border p-3">
-          <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-full bg-muted" />
-            <div className="text-sm">
+        <div className="flex items-center justify-between rounded-lg border p-2 sm:p-3">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="h-6 w-6 rounded-full bg-muted flex-shrink-0" />
+            <div className="text-sm min-w-0 flex-1">
               {user ? (
                 <>
-                  <div className="font-medium">{user.username}</div>
-                  <div className="text-xs text-muted-foreground">{user.email}</div>
+                  <div className="font-medium truncate">{user.username}</div>
+                  <div className="text-xs text-muted-foreground truncate">{user.email}</div>
                 </>
               ) : (
                 <>
                   <button
-                    className="font-medium text-primary hover:underline"
+                    className="font-medium text-primary hover:underline touch-manipulation"
                     onClick={() => useChatStore.getState().setLoginOpen(true)}
                   >登录/注册</button>
                 </>
@@ -322,7 +325,7 @@ export default function Sidebar() {
             </div>
           </div>
           <button
-            className="rounded-full border px-3 py-1 text-xs text-muted-foreground disabled:opacity-60"
+            className="rounded-full border px-2 sm:px-3 py-1 text-xs text-muted-foreground disabled:opacity-60 touch-manipulation flex-shrink-0"
             disabled={!user}
             onClick={() => {
               if (user) {
@@ -342,7 +345,7 @@ export default function Sidebar() {
               window.location.href = '/login';
             }
           }}
-          className="sidebar-item w-full text-red-600 hover:text-red-700"
+          className="sidebar-item w-full text-red-600 hover:text-red-700 touch-manipulation"
         >
           <LogOut className="h-4 w-4" />
           退出登录
@@ -356,7 +359,7 @@ export default function Sidebar() {
       {/* 移动端菜单按钮 */}
       <button
         onClick={() => setSidebarOpen(true)}
-        className="fixed top-4 left-4 z-40 rounded-md bg-background p-2 shadow-md border border-border lg:hidden"
+        className="fixed top-4 left-4 z-40 rounded-md bg-background p-2 shadow-md border border-border lg:hidden touch-manipulation"
       >
         <Menu className="h-4 w-4" />
       </button>
@@ -372,7 +375,7 @@ export default function Sidebar() {
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
-          <div className="fixed left-0 top-0 h-full w-80 max-w-[80vw]">
+          <div className="fixed left-0 top-0 h-full w-80 max-w-[85vw] shadow-xl">
             {sidebarContent}
           </div>
         </div>

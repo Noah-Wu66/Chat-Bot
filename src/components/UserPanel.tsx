@@ -36,17 +36,17 @@ export default function UserPanel() {
 
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
-      <div className="fixed left-1/2 top-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-background shadow-lg">
-        <div className="flex max-h-[85vh] flex-col">
+      <div className="fixed left-1/2 top-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-background shadow-lg mx-3 sm:mx-0">
+        <div className="flex max-h-[90vh] sm:max-h-[85vh] flex-col">
           {/* 头部 */}
-          <div className="flex items-center justify-between border-b border-border p-4">
+          <div className="flex items-center justify-between border-b border-border p-3 sm:p-4">
             <div className="flex items-center gap-2">
               <UserIcon className="h-5 w-5" />
-              <h2 className="text-lg font-semibold">用户管理</h2>
+              <h2 className="text-base sm:text-lg font-semibold">用户管理</h2>
             </div>
             <button
               onClick={() => setUserPanelOpen(false)}
-              className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground touch-manipulation"
               aria-label="关闭"
             >
               <X className="h-4 w-4" />
@@ -54,7 +54,7 @@ export default function UserPanel() {
           </div>
 
           {/* 内容 */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4">
             {loading ? (
               <div className="text-sm text-muted-foreground">加载中...</div>
             ) : error ? (
@@ -62,25 +62,25 @@ export default function UserPanel() {
             ) : (
               <>
                 <div className="settings-panel">
-                  <h3 className="font-medium mb-3">账户信息</h3>
+                  <h3 className="font-medium mb-3 text-sm sm:text-base">账户信息</h3>
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center gap-2 text-muted-foreground">
-                      <UserIcon className="h-4 w-4" />
-                      <span>{user?.username || "-"}</span>
+                      <UserIcon className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{user?.username || "-"}</span>
                     </div>
                     <div className="flex items-center gap-2 text-muted-foreground">
-                      <Mail className="h-4 w-4" />
-                      <span>{user?.email || "-"}</span>
+                      <Mail className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{user?.email || "-"}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="settings-panel">
-                  <h3 className="font-medium mb-3">安全</h3>
+                  <h3 className="font-medium mb-3 text-sm sm:text-base">安全</h3>
                   <div className="space-y-2">
                     <button
                       disabled
-                      className="w-full rounded-md border px-3 py-2 text-sm text-muted-foreground disabled:opacity-60"
+                      className="w-full rounded-md border px-3 py-2 text-sm text-muted-foreground disabled:opacity-60 touch-manipulation"
                       title="暂未开放"
                     >
                       <div className="flex items-center justify-center gap-2">
@@ -92,7 +92,7 @@ export default function UserPanel() {
                 </div>
 
                 <div className="settings-panel">
-                  <h3 className="font-medium mb-3">会话</h3>
+                  <h3 className="font-medium mb-3 text-sm sm:text-base">会话</h3>
                   <p className="text-xs text-muted-foreground">您可以在左侧对话列表中管理会话记录。</p>
                 </div>
               </>
@@ -100,7 +100,7 @@ export default function UserPanel() {
           </div>
 
           {/* 底部操作 */}
-          <div className="border-t border-border p-4">
+          <div className="border-t border-border p-3 sm:p-4">
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
@@ -114,7 +114,7 @@ export default function UserPanel() {
             >
               <button
                 type="submit"
-                className="w-full sidebar-item justify-center text-red-600 hover:text-red-700"
+                className="w-full sidebar-item justify-center text-red-600 hover:text-red-700 touch-manipulation"
               >
                 <LogOut className="h-4 w-4" />
                 退出登录

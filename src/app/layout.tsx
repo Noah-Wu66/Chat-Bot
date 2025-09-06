@@ -14,6 +14,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: 'white' },
     { media: '(prefers-color-scheme: dark)', color: 'black' },
@@ -30,8 +33,8 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/icon.svg" />
       </head>
-      <body className={inter.className}>
-        <div className="h-screen overflow-hidden">
+      <body className={`${inter.className} antialiased`}>
+        <div className="h-screen overflow-hidden touch-manipulation">
           {children}
         </div>
       </body>

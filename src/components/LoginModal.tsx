@@ -70,30 +70,30 @@ export default function LoginModal() {
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
       <div className="fixed inset-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-sm rounded-xl border border-border bg-background shadow-lg">
-          <div className="flex items-center justify-between border-b border-border p-4">
-            <h2 className="text-lg font-semibold">登录 / 注册</h2>
+        <div className="w-full max-w-sm rounded-xl border border-border bg-background shadow-lg max-h-[90vh] overflow-hidden">
+          <div className="flex items-center justify-between border-b border-border p-3 sm:p-4">
+            <h2 className="text-base sm:text-lg font-semibold">登录 / 注册</h2>
             <button
               onClick={() => setLoginOpen(false)}
-              className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground touch-manipulation"
               aria-label="关闭"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="px-4 pt-4">
+          <div className="px-3 sm:px-4 pt-3 sm:pt-4">
             <div className="grid grid-cols-2 gap-2 mb-2" role="tablist">
               <button
                 type="button"
-                className={`rounded-md border px-3 py-2 text-sm ${mode === "login" ? "bg-accent" : ""}`}
+                className={`rounded-md border px-3 py-2 text-sm touch-manipulation ${mode === "login" ? "bg-accent" : ""}`}
                 onClick={() => setMode("login")}
                 aria-selected={mode === "login"}
                 role="tab"
               >登录</button>
               <button
                 type="button"
-                className={`rounded-md border px-3 py-2 text-sm ${mode === "register" ? "bg-accent" : ""}`}
+                className={`rounded-md border px-3 py-2 text-sm touch-manipulation ${mode === "register" ? "bg-accent" : ""}`}
                 onClick={() => setMode("register")}
                 aria-selected={mode === "register"}
                 role="tab"
@@ -101,7 +101,8 @@ export default function LoginModal() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="p-4 space-y-3">
+          <div className="max-h-[60vh] overflow-y-auto">
+            <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3">
             {error && (
               <div className="text-sm text-destructive">{error}</div>
             )}
@@ -132,13 +133,13 @@ export default function LoginModal() {
                   <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
                   30 天内免登录
                 </label>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-                >
-                  {loading ? "登录中..." : "登录"}
-                </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60 touch-manipulation"
+            >
+              {loading ? "登录中..." : "登录"}
+            </button>
               </>
             ) : (
               <>
@@ -187,13 +188,14 @@ export default function LoginModal() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                  className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60 touch-manipulation"
                 >
                   {loading ? "注册中..." : "注册"}
                 </button>
               </>
             )}
-          </form>
+            </form>
+          </div>
         </div>
       </div>
     </div>

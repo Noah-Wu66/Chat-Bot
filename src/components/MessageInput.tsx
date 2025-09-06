@@ -167,8 +167,8 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
       )}
 
       {/* 顶部栏：模型切换 + 联网搜索开关 + 额外控制按钮 */}
-      <div className={cn("mb-2 flex items-center justify-between", variant === 'center' && "px-1") }>
-        <div className="flex items-center gap-2 relative">
+      <div className={cn("mb-2 flex items-center justify-between gap-2", variant === 'center' && "px-1") }>
+        <div className="flex items-center gap-1 sm:gap-2 relative flex-wrap">
           {/* 切换模型按钮（在联网搜索按钮左侧） */}
           <ModelSelector variant="ghost" />
 
@@ -179,14 +179,14 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
                 onClick={() => setWebSearchEnabled(!webSearchEnabled)}
                 disabled={disabled || isStreaming}
                 className={cn(
-                  "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs",
+                  "inline-flex items-center gap-1 rounded-full border px-2 sm:px-3 py-1 text-xs",
                   webSearchEnabled ? "bg-green-600 text-white border-green-600" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                   "disabled:pointer-events-none disabled:opacity-50"
                 )}
                 title={webSearchEnabled ? "已开启联网搜索" : "点击开启联网搜索"}
               >
                 <Search className="h-3.5 w-3.5" />
-                <span>联网搜索</span>
+                <span className="hidden sm:inline">联网搜索</span>
               </button>
             )}
 
@@ -234,11 +234,11 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
               <img
                 src={image}
                 alt={`上传的图片 ${index + 1}`}
-                className="image-preview h-20 w-20"
+                className="image-preview h-16 w-16 sm:h-20 sm:w-20"
               />
               <button
                 onClick={() => removeImage(index)}
-                className="absolute -top-1 -right-1 rounded-full bg-destructive p-1 text-destructive-foreground hover:bg-destructive/90"
+                className="absolute -top-1 -right-1 rounded-full bg-destructive p-1 text-destructive-foreground hover:bg-destructive/90 touch-manipulation"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -276,8 +276,8 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
             )
           }
           className={cn(
-            "chat-input w-full border-0 bg-transparent pr-28 pl-8 focus:ring-0",
-            variant === 'center' && "min-h-[56px] text-base px-5 py-4 rounded-2xl pr-32 pl-10"
+            "chat-input w-full border-0 bg-transparent focus:ring-0 resize-none",
+            variant === 'center' ? "min-h-[56px] text-base px-4 sm:px-5 py-3 sm:py-4 rounded-2xl pr-28 sm:pr-32 pl-8 sm:pl-10" : "pr-24 sm:pr-28 pl-8"
           )}
           disabled={disabled || isStreaming}
           rows={1}
@@ -287,7 +287,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
         {/* 操作按钮 */}
         <div className={cn(
           "absolute flex items-center gap-1",
-          variant === 'center' ? "right-2 bottom-2" : "right-2 bottom-2"
+          variant === 'center' ? "right-2 bottom-2 sm:right-2 sm:bottom-2" : "right-2 bottom-2"
         )}>
           {/* 附件按钮 */}
           {modelConfig.supportsVision && (
@@ -309,7 +309,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
                 onClick={() => fileInputRef.current?.click()}
                 disabled={disabled || isStreaming || images.length >= 5}
                 className={cn(
-                  "rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+                  "rounded-md p-1.5 sm:p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground touch-manipulation",
                   "disabled:pointer-events-none disabled:opacity-50"
                 )}
                 title="上传图片"
@@ -328,7 +328,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
               onClick={onStop}
               disabled={disabled || !isStreaming}
               className={cn(
-                "rounded-md p-2 transition-colors bg-destructive text-destructive-foreground hover:bg-destructive/90",
+                "rounded-md p-1.5 sm:p-2 transition-colors bg-destructive text-destructive-foreground hover:bg-destructive/90 touch-manipulation",
                 "disabled:pointer-events-none disabled:opacity-50"
               )}
               title="停止生成"
@@ -341,7 +341,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
               onClick={handleSend}
               disabled={!canSend}
               className={cn(
-                "rounded-md p-2 transition-colors",
+                "rounded-md p-1.5 sm:p-2 transition-colors touch-manipulation",
                 canSend
                   ? "bg-primary text-primary-foreground hover:bg-primary/90"
                   : "text-muted-foreground cursor-not-allowed opacity-50"
@@ -355,23 +355,24 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
       </div>
 
       {/* 提示信息 */}
-      <div className={cn("mt-2 flex items-center justify-between text-xs text-muted-foreground", variant === 'center' && "px-1")}>
-        <div className="flex items-center gap-4">
+      <div className={cn("mt-2 flex items-center justify-between text-xs text-muted-foreground flex-wrap gap-2", variant === 'center' && "px-1")}>
+        <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
           {/* 未登录提示 */}
           {isLoggedIn === false && (
             <button
               type="button"
               onClick={() => setLoginOpen(true)}
-              className="text-primary hover:underline"
+              className="text-primary hover:underline touch-manipulation"
             >请登录</button>
           )}
-          <span>Enter 发送，Shift+Enter 换行</span>
+          <span className="hidden sm:inline">Enter 发送，Shift+Enter 换行</span>
+          <span className="sm:hidden">Enter 发送</span>
           {modelConfig.supportsVision && (
-            <span>支持图片上传 ({images.length}/5)</span>
+            <span className="hidden sm:inline">支持图片上传 ({images.length}/5)</span>
           )}
         </div>
         {message.length > 0 && (
-          <span>{message.length} 字符</span>
+          <span className="shrink-0">{message.length} 字符</span>
         )}
       </div>
     </div>
