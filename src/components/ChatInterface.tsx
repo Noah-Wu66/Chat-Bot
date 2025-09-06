@@ -169,6 +169,7 @@ export default function ChatInterface() {
         let searchUsed = false;
         let latestSources: any[] = [];
 
+        let sseBuffer = '';
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
@@ -176,102 +177,96 @@ export default function ChatInterface() {
           }
 
           chunkCount++;
-          const chunk = decoder.decode(value);
+          const chunk = decoder.decode(value, { stream: true });
+          sseBuffer += chunk;
 
-          const lines = chunk.split('\n');
+          // 使用空行分隔的事件块解析（兼容大数据量，例如 base64 图片）
+          while (true) {
+            const sepIndex = sseBuffer.indexOf('\n\n');
+            if (sepIndex === -1) break;
+            const block = sseBuffer.slice(0, sepIndex);
+            sseBuffer = sseBuffer.slice(sepIndex + 2);
 
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6));
+            try {
+              const dataLines = block
+                .split('\n')
+                .filter((l) => l.startsWith('data: '))
+                .map((l) => l.slice(6));
+              if (dataLines.length === 0) continue;
+              const payload = dataLines.join('\n');
+              const data = JSON.parse(payload);
 
-                switch (data.type) {
-                  case 'content':
-                    assistantContent += data.content;
-                    setStreamingContent(assistantContent);
-                    // 调试：文本增量长度
-                    if (data.content) {
-                      console.debug('[SSE] content delta', { length: String(data.content).length });
-                    }
-                    break;
-                  case 'images':
-                    if (Array.isArray(data.images)) {
-                      assistantImages = data.images.filter((u: any) => typeof u === 'string' && u);
-                    }
-                    console.log('[SSE] images event received', {
-                      count: Array.isArray(data.images) ? data.images.length : 0,
-                      sample: Array.isArray(data.images) && data.images.length > 0 ? data.images[0]?.slice?.(0, 64) : undefined,
-                    });
-                    break;
-                  case 'search':
-                    searchUsed = !!(data.used || data.searchUsed);
-                    break;
-                  case 'search_sources':
-                    if (Array.isArray(data.sources)) {
-                      latestSources = data.sources;
-                    }
-                    break;
-                  case 'debug':
-                    console.log('[SSE][debug]', data);
-                    break;
-
-                  case 'reasoning':
-                    reasoning += data.content;
-                    setReasoningContent(reasoning);
-                    break;
-
-                  // 无 routing 事件
-
-                  case 'start':
-                  case 'tool_call_start':
-                    // 起始事件或工具调用开始事件，无需特殊处理
-                    break;
-
-                  case 'function_result':
-                  case 'tool_result':
-                    assistantContent += `\n\n**工具调用结果 (${data.tool || data.function}):**\n${data.result}`;
-                    setStreamingContent(assistantContent);
-                    break;
-
-                  case 'done':
-                    // 添加助手消息到界面
-                    const assistantMessage = {
-                      id: generateId(),
-                      role: 'assistant' as const,
-                      content: assistantContent,
-                      timestamp: new Date(),
-                      model: routedModel || currentModel,
-                      images: assistantImages && assistantImages.length > 0 ? assistantImages : undefined,
-                      metadata: {
-                        reasoning: reasoning || undefined,
-                        verbosity: settings.text?.verbosity,
-                        searchUsed: searchUsed || undefined,
-                        sources: latestSources && latestSources.length > 0 ? latestSources : undefined,
-                      },
-                    };
-                    addMessage(assistantMessage);
-                    console.log('[SSE] done: assistant message appended', {
-                      textLength: assistantContent.length,
-                      images: assistantImages?.length || 0,
-                    });
-                    assistantAdded = true;
-                    // 已本地追加消息，避免再拉取覆盖
-                    // 归一化路由日志（done 时若未提前收到 routing 事件，则以当前模型作为兜底）
-                    // 运行日志已在服务端记录
-                    setStreamingContent('');
-                    setReasoningContent('');
-                    break;
-
-                  case 'error':
-                    throw new Error(data.error);
-
-                  default:
-                    // 忽略未知事件类型
-                }
-              } catch (parseError) {
-                // 忽略解析错误
-                console.debug('[SSE] parse error', parseError);
+              switch (data.type) {
+                case 'content':
+                  assistantContent += data.content;
+                  setStreamingContent(assistantContent);
+                  if (data.content) {
+                    console.debug('[SSE] content delta', { length: String(data.content).length });
+                  }
+                  break;
+                case 'images':
+                  if (Array.isArray(data.images)) {
+                    assistantImages = data.images.filter((u: any) => typeof u === 'string' && u);
+                  }
+                  console.log('[SSE] images event received', {
+                    count: Array.isArray(data.images) ? data.images.length : 0,
+                    sample: Array.isArray(data.images) && data.images.length > 0 ? data.images[0]?.slice?.(0, 64) : undefined,
+                  });
+                  break;
+                case 'search':
+                  searchUsed = !!(data.used || data.searchUsed);
+                  break;
+                case 'search_sources':
+                  if (Array.isArray(data.sources)) {
+                    latestSources = data.sources;
+                  }
+                  break;
+                case 'debug':
+                  console.log('[SSE][debug]', data);
+                  break;
+                case 'reasoning':
+                  reasoning += data.content;
+                  setReasoningContent(reasoning);
+                  break;
+                case 'start':
+                case 'tool_call_start':
+                  break;
+                case 'function_result':
+                case 'tool_result':
+                  assistantContent += `\n\n**工具调用结果 (${data.tool || data.function}):**\n${data.result}`;
+                  setStreamingContent(assistantContent);
+                  break;
+                case 'done':
+                  const assistantMessage = {
+                    id: generateId(),
+                    role: 'assistant' as const,
+                    content: assistantContent,
+                    timestamp: new Date(),
+                    model: routedModel || currentModel,
+                    images: assistantImages && assistantImages.length > 0 ? assistantImages : undefined,
+                    metadata: {
+                      reasoning: reasoning || undefined,
+                      verbosity: settings.text?.verbosity,
+                      searchUsed: searchUsed || undefined,
+                      sources: latestSources && latestSources.length > 0 ? latestSources : undefined,
+                    },
+                  };
+                  addMessage(assistantMessage);
+                  console.log('[SSE] done: assistant message appended', {
+                    textLength: assistantContent.length,
+                    images: assistantImages?.length || 0,
+                  });
+                  assistantAdded = true;
+                  setStreamingContent('');
+                  setReasoningContent('');
+                  break;
+                case 'error':
+                  throw new Error(data.error);
+                default:
+                  // ignore
               }
+            } catch (parseError) {
+              console.debug('[SSE] parse error', parseError);
             }
           }
         }
