@@ -104,6 +104,88 @@ export async function POST(req: Request) {
     return messages;
   };
 
+  // 统一解析 Gemini 返回的 message，抽取文本与图片
+  const extractTextAndImagesFromMessage = (msg: any): { text: string; images: string[] } => {
+    const textParts: string[] = [];
+    const images: string[] = [];
+
+    const pushText = (t: any) => {
+      const s = typeof t === 'string' ? t : '';
+      if (!s) return;
+      // 去重：避免相邻重复文本
+      if (textParts.length === 0 || textParts[textParts.length - 1] !== s) {
+        textParts.push(s);
+      }
+    };
+
+    // 1) 直接字符串内容
+    if (typeof msg?.content === 'string') {
+      pushText(msg.content);
+    }
+
+    // 2) 数组内容（多模态）
+    const contentArr = Array.isArray(msg?.content) ? (msg as any).content : [];
+    if (Array.isArray(contentArr) && contentArr.length > 0) {
+      for (const part of contentArr) {
+        if (!part || typeof part !== 'object') continue;
+        const type = (part as any).type || '';
+
+        // 文本：text / output_text
+        const textA = typeof (part as any).text === 'string' ? (part as any).text : '';
+        const textB = typeof (part as any).output_text === 'string' ? (part as any).output_text : '';
+        if (textA) pushText(textA);
+        if (textB) pushText(textB);
+
+        // 图片：image_url（可能是字符串或 { url }）
+        if (type === 'image_url' || (part as any).image_url) {
+          const imageUrl = typeof (part as any).image_url === 'string'
+            ? (part as any).image_url
+            : (part as any).image_url?.url;
+          if (typeof imageUrl === 'string' && imageUrl) images.push(imageUrl);
+        }
+
+        // 图片：inlineData / inline_data
+        const inlineData = (part as any).inlineData || (part as any).inline_data;
+        if (inlineData && typeof inlineData === 'object') {
+          const data = inlineData.data || inlineData.base64 || inlineData.b64_json;
+          const mime = inlineData.mimeType || inlineData.mime_type || 'image/png';
+          if (typeof data === 'string' && data) images.push(`data:${mime};base64,${data}`);
+        }
+
+        // 图片：image 对象（兼容多种字段）
+        const imageObj = (part as any).image;
+        if (imageObj && typeof imageObj === 'object') {
+          const b64 = imageObj.b64_json || imageObj.base64_data || imageObj.data || imageObj?.inline_data?.data;
+          const mime = imageObj.mime || imageObj.mime_type || imageObj.mimeType || imageObj?.inline_data?.mime_type || 'image/png';
+          if (typeof b64 === 'string' && b64) images.push(`data:${mime};base64,${b64}`);
+          const url = typeof imageObj.url === 'string' ? imageObj.url : undefined;
+          if (url) images.push(url);
+        }
+      }
+    }
+
+    // 3) 兼容旧字段 multi_mod_content / multiModContent
+    if (!Array.isArray(msg?.content)) {
+      try {
+        const mm: any[] = (msg as any).multi_mod_content || (msg as any).multiModContent || [];
+        if (Array.isArray(mm)) {
+          for (const part of mm) {
+            const text = typeof part?.text === 'string' ? part.text : '';
+            if (text) pushText(text);
+            const inline = part?.inlineData || part?.inline_data;
+            const data = inline?.data || inline?.b64_json || inline?.base64;
+            const mime = inline?.mimeType || inline?.mime_type || 'image/png';
+            if (typeof data === 'string' && data) images.push(`data:${mime};base64,${data}`);
+          }
+        }
+      } catch {}
+    }
+
+    const uniqueImages = Array.from(new Set(images));
+    const text = textParts.filter((t, i) => textParts.indexOf(t) === i).join('\n');
+    return { text, images: uniqueImages };
+  };
+
   // 可选：联网搜索
   let searchUsed = false;
   let injectedHistoryMsg: any | null = null;
@@ -166,78 +248,7 @@ export async function POST(req: Request) {
 
           const choice = resp?.choices?.[0];
           const msg = choice?.message || {};
-          let textContent = '';
-          try {
-            textContent = typeof msg.content === 'string' ? msg.content : '';
-          } catch {}
-
-          const images: string[] = [];
-
-          // 1) 新增：当 message.content 为数组时解析多模态输出
-          try {
-            const contentArr = Array.isArray((msg as any).content) ? (msg as any).content : [];
-            if (Array.isArray(contentArr) && contentArr.length > 0) {
-              for (const part of contentArr) {
-                if (!part || typeof part !== 'object') continue;
-                const type = (part as any).type || '';
-                // 文本
-                const textA = typeof (part as any).text === 'string' ? (part as any).text : '';
-                const textB = typeof (part as any).output_text === 'string' ? (part as any).output_text : '';
-                if (textA || textB) {
-                  const t = textA || textB;
-                  textContent += (textContent ? '\n' : '') + t;
-                }
-                // image_url: 可能是字符串或 { url }
-                if (type === 'image_url' || (part as any).image_url) {
-                  const imageUrl = typeof (part as any).image_url === 'string'
-                    ? (part as any).image_url
-                    : (part as any).image_url?.url;
-                  if (typeof imageUrl === 'string' && imageUrl) {
-                    images.push(imageUrl);
-                  }
-                }
-                // inlineData: { data, mimeType } - 根据官方文档使用驼峰式
-                const inlineData = (part as any).inlineData;
-                if (inlineData && typeof inlineData === 'object') {
-                  const data = inlineData.data;
-                  const mime = inlineData.mimeType || 'image/png';
-                  if (typeof data === 'string' && data) {
-                    images.push(`data:${mime};base64,${data}`);
-                  }
-                }
-                // image.b64_json 兼容（OpenAI 风格）
-                const imageObj = (part as any).image;
-                if (imageObj && typeof imageObj === 'object') {
-                  const b64 = imageObj.b64_json || imageObj.base64_data || imageObj.data;
-                  const mime = imageObj.mime || imageObj.mime_type || imageObj.mimeType || 'image/png';
-                  if (typeof b64 === 'string' && b64) {
-                    images.push(`data:${mime};base64,${b64}`);
-                  }
-                }
-              }
-            }
-          } catch {}
-
-          // 2) 兼容：multi_mod_content/multiModContent
-          // 只有在 content 不是数组时才处理，避免重复
-          if (!Array.isArray((msg as any).content)) {
-            try {
-              const mm: any[] = (msg as any).multi_mod_content || (msg as any).multiModContent || [];
-              if (Array.isArray(mm)) {
-                for (const part of mm) {
-                  // 根据官方文档，使用 inlineData 和 mimeType
-                  const inlineData = part?.inlineData;
-                  const data = inlineData?.data;
-                  const mime = inlineData?.mimeType || 'image/png';
-                  const text = typeof part?.text === 'string' ? part.text : '';
-                  if (text) textContent += (textContent ? '\n' : '') + text;
-                  if (typeof data === 'string' && data) {
-                    images.push(`data:${mime};base64,${data}`);
-                  }
-                }
-              }
-            } catch {}
-          }
+          const { text: textContent, images } = extractTextAndImagesFromMessage(msg);
 
           if (textContent) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'content', content: textContent })}\n\n`));
@@ -313,66 +324,9 @@ export async function POST(req: Request) {
     });
     const choice = resp?.choices?.[0];
     const msg = choice?.message || {};
-    content = typeof msg?.content === 'string' ? msg.content : '';
-
-    // 1) 当 message.content 为数组
-    try {
-      const contentArr = Array.isArray((msg as any).content) ? (msg as any).content : [];
-      if (Array.isArray(contentArr) && contentArr.length > 0) {
-        for (const part of contentArr) {
-          if (!part || typeof part !== 'object') continue;
-          const type = (part as any).type || '';
-          const textA = typeof (part as any).text === 'string' ? (part as any).text : '';
-          const textB = typeof (part as any).output_text === 'string' ? (part as any).output_text : '';
-          if (textA || textB) {
-            const t = textA || textB;
-            content += (content ? '\n' : '') + t;
-          }
-          if (type === 'image_url' || (part as any).image_url) {
-            const imageUrl = typeof (part as any).image_url === 'string' ? (part as any).image_url : (part as any).image_url?.url;
-            if (typeof imageUrl === 'string' && imageUrl) {
-              imagesNonStream.push(imageUrl);
-            }
-          }
-          const inlineData = (part as any).inlineData;
-          if (inlineData && typeof inlineData === 'object') {
-            const data = inlineData.data;
-            const mime = inlineData.mimeType || 'image/png';
-            if (typeof data === 'string' && data) {
-              imagesNonStream.push(`data:${mime};base64,${data}`);
-            }
-          }
-          const imageObj = (part as any).image;
-          if (imageObj && typeof imageObj === 'object') {
-            const b64 = imageObj.b64_json || imageObj.base64_data || imageObj.data;
-            const mime = imageObj.mime || imageObj.mime_type || imageObj.mimeType || 'image/png';
-            if (typeof b64 === 'string' && b64) {
-              imagesNonStream.push(`data:${mime};base64,${b64}`);
-            }
-          }
-        }
-      }
-    } catch {}
-
-    // 2) 兼容旧字段 multi_mod_content/multiModContent
-    // 只有在 content 不是数组时才处理，避免重复
-    if (!Array.isArray((msg as any).content)) {
-      try {
-        const mm: any[] = (msg as any).multi_mod_content || (msg as any).multiModContent || [];
-        if (Array.isArray(mm)) {
-          for (const part of mm) {
-            const inlineData = part?.inlineData;
-            const data = inlineData?.data;
-            const mime = inlineData?.mimeType || 'image/png';
-            const text = typeof part?.text === 'string' ? part.text : '';
-            if (text) content += (content ? '\n' : '') + text;
-            if (typeof data === 'string' && data) {
-              imagesNonStream.push(`data:${mime};base64,${data}`);
-            }
-          }
-        }
-      } catch {}
-    }
+    const result = extractTextAndImagesFromMessage(msg);
+    content = result.text;
+    imagesNonStream = result.images;
   } catch (e: any) {
     console.error('[Gemini] 非流式请求失败:', e?.message || String(e));
     throw e;
