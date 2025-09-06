@@ -3,7 +3,6 @@ import { getAIClient } from '@/lib/ai';
 import { performWebSearchSummary } from '@/lib/router';
 import { getConversationModel } from '@/lib/models/Conversation';
 import { getCurrentUser } from '@/app/actions/auth';
-import { logInfo, logError } from '@/lib/logger';
 
 export const runtime = 'nodejs';
 
@@ -25,12 +24,6 @@ export async function POST(req: Request) {
   const Conversation = await getConversationModel();
   const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
   const modelToUse = 'gemini-2.5-flash-image-preview' as const;
-  await logInfo('chat', 'request.start', '请求开始', {
-    userId: user.sub,
-    conversationId,
-    model: modelToUse,
-    stream: !!stream,
-  }, requestId);
 
   // 记录用户消息（仅文本摘要记录）
   let userContent = '';
@@ -223,9 +216,8 @@ export async function POST(req: Request) {
 
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
           controller.close();
-          await logInfo('chat', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
         } catch (e: any) {
-          await logError('chat', 'api.error', 'Chat Completions 流式失败', { error: e?.message || String(e) }, requestId);
+          console.error('[Gemini] 流式请求失败:', e?.message || String(e));
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e?.message || String(e) })}\n\n`)
           );
@@ -285,7 +277,7 @@ export async function POST(req: Request) {
       }
     }
   } catch (e: any) {
-    await logError('chat', 'api.error', 'Chat Completions 非流式失败', { error: e?.message || String(e) }, requestId);
+    console.error('[Gemini] 非流式请求失败:', e?.message || String(e));
     throw e;
   }
 
@@ -307,7 +299,6 @@ export async function POST(req: Request) {
     }
   );
 
-  await logInfo('chat', 'request.done', '请求完成', { conversationId, model: modelToUse }, requestId);
   return Response.json(
     {
       message: { role: 'assistant', content, model: modelToUse, images: imagesNonStream.length > 0 ? imagesNonStream : undefined, metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined },

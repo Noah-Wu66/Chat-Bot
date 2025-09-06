@@ -21,7 +21,7 @@ export function middleware(req: NextRequest) {
   }
 
   // 仅保护需要鉴权的 API 路由，其它页面可未登录访问
-  const PROTECTED_API_PREFIXES = ['/api/chat', '/api/responses', '/api/conversations'];
+  const PROTECTED_API_PREFIXES = ['/api/gpt-5', '/api/gemini-2.5-flash-image-preview', '/api/conversations'];
   const isProtectedApi = PROTECTED_API_PREFIXES.some((p) => pathname.startsWith(p));
 
   if (!isProtectedApi) {

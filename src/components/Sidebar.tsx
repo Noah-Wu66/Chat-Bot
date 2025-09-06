@@ -208,7 +208,6 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* 探索调试（移除） */}
 
       {/* 对话列表 */}
       <div className="flex-1 overflow-y-auto scrollbar-thin">
@@ -301,7 +300,6 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* 探索调试（旧位置已移除） */}
 
       {/* 底部账户卡片 + 设置 */}
       <div className="border-t border-border p-4 space-y-3">

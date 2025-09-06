@@ -231,12 +231,3 @@ export function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// 验证环境变量
-export function validateEnvVars() {
-  const required = ['MONGODB_URI', 'OPENROUTER_API_KEY'];
-  const missing = required.filter(key => !process.env[key]);
-  
-  if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
-  }
-}

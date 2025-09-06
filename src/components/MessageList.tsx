@@ -27,11 +27,6 @@ export default function MessageList({
 
   // 自动滚动到底部
   useEffect(() => {
-    try {
-      // 打点：观察渲染列表长度与流式临时内容长度
-      // eslint-disable-next-line no-console
-      console.log('[Chat] render messages', { count: messages?.length || 0, hasStream: !!streamingContent, streamLen: streamingContent?.length || 0 });
-    } catch {}
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamingContent]);
 

@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS } from '@/lib/types';
 import { generateId, generateTitleFromMessage } from '@/utils/helpers';
-import { watchRunLogsToConsole, printRunLogsOnce } from '@/lib/loggerClient';
 import { createConversationAction } from '@/app/actions/conversations';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
@@ -21,7 +20,6 @@ export default function ChatInterface() {
     setCurrentConversation,
     addConversation,
     addMessage,
-    updateConversation,
     currentModel,
     settings,
     isStreaming,
@@ -37,7 +35,6 @@ export default function ChatInterface() {
   const modelConfig = MODELS[currentModel];
   const { webSearchEnabled } = useChatStore();
 
-  // 取消服务端强制刷新，改为纯前端追加，避免消息被旧数据覆盖
 
   // 发送消息
   const handleSendMessage = useCallback(async (content: string, images?: string[]) => {
@@ -66,7 +63,6 @@ export default function ChatInterface() {
           model: currentModel,
           settings,
         } as any);
-        console.log('[Chat] created conversation', { id: newConversation?.id, model: currentModel });
         // 立刻让本地会话包含用户消息，避免短暂丢失
         const withFirstMessage = { ...newConversation, messages: [userMessage] } as any;
         setCurrentConversation(withFirstMessage);
@@ -76,7 +72,6 @@ export default function ChatInterface() {
         // 现有会话，直接追加本地消息
         addMessage(userMessage);
       }
-      console.log('[Chat] send start', { conversationId, model: currentModel, type: modelConfig.type });
 
       // 按模型选择 API 路由
       const apiEndpoint = currentModel === 'gemini-2.5-flash-image-preview'
@@ -151,7 +146,6 @@ export default function ChatInterface() {
         let reasoning = '';
         let chunkCount = 0;
         let routedModel: string | null = null;
-        let stopLogsWatcher: (() => void) | null = null;
         let assistantAdded = false;
         let searchUsed = false;
         let latestSources: any[] = [];
@@ -159,7 +153,6 @@ export default function ChatInterface() {
         while (true) {
           const { done, value } = await reader.read();
           if (done) {
-            console.warn('[Chat] stream reader done');
             break;
           }
 
@@ -177,9 +170,6 @@ export default function ChatInterface() {
                   case 'content':
                     assistantContent += data.content;
                     setStreamingContent(assistantContent);
-                    if (chunkCount === 1 || chunkCount % 20 === 0) {
-                      console.log('[Chat] content chunk', { chunkCount, length: data.content?.length });
-                    }
                     break;
                   case 'images':
                     if (Array.isArray(data.images)) {
@@ -204,9 +194,6 @@ export default function ChatInterface() {
                   // 无 routing 事件
 
                   case 'start':
-                    if (!stopLogsWatcher && data.requestId) {
-                      stopLogsWatcher = watchRunLogsToConsole(data.requestId);
-                    }
                   case 'tool_call_start':
                     // 起始事件或工具调用开始事件，无需特殊处理
                     break;
@@ -235,16 +222,11 @@ export default function ChatInterface() {
                     };
                     addMessage(assistantMessage);
                     assistantAdded = true;
-                    console.log('[Chat] done -> addMessage', { length: assistantContent.length });
                     // 已本地追加消息，避免再拉取覆盖
                     // 归一化路由日志（done 时若未提前收到 routing 事件，则以当前模型作为兜底）
                     // 运行日志已在服务端记录
                     setStreamingContent('');
                     setReasoningContent('');
-                    if (stopLogsWatcher) {
-                      stopLogsWatcher();
-                      stopLogsWatcher = null;
-                    }
                     break;
 
                   case 'error':
@@ -261,7 +243,6 @@ export default function ChatInterface() {
         }
         // 循环结束：如果没有收到 done 事件，但流已结束且有内容，则补写一条
         if (!assistantAdded && assistantContent) {
-          console.warn('[Chat] finalize without done -> addMessage');
           addMessage({
             id: generateId(),
             role: 'assistant',
@@ -274,10 +255,6 @@ export default function ChatInterface() {
         // 收尾：清理临时状态与日志观察器
         setStreamingContent('');
         setReasoningContent('');
-        if (stopLogsWatcher) {
-          stopLogsWatcher();
-          stopLogsWatcher = null;
-        }
       } else {
         // 处理非流式响应
         const data = await response.json();
@@ -291,7 +268,6 @@ export default function ChatInterface() {
           if (data.message?.metadata?.sources && Array.isArray(data.message.metadata.sources)) {
             setSearchSources(data.message.metadata.sources);
           }
-          console.log('[Chat] non-stream -> addMessage');
           const routing = data.routing;
           // 运行日志已在服务端记录
         }
@@ -333,14 +309,13 @@ export default function ChatInterface() {
             <ModelSelector variant="ghost" />
           </div>
 
-          {/* 中间：标题占位（移除顶部思考/跳过模块）*/}
+          {/* 中间：标题占位 */}
           <div className="flex-1 flex items-center justify-center">
             {currentConversation?.title && (
               <div className="text-xs text-muted-foreground">{currentConversation.title}</div>
             )}
           </div>
 
-          {/* 移除占位按钮 */}
         </div>
       </div>
 

@@ -5,7 +5,7 @@ import { useChatStore } from '@/store/chatStore';
 import Sidebar from '@/components/Sidebar';
 import ChatInterface from '@/components/ChatInterface';
 import ErrorBoundary from '@/components/ErrorBoundary';
-import { AlertCircle, Wifi, WifiOff } from 'lucide-react';
+import { AlertCircle, WifiOff } from 'lucide-react';
 
 export default function HomePage() {
   const { error, setError } = useChatStore();
