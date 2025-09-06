@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS } from '@/lib/types';
 import { generateId, generateTitleFromMessage } from '@/utils/helpers';
@@ -27,6 +27,7 @@ export default function ChatInterface() {
 
   const [streamingContent, setStreamingContent] = useState('');
   const [reasoningContent, setReasoningContent] = useState('');
+  const abortRef = useRef<AbortController | null>(null);
   // 已移除顶部来源条，不再在此维护来源弹窗状态
   const { webSearchEnabled } = useChatStore();
 
@@ -38,6 +39,10 @@ export default function ChatInterface() {
       setStreaming(true);
       setStreamingContent('');
       setReasoningContent('');
+
+      // 建立可中断控制器
+      const controller = new AbortController();
+      abortRef.current = controller;
 
       // 创建用户消息
       const userMessage = {
@@ -111,6 +116,7 @@ export default function ChatInterface() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
         credentials: 'include',
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -230,7 +236,7 @@ export default function ChatInterface() {
           }
         }
         // 循环结束：如果没有收到 done 事件，但流已结束且有内容，则补写一条
-        if (!assistantAdded && assistantContent) {
+        if (!assistantAdded && assistantContent && !controller.signal.aborted) {
           addMessage({
             id: generateId(),
             role: 'assistant',
@@ -258,7 +264,11 @@ export default function ChatInterface() {
           // 运行日志已在服务端记录
         }
       }
-    } catch (error) {
+    } catch (error: any) {
+      const aborted = !!(error && (error.name === 'AbortError' || String(error?.message || '').toLowerCase().includes('abort')));
+      if (aborted) {
+        // 用户主动停止：静默处理
+      } else {
       const errInfo = error instanceof Error ? {
         name: error.name,
         message: error.message,
@@ -269,10 +279,13 @@ export default function ChatInterface() {
         stack: undefined
       };
       setError(error instanceof Error ? error.message : '发送消息失败');
+      }
     } finally {
       setStreaming(false);
       setStreamingContent('');
       setReasoningContent('');
+      // 清理控制器
+      abortRef.current = null;
     }
   }, [
     currentConversation,
@@ -284,6 +297,18 @@ export default function ChatInterface() {
     setStreaming,
     setError,
   ]);
+
+  const handleStopStreaming = useCallback(() => {
+    try {
+      const controller = abortRef.current;
+      if (controller && !controller.signal.aborted) {
+        controller.abort();
+      }
+    } catch {}
+    setStreaming(false);
+    setStreamingContent('');
+    setReasoningContent('');
+  }, [setStreaming]);
 
   return (
     <div className="flex h-full flex-col">
@@ -320,6 +345,7 @@ export default function ChatInterface() {
                 disabled={isStreaming}
                 variant="center"
                 autoFocus
+                onStop={handleStopStreaming}
               />
             </div>
             <div className="text-xs text-muted-foreground">ChatGPT 可能会出错，请核查重要信息。</div>
@@ -343,6 +369,7 @@ export default function ChatInterface() {
               <MessageInput
                 onSendMessage={handleSendMessage}
                 disabled={isStreaming}
+                onStop={handleStopStreaming}
               />
             </div>
           </div>

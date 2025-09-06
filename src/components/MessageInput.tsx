@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Paperclip, X, Image as ImageIcon, Plus, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle } from 'lucide-react';
+import { Send, Paperclip, X, Image as ImageIcon, Plus, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle, Square } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS, ModelId } from '@/lib/types';
 import { cn, fileToBase64, compressImage } from '@/utils/helpers';
@@ -15,9 +15,10 @@ interface MessageInputProps {
   variant?: 'default' | 'center';
   placeholder?: string;
   autoFocus?: boolean;
+  onStop?: () => void;
 }
 
-export default function MessageInput({ onSendMessage, disabled, variant = 'default', placeholder, autoFocus }: MessageInputProps) {
+export default function MessageInput({ onSendMessage, disabled, variant = 'default', placeholder, autoFocus, onStop }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -313,21 +314,36 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
 
           {/* 移除语音与朗读占位按钮 */}
 
-          {/* 发送按钮 */}
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={!canSend}
-            className={cn(
-              "rounded-md p-2 transition-colors",
-              canSend
-                ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                : "text-muted-foreground cursor-not-allowed opacity-50"
-            )}
-            title="发送消息 (Enter)"
-          >
-            <Send className="h-4 w-4" />
-          </button>
+          {/* 发送 / 停止按钮 */}
+          {isStreaming ? (
+            <button
+              type="button"
+              onClick={onStop}
+              disabled={disabled || !isStreaming}
+              className={cn(
+                "rounded-md p-2 transition-colors bg-destructive text-destructive-foreground hover:bg-destructive/90",
+                "disabled:pointer-events-none disabled:opacity-50"
+              )}
+              title="停止生成"
+            >
+              <Square className="h-4 w-4" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={!canSend}
+              className={cn(
+                "rounded-md p-2 transition-colors",
+                canSend
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "text-muted-foreground cursor-not-allowed opacity-50"
+              )}
+              title="发送消息 (Enter)"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 

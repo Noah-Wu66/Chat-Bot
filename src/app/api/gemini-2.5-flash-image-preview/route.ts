@@ -171,21 +171,72 @@ export async function POST(req: Request) {
             textContent = typeof msg.content === 'string' ? msg.content : '';
           } catch {}
 
-          const mm: any[] = (msg as any).multi_mod_content || (msg as any).multiModContent || [];
           const images: string[] = [];
-          if (Array.isArray(mm)) {
-            for (const part of mm) {
-              const hasSnake = part && typeof part === 'object' && part.inline_data;
-              const hasCamel = part && typeof part === 'object' && part.inlineData;
-              const data = hasSnake ? part.inline_data?.data : hasCamel ? part.inlineData?.data : undefined;
-              const mime = hasSnake ? (part.inline_data?.mime_type || 'image/png') : hasCamel ? (part.inlineData?.mimeType || 'image/png') : 'image/png';
-              const text = typeof part?.text === 'string' ? part.text : '';
-              if (text) textContent += (textContent ? '\n' : '') + text;
-              if (typeof data === 'string' && data) {
-                images.push(`data:${mime};base64,${data}`);
+
+          // 1) 新增：当 message.content 为数组时解析多模态输出
+          try {
+            const contentArr = Array.isArray((msg as any).content) ? (msg as any).content : [];
+            if (Array.isArray(contentArr) && contentArr.length > 0) {
+              for (const part of contentArr) {
+                if (!part || typeof part !== 'object') continue;
+                const type = (part as any).type || '';
+                // 文本
+                const textA = typeof (part as any).text === 'string' ? (part as any).text : '';
+                const textB = typeof (part as any).output_text === 'string' ? (part as any).output_text : '';
+                if (textA || textB) {
+                  const t = textA || textB;
+                  textContent += (textContent ? '\n' : '') + t;
+                }
+                // image_url: 可能是字符串或 { url }
+                if (type === 'image_url' || (part as any).image_url) {
+                  const imageUrl = typeof (part as any).image_url === 'string'
+                    ? (part as any).image_url
+                    : (part as any).image_url?.url;
+                  if (typeof imageUrl === 'string' && imageUrl) {
+                    images.push(imageUrl);
+                  }
+                }
+                // inline_data / inlineData: { data, mime_type|mimeType }
+                const inlineSnake = (part as any).inline_data;
+                const inlineCamel = (part as any).inlineData;
+                const inline = inlineSnake || inlineCamel;
+                if (inline && typeof inline === 'object') {
+                  const data = inline.data;
+                  const mime = inline.mime_type || inline.mimeType || 'image/png';
+                  if (typeof data === 'string' && data) {
+                    images.push(`data:${mime};base64,${data}`);
+                  }
+                }
+                // image.b64_json 兼容（OpenAI 风格）
+                const imageObj = (part as any).image;
+                if (imageObj && typeof imageObj === 'object') {
+                  const b64 = imageObj.b64_json || imageObj.base64_data || imageObj.data;
+                  const mime = imageObj.mime || imageObj.mime_type || imageObj.mimeType || 'image/png';
+                  if (typeof b64 === 'string' && b64) {
+                    images.push(`data:${mime};base64,${b64}`);
+                  }
+                }
               }
             }
-          }
+          } catch {}
+
+          // 2) 兼容：multi_mod_content/multiModContent（旧字段）
+          try {
+            const mm: any[] = (msg as any).multi_mod_content || (msg as any).multiModContent || [];
+            if (Array.isArray(mm)) {
+              for (const part of mm) {
+                const hasSnake = part && typeof part === 'object' && part.inline_data;
+                const hasCamel = part && typeof part === 'object' && part.inlineData;
+                const data = hasSnake ? part.inline_data?.data : hasCamel ? part.inlineData?.data : undefined;
+                const mime = hasSnake ? (part.inline_data?.mime_type || 'image/png') : hasCamel ? (part.inlineData?.mimeType || 'image/png') : 'image/png';
+                const text = typeof part?.text === 'string' ? part.text : '';
+                if (text) textContent += (textContent ? '\n' : '') + text;
+                if (typeof data === 'string' && data) {
+                  images.push(`data:${mime};base64,${data}`);
+                }
+              }
+            }
+          } catch {}
 
           if (textContent) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'content', content: textContent })}\n\n`));
@@ -262,20 +313,65 @@ export async function POST(req: Request) {
     const choice = resp?.choices?.[0];
     const msg = choice?.message || {};
     content = typeof msg?.content === 'string' ? msg.content : '';
-    const mm: any[] = (msg as any).multi_mod_content || (msg as any).multiModContent || [];
-    if (Array.isArray(mm)) {
-      for (const part of mm) {
-        const hasSnake = part && typeof part === 'object' && part.inline_data;
-        const hasCamel = part && typeof part === 'object' && part.inlineData;
-        const data = hasSnake ? part.inline_data?.data : hasCamel ? part.inlineData?.data : undefined;
-        const mime = hasSnake ? (part.inline_data?.mime_type || 'image/png') : hasCamel ? (part.inlineData?.mimeType || 'image/png') : 'image/png';
-        const text = typeof part?.text === 'string' ? part.text : '';
-        if (text) content += (content ? '\n' : '') + text;
-        if (typeof data === 'string' && data) {
-          imagesNonStream.push(`data:${mime};base64,${data}`);
+
+    // 1) 当 message.content 为数组
+    try {
+      const contentArr = Array.isArray((msg as any).content) ? (msg as any).content : [];
+      if (Array.isArray(contentArr) && contentArr.length > 0) {
+        for (const part of contentArr) {
+          if (!part || typeof part !== 'object') continue;
+          const type = (part as any).type || '';
+          const textA = typeof (part as any).text === 'string' ? (part as any).text : '';
+          const textB = typeof (part as any).output_text === 'string' ? (part as any).output_text : '';
+          if (textA || textB) {
+            const t = textA || textB;
+            content += (content ? '\n' : '') + t;
+          }
+          if (type === 'image_url' || (part as any).image_url) {
+            const imageUrl = typeof (part as any).image_url === 'string' ? (part as any).image_url : (part as any).image_url?.url;
+            if (typeof imageUrl === 'string' && imageUrl) {
+              imagesNonStream.push(imageUrl);
+            }
+          }
+          const inlineSnake = (part as any).inline_data;
+          const inlineCamel = (part as any).inlineData;
+          const inline = inlineSnake || inlineCamel;
+          if (inline && typeof inline === 'object') {
+            const data = inline.data;
+            const mime = inline.mime_type || inline.mimeType || 'image/png';
+            if (typeof data === 'string' && data) {
+              imagesNonStream.push(`data:${mime};base64,${data}`);
+            }
+          }
+          const imageObj = (part as any).image;
+          if (imageObj && typeof imageObj === 'object') {
+            const b64 = imageObj.b64_json || imageObj.base64_data || imageObj.data;
+            const mime = imageObj.mime || imageObj.mime_type || imageObj.mimeType || 'image/png';
+            if (typeof b64 === 'string' && b64) {
+              imagesNonStream.push(`data:${mime};base64,${b64}`);
+            }
+          }
         }
       }
-    }
+    } catch {}
+
+    // 2) 兼容旧字段 multi_mod_content/multiModContent
+    try {
+      const mm: any[] = (msg as any).multi_mod_content || (msg as any).multiModContent || [];
+      if (Array.isArray(mm)) {
+        for (const part of mm) {
+          const hasSnake = part && typeof part === 'object' && part.inline_data;
+          const hasCamel = part && typeof part === 'object' && part.inlineData;
+          const data = hasSnake ? part.inline_data?.data : hasCamel ? part.inlineData?.data : undefined;
+          const mime = hasSnake ? (part.inline_data?.mime_type || 'image/png') : hasCamel ? (part.inlineData?.mimeType || 'image/png') : 'image/png';
+          const text = typeof part?.text === 'string' ? part.text : '';
+          if (text) content += (content ? '\n' : '') + text;
+          if (typeof data === 'string' && data) {
+            imagesNonStream.push(`data:${mime};base64,${data}`);
+          }
+        }
+      }
+    } catch {}
   } catch (e: any) {
     console.error('[Gemini] 非流式请求失败:', e?.message || String(e));
     throw e;
