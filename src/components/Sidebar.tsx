@@ -5,7 +5,6 @@ import {
   Plus,
   MessageSquare,
   Search,
-  Settings,
   Trash2,
   Edit3,
   Menu,
@@ -32,7 +31,6 @@ export default function Sidebar() {
     setCurrentConversation,
     sidebarOpen,
     setSidebarOpen,
-    setSettingsOpen,
     currentModel,
   } = useChatStore();
 
@@ -301,7 +299,7 @@ export default function Sidebar() {
       </div>
 
 
-      {/* 底部账户卡片 + 设置 */}
+      {/* 底部账户卡片 */}
       <div className="border-t border-border p-4 space-y-3">
         {/* 账户卡片 */}
         <div className="flex items-center justify-between rounded-lg border p-3">
@@ -334,13 +332,7 @@ export default function Sidebar() {
             }}
           >管理</button>
         </div>
-        <button
-          onClick={() => setSettingsOpen(true)}
-          className="sidebar-item w-full"
-        >
-          <Settings className="h-4 w-4" />
-          设置
-        </button>
+        
         <button
           onClick={async () => {
             try {

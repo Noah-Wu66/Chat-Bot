@@ -67,7 +67,7 @@ export const MODELS: Record<string, ModelConfig> = {
     supportsTools: true,
     supportsReasoning: true,
     supportsVerbosity: true,
-    supportsTemperature: true,
+    supportsTemperature: false,
     maxTokens: 8192,
   },
   // Gemini 2.5 Flash 图像生成（图文多模态）

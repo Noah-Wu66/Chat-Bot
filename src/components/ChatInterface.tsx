@@ -10,7 +10,6 @@ import MessageInput from './MessageInput';
 import SearchSourcesBar from './SearchSourcesBar';
 import SearchSourcesModal from './SearchSourcesModal';
 import ModelSelector from './ModelSelector';
-import SettingsPanel from './SettingsPanel';
 import UserPanel from './UserPanel';
 import LoginModal from './LoginModal';
 
@@ -370,8 +369,6 @@ export default function ChatInterface() {
         </>
       )}
 
-      {/* 设置面板 */}
-      <SettingsPanel />
       {/* 用户管理面板 */}
       <UserPanel />
       {/* 登录弹窗 */}

@@ -189,26 +189,24 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
               onOpenChange={(o) => setActivePopover(o ? 'effort' : null)}
             />
 
-            {webSearchEnabled && (
-              <>
-                {/* verbosity 按钮 */}
-                <VerbosityPopover
-                  value={(settings?.text?.verbosity as any) || 'medium'}
-                  disabled={disabled || isStreaming}
-                  onChange={(v) => setSettings({ text: { ...(settings?.text || {}), verbosity: v as any } })}
-                  open={activePopover === 'verbosity'}
-                  onOpenChange={(o) => setActivePopover(o ? 'verbosity' : null)}
-                />
+            {/* verbosity 按钮（始终显示） */}
+            <VerbosityPopover
+              value={(settings?.text?.verbosity as any) || 'medium'}
+              disabled={disabled || isStreaming}
+              onChange={(v) => setSettings({ text: { ...(settings?.text || {}), verbosity: v as any } })}
+              open={activePopover === 'verbosity'}
+              onOpenChange={(o) => setActivePopover(o ? 'verbosity' : null)}
+            />
 
-                {/* search size 按钮 */}
-                <SearchSizePopover
-                  value={Number(settings?.web?.size) || 10}
-                  disabled={disabled || isStreaming}
-                  onChange={(v) => setSettings({ web: { ...(settings?.web || {}), size: v } })}
-                  open={activePopover === 'search'}
-                  onOpenChange={(o) => setActivePopover(o ? 'search' : null)}
-                />
-              </>
+            {/* search size 按钮（仅联网搜索开启时显示） */}
+            {webSearchEnabled && (
+              <SearchSizePopover
+                value={Number(settings?.web?.size) || 10}
+                disabled={disabled || isStreaming}
+                onChange={(v) => setSettings({ web: { ...(settings?.web || {}), size: v } })}
+                open={activePopover === 'search'}
+                onOpenChange={(o) => setActivePopover(o ? 'search' : null)}
+              />
             )}
           </>
         </div>

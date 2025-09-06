@@ -26,7 +26,6 @@ interface ChatState {
   isLoading: boolean;
   isStreaming: boolean;
   sidebarOpen: boolean;
-  settingsOpen: boolean;
   userPanelOpen: boolean;
   loginOpen: boolean;
   
@@ -49,7 +48,6 @@ interface ChatState {
   setLoading: (loading: boolean) => void;
   setStreaming: (streaming: boolean) => void;
   setSidebarOpen: (open: boolean) => void;
-  setSettingsOpen: (open: boolean) => void;
   setUserPanelOpen: (open: boolean) => void;
   setLoginOpen: (open: boolean) => void;
   setError: (error: string | null) => void;
@@ -92,7 +90,6 @@ export const useChatStore = create<ChatState>()(
       isLoading: false,
       isStreaming: false,
       sidebarOpen: false,
-      settingsOpen: false,
       userPanelOpen: false,
       loginOpen: false,
       webSearchEnabled: false,
@@ -170,9 +167,7 @@ export const useChatStore = create<ChatState>()(
         set({ sidebarOpen: open });
       },
 
-      setSettingsOpen: (open) => {
-        set({ settingsOpen: open });
-      },
+      
 
       setUserPanelOpen: (open) => {
         set({ userPanelOpen: open });
@@ -239,7 +234,6 @@ export const useChatStore = create<ChatState>()(
           isLoading: false,
           isStreaming: false,
           sidebarOpen: true,
-          settingsOpen: false,
           userPanelOpen: false,
           loginOpen: false,
           webSearchEnabled: false,

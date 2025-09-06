@@ -127,14 +127,12 @@ export async function POST(req: Request) {
             inputPayload = [dev, injectedHistoryMsg, ...inputPayload];
           }
           const maxOutputTokens = typeof settings?.maxTokens === 'number' ? settings.maxTokens : undefined;
-          const temperature = typeof settings?.temperature === 'number' ? settings.temperature : undefined;
 
           const reqPayloadStream: any = {
             model: apiModelStream,
             input: inputPayload,
             stream: true,
             ...(typeof maxOutputTokens === 'number' ? { max_output_tokens: maxOutputTokens } : {}),
-            ...(typeof temperature === 'number' ? { temperature } : {}),
             reasoning: finalSettings.reasoning,
             ...(finalSettings.verbosity ? { text: { verbosity: finalSettings.verbosity } } : {}),
           };
@@ -205,72 +203,5 @@ export async function POST(req: Request) {
       },
     });
   }
-
-  // 非流式：统一使用 Responses API
-  const finalSettings: any = {};
-  finalSettings.reasoning = {
-    ...(settings?.reasoning || {}),
-    effort: (settings?.reasoning?.effort || 'high') as any,
-  };
-  if (typeof settings?.text?.verbosity === 'string') {
-    finalSettings.verbosity = settings.text.verbosity;
-  }
-  if (typeof settings?.verbosity === 'string') {
-    finalSettings.verbosity = settings.verbosity;
-  }
-  let inputPayload = buildResponsesInputWithHistory(input);
-  if (injectedHistoryMsg) {
-    const dev = inputPayload.shift();
-    inputPayload = [dev, injectedHistoryMsg, ...inputPayload];
-  }
-  const apiModel = 'gpt-5';
-  const maxOutputTokens = typeof settings?.maxTokens === 'number' ? settings.maxTokens : undefined;
-  const temperature = typeof settings?.temperature === 'number' ? settings.temperature : undefined;
-  let content = '';
-  try {
-    const reqPayload: any = {
-      model: apiModel,
-      input: inputPayload,
-      ...(typeof maxOutputTokens === 'number' ? { max_output_tokens: maxOutputTokens } : {}),
-      ...(typeof temperature === 'number' ? { temperature } : {}),
-      reasoning: finalSettings.reasoning,
-      ...(finalSettings.verbosity ? { text: { verbosity: finalSettings.verbosity } } : {}),
-    };
-
-    const resp = await (ai as any).responses.create(reqPayload);
-
-    try {
-      content = resp.output_text || '';
-    } catch {
-      content = JSON.stringify(resp);
-    }
-  } catch (e: any) {
-    console.error('[GPT-5] 非流式请求失败:', e?.message || String(e));
-    throw e;
-  }
-
-  await Conversation.updateOne(
-    { id: conversationId, userId: user.sub },
-    {
-      $push: {
-        messages: {
-          id: Date.now().toString(36),
-          role: 'assistant',
-          content,
-          timestamp: new Date(),
-          model: modelToUse,
-          metadata: searchUsed ? { searchUsed: true } : undefined,
-        },
-      },
-      $set: { updatedAt: new Date() },
-    }
-  );
-
-  return Response.json(
-    {
-      message: { role: 'assistant', content, model: modelToUse, metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined },
-      requestId,
-    },
-    { headers: { 'X-Request-Id': requestId, 'X-Model': modelToUse } }
-  );
+  return new Response(JSON.stringify({ error: '仅支持流式输出' }), { status: 400 });
 }
