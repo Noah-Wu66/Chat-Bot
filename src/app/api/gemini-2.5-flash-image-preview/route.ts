@@ -318,7 +318,13 @@ export async function POST(req: Request) {
                   );
                 } catch {}
               }
-            } catch {}
+            } catch (err: any) {
+              try {
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ type: 'debug', stage: 'fallback_error', message: err?.message || String(err) })}\n\n`)
+                );
+              } catch {}
+            }
           }
 
           if (textContent) {
