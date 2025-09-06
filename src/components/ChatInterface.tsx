@@ -78,67 +78,49 @@ export default function ChatInterface() {
       }
       console.log('[Chat] send start', { conversationId, model: currentModel, type: modelConfig.type });
 
-      // 准备 API 请求
-      const apiEndpoint = modelConfig.type === 'responses' ? '/api/responses' : '/api/chat';
+      // 按模型选择 API 路由
+      const apiEndpoint = currentModel === 'gemini-2.5-flash-image-preview'
+        ? '/api/gemini-2.5-flash-image-preview'
+        : '/api/gpt-5';
 
-      let requestBody: any;
-      if (modelConfig.type === 'responses') {
-        // Responses API 入参：文本或图文
-        // - 纯文本：input 直接用 string
-        // - 图文：input 为 [{ role:'user', content: [ {type:'input_text'}, {type:'input_image'}... ] }]
-        const toImageItem = (img: string) => {
-          // 兼容两种：
-          // 1) dataURL -> 拆出 mime 与 base64（去掉前缀）
-          // 2) 普通 URL -> 直接作为 image_url
-          if (typeof img === 'string' && img.startsWith('data:')) {
-            const match = img.match(/^data:([^;]+);base64,(.*)$/);
-            if (match) {
-              const mime = match[1];
-              const b64 = match[2];
-              return { type: 'input_image', image_data: b64, mime_type: mime } as any;
-            }
+      // Responses API 入参：文本或图文
+      // - 纯文本：input 直接用 string
+      // - 图文：input 为 [{ role:'user', content: [ {type:'input_text'}, {type:'input_image'}... ] }]
+      const toImageItem = (img: string) => {
+        if (typeof img === 'string' && img.startsWith('data:')) {
+          const match = img.match(/^data:([^;]+);base64,(.*)$/);
+          if (match) {
+            const mime = match[1];
+            const b64 = match[2];
+            return { type: 'input_image', image_data: b64, mime_type: mime } as any;
           }
-          return { type: 'input_image', image_url: img } as any;
-        };
-
-        let input: string | any[];
-        if (images && images.length > 0) {
-          input = [
-            {
-              role: 'user',
-              content: [
-                { type: 'input_text', text: content },
-                ...images.map(toImageItem),
-              ],
-            },
-          ];
-        } else {
-          input = content;
         }
+        return { type: 'input_image', image_url: img } as any;
+      };
 
-        requestBody = {
-          conversationId,
-          input,
-          model: currentModel,
-          settings,
-          stream: true,
-          webSearch: webSearchEnabled,
-        };
-      } else {
-        // 对于 Chat API，保持原有格式
-        const isGemini = currentModel === 'gemini-image';
-        requestBody = {
-          conversationId,
-          message: {
-            content,
-            images,
+      let input: string | any[];
+      if (images && images.length > 0) {
+        input = [
+          {
+            role: 'user',
+            content: [
+              { type: 'input_text', text: content },
+              ...images.map(toImageItem),
+            ],
           },
-          model: currentModel,
-          settings,
-          stream: true,
-          webSearch: isGemini ? false : webSearchEnabled,
-        };
+        ];
+      } else {
+        input = content;
       }
+
+      const requestBody: any = {
+        conversationId,
+        input,
+        model: currentModel,
+        settings,
+        stream: true,
+        webSearch: webSearchEnabled,
+      };
 
       let response = await fetch(apiEndpoint, {
         method: 'POST',

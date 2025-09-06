@@ -208,23 +208,7 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* 探索调试 */}
-      <div className="border-b border-border p-4">
-        <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-          探索调试
-        </div>
-        <div className="mt-2 space-y-1">
-          <a
-            href="https://nano-banana.zephyrt.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="sidebar-item w-full"
-          >
-            <span className="text-[16px] text-muted-foreground" aria-hidden="true">🍌</span>
-            Nano-Banana
-          </a>
-        </div>
-      </div>
+      {/* 探索调试（移除） */}
 
       {/* 对话列表 */}
       <div className="flex-1 overflow-y-auto scrollbar-thin">

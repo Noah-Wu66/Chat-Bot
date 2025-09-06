@@ -1,20 +1,17 @@
 # AI Chat Bot - 智能对话应用
 
-基于现代 OpenAI 兼容接口构建的 AI 对话应用，支持 GPT-5 和 Gemini 图像模型。
+基于 AIHubMix OpenAI 兼容接口构建的 AI 对话应用，支持 GPT-5。
 
 ## 功能特性
 
-### 🤖 多模型支持
-- **GPT-5**: `gpt-5` - 最新的推理模型，支持深度思考
-- **Gemini Image**: `gemini-image` - 图像生成与编辑，支持文本与图像输出
+### 🤖 模型
+- **GPT-5**: `gpt-5` - 推理模型，支持图文输入
 
 ### 🎯 核心功能
-- **Chat Completions API**: 标准对话模式（Gemini Image）
 - **Responses API**: 高级多功能接口（GPT-5）
 - **流式输出**: 实时显示回复内容
-- **图像生成**: 支持图像生成和编辑（Gemini Image 专属）
-- **函数调用**: 内置工具函数（天气查询、数学计算、时间获取）
-- **输出篇幅控制**: 可调节回复详细程度（GPT-5 专属）
+- **图文输入**: 支持文本与图像输入
+- **输出篇幅控制**: 可调节回复详细程度
 
 ### 🎨 用户界面
 - **现代化设计**: 基于 Tailwind CSS 的响应式界面
@@ -70,35 +67,21 @@ npm start
 
 ## API 使用说明
 
-### Chat Completions API
-适用于 Gemini Image 模型的标准对话：
+### Responses API
+示例：
 
 ```typescript
-// 基本对话
-const response = await fetch('/api/chat', {
+await fetch('/api/responses', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    message: { content: '你好' },
-    model: 'gemini-image',
+    conversationId,
+    input: '解释量子计算的基本原理',
+    model: 'gpt-5',
     settings: {
-      temperature: 0.8,
-      maxTokens: 4096,
+      text: { verbosity: 'medium' },
       stream: true
     }
-  })
-});
-
-// 图像生成
-const response = await fetch('/api/chat', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    message: {
-      content: '生成一个美丽的风景图'
-    },
-    model: 'gemini-image',
-    settings: { stream: true }
   })
 });
 ```
@@ -127,7 +110,6 @@ const response = await fetch('/api/responses', {
 | 模型 | API 类型 | 视觉 | 工具 | 推理 | 最大 Token |
 |------|----------|------|------|------|------------|
 | gpt-5 | Responses | ✅ | ✅ | ✅ | 8192 |
-| gemini-image | Chat | ✅ | ❌ | ❌ | 4096 |
 
 ## 内置工具函数
 
@@ -151,7 +133,7 @@ const response = await fetch('/api/responses', {
 src/
 ├── app/                    # Next.js App Router
 │   ├── api/               # API 路由
-│   │   ├── chat/          # Chat Completions API
+│   │   ├── responses/     # Responses API
 │   │   ├── responses/     # Responses API
 │   │   └── conversations/ # 对话管理 API
 │   ├── layout.tsx         # 根布局

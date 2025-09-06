@@ -55,7 +55,7 @@ export interface ConversationSettings {
   stream?: boolean;
 }
 
-// 支持的模型列表（取消任何路由与保底回退）
+// 支持的模型列表（仅保留 Gemini 2.5 Flash 图像生成）
 export const MODELS: Record<string, ModelConfig> = {
   // GPT-5（面向 Responses API 的推理模型）
   'gpt-5': {
@@ -70,19 +70,18 @@ export const MODELS: Record<string, ModelConfig> = {
     supportsTemperature: true,
     maxTokens: 8192,
   },
-
-  // Gemini 2.5 Flash Image Preview（图像生成/编辑，Chat Completions 通道）
-  'gemini-image': {
-    name: 'Gemini 2.5 Flash Image Preview',
-    description: '图像生成与编辑，支持文本与图像输出',
+  // Gemini 2.5 Flash 图像生成（图文多模态）
+  'gemini-2.5-flash-image-preview': {
+    name: 'Gemini 2.5 Flash Image',
+    description: '图文多模态生成，文本更精准，图像更清晰',
     type: 'chat',
     supportsVision: true,
     supportsSearch: false,
     supportsTools: false,
     supportsReasoning: false,
-    supportsVerbosity: false,
+    supportsVerbosity: true,
     supportsTemperature: true,
-    maxTokens: 4096,
+    maxTokens: 8192,
   },
 };
 

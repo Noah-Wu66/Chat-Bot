@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   const ai = getAIClient();
   const Conversation = await getConversationModel();
   const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
-  // 移除模型路由：固定使用 gpt-5 并启用高强度推理
+  // 恢复为 GPT-5 Responses（文本为主，保留 reasoning 与可选联网）
   const modelToUse: 'gpt-5' = 'gpt-5';
   await logInfo('responses', 'request.start', '请求开始', {
     userId: user.sub,
@@ -81,8 +81,8 @@ export async function POST(req: Request) {
     return [dev, ...(historyMsg ? [historyMsg] : []), ...current];
   };
 
-  // 模型固定为 gpt-5；OpenRouter 实际调用名使用 openai/gpt-5
-  const apiModelStream = 'openai/gpt-5';
+  // Responses 固定为 gpt-5
+  const apiModelStream = 'gpt-5';
   // 可选：联网搜索（仅由用户开关决定）
   let searchUsed = false;
   let injectedHistoryMsg: any | null = null;
@@ -110,13 +110,11 @@ export async function POST(req: Request) {
     const streamBody = new ReadableStream<Uint8Array>({
       async start(controller) {
         try {
-          // SSE: start 事件
           controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ type: 'start', requestId, route: 'responses', model: modelToUse })}\n\n`
-            )
+            encoder.encode(`data: ${JSON.stringify({ type: 'start', requestId, route: 'responses', model: modelToUse })}\n\n`)
           );
-          // 应用前端传入的配置：reasoning.effort 与顶层 verbosity
+
+          // 构建 Responses 请求
           const finalSettings: any = {};
           const selectedEffort = (settings?.reasoning?.effort || 'high') as any;
           finalSettings.reasoning = {
@@ -132,8 +130,6 @@ export async function POST(req: Request) {
 
           let inputPayload = buildResponsesInputWithHistory(input);
           if (injectedHistoryMsg) {
-            // 将搜索材料放在历史之后、当前消息之前：buildResponsesInputWithHistory 已经返回了 [dev, history?, current...]
-            // 这里简化处理：如果 injected 存在，则在 dev 后面插入
             const dev = inputPayload.shift();
             inputPayload = [dev, injectedHistoryMsg, ...inputPayload];
           }
@@ -146,26 +142,20 @@ export async function POST(req: Request) {
             stream: true,
             ...(typeof maxOutputTokens === 'number' ? { max_output_tokens: maxOutputTokens } : {}),
             ...(typeof temperature === 'number' ? { temperature } : {}),
+            reasoning: finalSettings.reasoning,
+            ...(finalSettings.verbosity ? { text: { verbosity: finalSettings.verbosity } } : {}),
           };
-          reqPayloadStream.reasoning = finalSettings.reasoning;
-          if (finalSettings.verbosity) reqPayloadStream.verbosity = finalSettings.verbosity;
 
           const response = await (ai as any).responses.create(reqPayloadStream);
 
           if (searchUsed) {
-            // 提前将搜索使用情况通知到前端
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: 'search', used: true })}\n\n`)
-            );
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'search', used: true })}\n\n`));
             if (Array.isArray(searchSources) && searchSources.length > 0) {
               controller.enqueue(
                 encoder.encode(`data: ${JSON.stringify({ type: 'search_sources', sources: searchSources })}\n\n`)
               );
             }
           }
-
-          // 无路由系统，不发送 routing 事件
-
           let fullContent = '';
           for await (const event of response) {
             if (event.type === 'response.refusal.delta') continue;
@@ -179,7 +169,6 @@ export async function POST(req: Request) {
                 encoder.encode(`data: ${JSON.stringify({ type: 'reasoning', content: event.delta })}\n\n`)
               );
             } else if (event.type === 'response.completed') {
-              // 流完成后写入助手消息
               try {
                 await Conversation.updateOne(
                   { id: conversationId, userId: user.sub },
@@ -204,7 +193,7 @@ export async function POST(req: Request) {
             }
           }
         } catch (e: any) {
-          await logError('responses', 'api.error', 'Responses API 流式失败', { error: e?.message || String(e) }, requestId);
+          await logError('responses', 'api.error', 'Chat Completions 流式失败', { error: e?.message || String(e) }, requestId);
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e?.message || String(e) })}\n\n`)
           );
@@ -226,7 +215,6 @@ export async function POST(req: Request) {
   }
 
   // 非流式：统一使用 Responses API
-
   const finalSettings: any = {};
   finalSettings.reasoning = {
     ...(settings?.reasoning || {}),
@@ -243,19 +231,18 @@ export async function POST(req: Request) {
     const dev = inputPayload.shift();
     inputPayload = [dev, injectedHistoryMsg, ...inputPayload];
   }
-  const apiModel = 'openai/gpt-5';
+  const apiModel = 'gpt-5';
   const maxOutputTokens = typeof settings?.maxTokens === 'number' ? settings.maxTokens : undefined;
   const temperature = typeof settings?.temperature === 'number' ? settings.temperature : undefined;
   let content = '';
   try {
-
     const reqPayload: any = {
       model: apiModel,
       input: inputPayload,
       ...(typeof maxOutputTokens === 'number' ? { max_output_tokens: maxOutputTokens } : {}),
       ...(typeof temperature === 'number' ? { temperature } : {}),
       reasoning: finalSettings.reasoning,
-      ...(finalSettings.verbosity ? { verbosity: finalSettings.verbosity } : {}),
+      ...(finalSettings.verbosity ? { text: { verbosity: finalSettings.verbosity } } : {}),
     };
 
     const resp = await (ai as any).responses.create(reqPayload);
