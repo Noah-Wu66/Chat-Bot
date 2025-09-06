@@ -202,40 +202,35 @@ export default function MessageList({
               </button>
 
               {Array.isArray(message?.metadata?.sources) && message.metadata!.sources!.length > 0 && (
-                <div className="ml-1 flex flex-1 items-center gap-2">
-                  <div className="flex min-w-0 flex-1 items-center justify-between rounded-md border bg-card/60 px-2 py-1">
-                    <div className="flex min-w-0 items-center gap-1.5">
+                <div className="ml-1 flex items-center gap-2">
+                  <div className="inline-flex items-center gap-2 rounded-md border bg-card/60 px-2 py-1">
+                    <div className="flex items-center gap-1.5">
                       <span className="inline-flex items-center gap-1 whitespace-nowrap text-muted-foreground"><LinkIcon className="h-3 w-3" />来源</span>
-                      <div className="flex min-w-0 items-center gap-1.5">
+                      <div className="flex items-center gap-1.5">
                         {message.metadata!.sources!.slice(0, 5).map((src: any, i: number) => {
                           const title = src?.title || src?.domain || `来源${i + 1}`;
-                          const link = src?.link || '#';
                           const domain = src?.domain || '';
                           const favicon = src?.favicon || '';
                           return (
-                            <a
+                            <span
                               key={i}
-                              href={link}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 rounded border px-1 py-[1px] hover:bg-accent hover:text-accent-foreground"
+                              className="inline-flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-muted ring-1 ring-border"
                               title={title}
                             >
                               {favicon ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={favicon} alt={domain || title} className="h-3 w-3" />
+                                <img src={favicon} alt={domain || title} className="h-5 w-5" />
                               ) : (
                                 <LinkIcon className="h-3 w-3" />
                               )}
-                              <span className="truncate max-w-[96px] text-[10px]">{domain || title}</span>
-                            </a>
+                            </span>
                           );
                         })}
                       </div>
                     </div>
                     <button
                       type="button"
-                      className="ml-2 inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground"
+                      className="ml-1 inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground"
                       onClick={() => {
                         setSourcesForModal(message.metadata!.sources!);
                         setSourcesModalOpen(true);
