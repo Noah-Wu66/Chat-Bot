@@ -164,10 +164,34 @@ export async function POST(req: Request) {
     const pushText = (t: any) => {
       const s = typeof t === 'string' ? t : '';
       if (!s) return;
-      // 去重：避免相邻重复文本
       if (textParts.length === 0 || textParts[textParts.length - 1] !== s) {
         textParts.push(s);
       }
+      // 从文本中解析可能的图片 URL（markdown/dataURL/常见扩展名）
+      extractUrlImagesFromText(s, images);
+    };
+
+    const extractUrlImagesFromText = (s: string, collector: string[]) => {
+      try {
+        // data URL
+        const dataUrlRegex = /(data:image\/(?:png|jpeg|jpg|webp|gif|svg\+xml);base64,[A-Za-z0-9+/=]+)(?![A-Za-z0-9+/=])/g;
+        let m: RegExpExecArray | null;
+        while ((m = dataUrlRegex.exec(s)) !== null) {
+          if (m[1]) collector.push(m[1]);
+        }
+
+        // markdown ![](url)
+        const mdImgRegex = /!\[[^\]]*\]\((https?:[^)\s]+)\)/g;
+        while ((m = mdImgRegex.exec(s)) !== null) {
+          if (m[1]) collector.push(m[1]);
+        }
+
+        // 直接 http(s) 图片链接（常见图片扩展名）
+        const httpImgRegex = /(https?:\/\/[^\s)\]\"']+\.(?:png|jpe?g|webp|gif|svg))(?![A-Za-z0-9])/gi;
+        while ((m = httpImgRegex.exec(s)) !== null) {
+          if (m[1]) collector.push(m[1]);
+        }
+      } catch {}
     };
 
     // 1) 直接字符串内容
@@ -188,12 +212,22 @@ export async function POST(req: Request) {
         if (textA) pushText(textA);
         if (textB) pushText(textB);
 
-        // 图片：image_url（可能是字符串或 { url }）
+        // 图片：标准 image_url（字符串或 { url }）
         if (type === 'image_url' || (part as any).image_url) {
           const imageUrl = typeof (part as any).image_url === 'string'
             ? (part as any).image_url
             : (part as any).image_url?.url;
           if (typeof imageUrl === 'string' && imageUrl) images.push(imageUrl);
+        }
+
+        // 图片：Gemini/Responses 风格 output_image
+        if (type === 'output_image' || (part as any).output_image) {
+          const p = (part as any).output_image || part;
+          const url = p?.image_url || p?.url;
+          const b64 = p?.b64_json || p?.base64 || p?.data;
+          const mime = p?.mime || p?.mime_type || 'image/png';
+          if (typeof url === 'string' && url) images.push(url);
+          if (typeof b64 === 'string' && b64) images.push(`data:${mime};base64,${b64}`);
         }
 
         // 图片：inlineData / inline_data
@@ -232,6 +266,19 @@ export async function POST(req: Request) {
         }
       } catch {}
     }
+
+    // 4) 顶层 images 字段
+    try {
+      const topImages = (msg as any).images;
+      if (Array.isArray(topImages)) {
+        for (const it of topImages) {
+          if (!it) continue;
+          if (typeof it === 'string') images.push(it);
+          else if (typeof it?.url === 'string') images.push(it.url);
+          else if (typeof it?.b64_json === 'string') images.push(`data:image/png;base64,${it.b64_json}`);
+        }
+      }
+    } catch {}
 
     const uniqueImages = Array.from(new Set(images));
     const text = textParts.filter((t, i) => textParts.indexOf(t) === i).join('\n');
