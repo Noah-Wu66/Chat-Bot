@@ -181,7 +181,8 @@ export interface Tool {
 export interface ImageInput {
   type: 'input_image';
   image_url?: string;
-  image_data?: string; // base64 数据（不含 data: 前缀）
+  // Responses API 对 gpt-5 不接受 image_data，这里保留字段仅兼容其它模型
+  image_data?: string;
   mime_type?: string;  // 如 'image/png'
 }
 

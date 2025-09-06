@@ -81,14 +81,7 @@ export default function ChatInterface() {
       // - 纯文本：input 直接用 string
       // - 图文：input 为 [{ role:'user', content: [ {type:'input_text'}, {type:'input_image'}... ] }]
       const toImageItem = (img: string) => {
-        if (typeof img === 'string' && img.startsWith('data:')) {
-          const match = img.match(/^data:([^;]+);base64,(.*)$/);
-          if (match) {
-            const mime = match[1];
-            const b64 = match[2];
-            return { type: 'input_image', image_data: b64, mime_type: mime } as any;
-          }
-        }
+        // Responses API 不接受 image_data；统一用 image_url（可为 data URL 或远程 URL）
         return { type: 'input_image', image_url: img } as any;
       };
 
