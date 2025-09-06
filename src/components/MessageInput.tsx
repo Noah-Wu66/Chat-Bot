@@ -165,41 +165,44 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
           <ModelSelector variant="ghost" />
 
           <>
-            <button
-              type="button"
-              onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-              disabled={disabled || isStreaming}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs",
-                webSearchEnabled ? "bg-green-600 text-white border-green-600" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                "disabled:pointer-events-none disabled:opacity-50"
-              )}
-              title={webSearchEnabled ? "已开启联网搜索" : "点击开启联网搜索"}
-            >
-              <Search className="h-3.5 w-3.5" />
-              <span>联网搜索</span>
-            </button>
+            {modelConfig.supportsSearch && (
+              <button
+                type="button"
+                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+                disabled={disabled || isStreaming}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs",
+                  webSearchEnabled ? "bg-green-600 text-white border-green-600" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  "disabled:pointer-events-none disabled:opacity-50"
+                )}
+                title={webSearchEnabled ? "已开启联网搜索" : "点击开启联网搜索"}
+              >
+                <Search className="h-3.5 w-3.5" />
+                <span>联网搜索</span>
+              </button>
+            )}
 
-            {/* effort 按钮 */}
-            <EffortPopover
-              value={(settings?.reasoning?.effort as any) || 'high'}
-              disabled={disabled || isStreaming}
-              onChange={(v) => setSettings({ reasoning: { ...(settings?.reasoning || {}), effort: v as any } })}
-              open={activePopover === 'effort'}
-              onOpenChange={(o) => setActivePopover(o ? 'effort' : null)}
-            />
+            {modelConfig.supportsReasoning && (
+              <EffortPopover
+                value={(settings?.reasoning?.effort as any) || 'high'}
+                disabled={disabled || isStreaming}
+                onChange={(v) => setSettings({ reasoning: { ...(settings?.reasoning || {}), effort: v as any } })}
+                open={activePopover === 'effort'}
+                onOpenChange={(o) => setActivePopover(o ? 'effort' : null)}
+              />
+            )}
 
-            {/* verbosity 按钮（始终显示） */}
-            <VerbosityPopover
-              value={(settings?.text?.verbosity as any) || 'medium'}
-              disabled={disabled || isStreaming}
-              onChange={(v) => setSettings({ text: { ...(settings?.text || {}), verbosity: v as any } })}
-              open={activePopover === 'verbosity'}
-              onOpenChange={(o) => setActivePopover(o ? 'verbosity' : null)}
-            />
+            {modelConfig.supportsVerbosity && (
+              <VerbosityPopover
+                value={(settings?.text?.verbosity as any) || 'medium'}
+                disabled={disabled || isStreaming}
+                onChange={(v) => setSettings({ text: { ...(settings?.text || {}), verbosity: v as any } })}
+                open={activePopover === 'verbosity'}
+                onOpenChange={(o) => setActivePopover(o ? 'verbosity' : null)}
+              />
+            )}
 
-            {/* search size 按钮（仅联网搜索开启时显示） */}
-            {webSearchEnabled && (
+            {modelConfig.supportsSearch && webSearchEnabled && (
               <SearchSizePopover
                 value={Number(settings?.web?.size) || 10}
                 disabled={disabled || isStreaming}

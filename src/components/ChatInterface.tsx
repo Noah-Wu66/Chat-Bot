@@ -106,7 +106,8 @@ export default function ChatInterface() {
         model: currentModel,
         settings,
         stream: true,
-        webSearch: webSearchEnabled,
+        // 仅当模型支持联网搜索时才传递
+        ...(MODELS[currentModel]?.supportsSearch ? { webSearch: webSearchEnabled } : {}),
       };
 
       let response = await fetch(apiEndpoint, {
