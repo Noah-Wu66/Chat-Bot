@@ -94,26 +94,33 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
       return;
     }
 
-    const newImages: string[] = [];
+    const limit = Math.min(files.length, 5 - images.length);
+    const batch: File[] = [];
+    let totalBytes = 0;
 
-    for (let i = 0; i < Math.min(files.length, 5 - images.length); i++) {
-      const file = files[i];
-
-      if (!file.type.startsWith('image/')) {
-        continue;
-      }
-
-      try {
-        // 压缩图片
-        const compressedFile = await compressImage(file);
-        const base64 = await fileToBase64(compressedFile);
-        newImages.push(base64);
-      } catch (error) {
-        // 处理图片失败：静默失败，避免噪声
-      }
+    for (let i = 0; i < limit; i++) {
+      const f = files[i];
+      if (!f || !f.type.startsWith('image/')) continue;
+      batch.push(f);
+      totalBytes += f.size;
     }
 
-    setImages(prev => [...prev, ...newImages]);
+    // 20MB 阈值（与后端/平台限制一致）
+    const MAX_TOTAL_BYTES = 20 * 1024 * 1024;
+    const shouldCompress = totalBytes > MAX_TOTAL_BYTES;
+
+    const newImages: string[] = [];
+    for (const file of batch) {
+      try {
+        const processed = shouldCompress ? await compressImage(file) : file;
+        const base64 = await fileToBase64(processed);
+        newImages.push(base64);
+      } catch {}
+    }
+
+    if (newImages.length > 0) {
+      setImages(prev => [...prev, ...newImages]);
+    }
   };
 
   // 处理拖拽

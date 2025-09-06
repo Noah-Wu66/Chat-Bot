@@ -63,6 +63,58 @@ export async function POST(req: Request) {
   };
   const historyText = buildHistoryText(historyWithoutCurrent);
 
+  // 查找上一条助手返回的图片（用于图像连续编辑的上下文）
+  const findLastAssistantImage = (): string | null => {
+    try {
+      for (let i = historyWithoutCurrent.length - 1; i >= 0; i--) {
+        const msg = historyWithoutCurrent[i];
+        if (msg && msg.role === 'assistant' && Array.isArray(msg.images) && msg.images.length > 0) {
+          const last = msg.images[msg.images.length - 1];
+          if (typeof last === 'string' && last) return last;
+        }
+      }
+    } catch {}
+    return null;
+  };
+
+  // 将上一张助手图片注入到本次 input 中（与用户上传图片一并作为输入）
+  const augmentInputWithPrevImage = (src: string | any[], prevImageUrl: string | null): string | any[] => {
+    if (!prevImageUrl) return src;
+
+    const makeImageItem = (url: string) => ({ type: 'input_image', image_url: url });
+
+    if (Array.isArray(src)) {
+      // 找到第一个 user turn 并在其 content 中追加图片
+      const arr = src.map((turn) => ({ ...turn }));
+      const idx = arr.findIndex((t) => t && t.role === 'user' && Array.isArray(t.content));
+      if (idx >= 0) {
+        const contentArr = Array.isArray(arr[idx].content) ? arr[idx].content.slice() : [];
+        // 避免重复注入
+        const exists = contentArr.some((c: any) => c && c.type === 'input_image' && (c.image_url === prevImageUrl || c.image_url?.url === prevImageUrl));
+        if (!exists) contentArr.push(makeImageItem(prevImageUrl));
+        arr[idx] = { ...arr[idx], content: contentArr };
+        return arr;
+      }
+      // 若未找到 user turn，则创建一个
+      return [
+        ...arr,
+        { role: 'user', content: [{ type: 'input_text', text: '' }, makeImageItem(prevImageUrl)] },
+      ];
+    }
+
+    // 纯文本 -> 变为图文数组，文本 + 上一张图片
+    const text = String(src ?? '');
+    return [
+      {
+        role: 'user',
+        content: [
+          { type: 'input_text', text },
+          makeImageItem(prevImageUrl),
+        ],
+      },
+    ];
+  };
+
   // 将 input 转换为 ChatCompletions 的 messages
   type CCPart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
   type CCMessage = { role: 'system' | 'user' | 'assistant'; content: CCPart[] | string };
@@ -253,7 +305,9 @@ export async function POST(req: Request) {
             encoder.encode(`data: ${JSON.stringify({ type: 'start', requestId, route: 'chat.completions', model: modelToUse })}\n\n`)
           );
 
-          const messages = buildMessagesWithHistory(input);
+          const prevImageUrl = findLastAssistantImage();
+          const augmentedInput = augmentInputWithPrevImage(input, prevImageUrl);
+          const messages = buildMessagesWithHistory(augmentedInput);
           if (injectedHistoryMsg) {
             const sysIdx = messages.findIndex((m) => m.role === 'system');
             const injected = {
@@ -297,7 +351,8 @@ export async function POST(req: Request) {
           // 若未返回图片，尝试使用 Images API 进行兜底生成
           if (images.length === 0) {
             try {
-              const promptText = extractPrimaryTextFromInput(input);
+              // 使用增强前或增强后的输入都可；仅使用文本部分
+              const promptText = extractPrimaryTextFromInput(augmentedInput);
               if (promptText) {
                 const imgResp: any = await (ai as any).images.generate({
                   model: modelToUse,
@@ -379,7 +434,9 @@ export async function POST(req: Request) {
   }
 
   // 非流式
-  const messages = buildMessagesWithHistory(input);
+  const prevImageUrl = findLastAssistantImage();
+  const augmentedInput = augmentInputWithPrevImage(input, prevImageUrl);
+  const messages = buildMessagesWithHistory(augmentedInput);
   if (injectedHistoryMsg) {
     const sysIdx = messages.findIndex((m) => m.role === 'system');
     const injected = {
@@ -408,7 +465,8 @@ export async function POST(req: Request) {
     // 若没有图片，使用 Images API 兜底一次
     if (!imagesNonStream || imagesNonStream.length === 0) {
       try {
-        const promptText = extractPrimaryTextFromInput(input);
+        // 使用增强后的输入以获得更准确的文本摘要
+        const promptText = extractPrimaryTextFromInput(augmentedInput);
         if (promptText) {
           const imgResp: any = await (ai as any).images.generate({
             model: modelToUse,
