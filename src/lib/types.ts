@@ -113,8 +113,11 @@ export interface ModelConfig {
 }
 
 // 类型安全的模型配置获取函数
-export function getModelConfig(model: ModelId): ModelConfig {
-  return MODELS[model] as ModelConfig;
+export function getModelConfig(model: ModelId | string): ModelConfig {
+  const config = MODELS[model as ModelId];
+  if (config) return config;
+  const fallbackModel = 'gpt-5' as ModelId;
+  return MODELS[fallbackModel];
 }
 
 // API 响应类型

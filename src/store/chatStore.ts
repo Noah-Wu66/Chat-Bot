@@ -5,7 +5,8 @@ import {
   Message, 
   ModelId, 
   ConversationSettings,
-  MODELS 
+  MODELS,
+  getModelConfig,
 } from '@/lib/types';
 
 interface ChatState {
@@ -138,7 +139,7 @@ export const useChatStore = create<ChatState>()(
         set({ currentModel: model });
         
         // 根据模型类型调整默认设置
-        const modelConfig = MODELS[model];
+        const modelConfig = getModelConfig(model);
         const newSettings = { ...get().settings };
         
         // 依据模型能力启用/禁用 temperature
