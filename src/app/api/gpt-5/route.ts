@@ -2,9 +2,20 @@
 import { getAIClient } from '@/lib/ai';
 import { performWebSearchSummary } from '@/lib/router';
 import { getConversationModel } from '@/lib/models/Conversation';
-import { getCurrentUser } from '@/app/actions/auth';
+import { cookies } from 'next/headers';
+import { verifyJWT } from '@/lib/auth';
 
 export const runtime = 'nodejs';
+
+// 获取当前用户的辅助函数
+async function getCurrentUser() {
+  const cookieStore = cookies();
+  const token = cookieStore.get('auth_token')?.value;
+  if (!token) return null;
+  const payload = verifyJWT(token);
+  if (!payload) return null;
+  return payload;
+}
 
 export async function POST(req: Request) {
   const user = await getCurrentUser();

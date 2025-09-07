@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { X, User as UserIcon, Mail, KeyRound, LogOut } from "lucide-react";
 import { useChatStore } from "@/store/chatStore";
-import { getCurrentUser, logoutAction } from "@/app/actions/auth";
 
 export default function UserPanel() {
   const { userPanelOpen, setUserPanelOpen } = useChatStore();
@@ -18,9 +17,15 @@ export default function UserPanel() {
       setLoading(true);
       setError(null);
       try {
-        const data = await getCurrentUser();
-        if (!data) throw new Error("未登录或获取用户失败");
-        if (!cancelled) setUser({ username: (data as any).username, email: (data as any).email });
+        const response = await fetch('/api/auth/me', {
+          credentials: 'include',
+        });
+        if (!response.ok) {
+          throw new Error("未登录或获取用户失败");
+        }
+        const data = await response.json();
+        if (!data.user) throw new Error("未登录或获取用户失败");
+        if (!cancelled) setUser({ username: data.user.username, email: data.user.email });
       } catch (e: any) {
         if (!cancelled) setError(e?.message || "获取用户失败");
       } finally {
@@ -105,8 +110,12 @@ export default function UserPanel() {
               onSubmit={async (e) => {
                 e.preventDefault();
                 try {
-                  const data = await logoutAction();
-                  window.location.href = ((data as any)?.redirect) || "/login";
+                  const response = await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    credentials: 'include',
+                  });
+                  const data = await response.json();
+                  window.location.href = data?.redirect || "/login";
                 } catch (e) {
                   window.location.href = "/login";
                 }

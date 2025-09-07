@@ -4,7 +4,6 @@ import { useState, useCallback, useRef } from 'react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS } from '@/lib/types';
 import { generateId, generateTitleFromMessage } from '@/utils/helpers';
-import { createConversationAction } from '@/app/actions/conversations';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 // 删除顶部来源条相关导入
@@ -58,11 +57,20 @@ export default function ChatInterface() {
       let conversationId = currentConversation?.id;
       if (!conversationId || currentConversation?.model !== currentModel) {
         const title = generateTitleFromMessage(content);
-        const newConversation = await createConversationAction({
-          title,
-          model: currentModel,
-          settings,
-        } as any);
+        const response = await fetch('/api/conversations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            model: currentModel,
+            settings,
+          }),
+          credentials: 'include',
+        });
+        if (!response.ok) {
+          throw new Error('创建对话失败');
+        }
+        const newConversation = await response.json();
         // 立刻让本地会话包含用户消息，避免短暂丢失
         const withFirstMessage = { ...newConversation, messages: [userMessage] } as any;
         setCurrentConversation(withFirstMessage);

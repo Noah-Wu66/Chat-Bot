@@ -5,7 +5,6 @@ import { Send, Paperclip, X, Image as ImageIcon, Plus, Search, Brain, AlignLeft,
 import { useChatStore } from '@/store/chatStore';
 import { MODELS, ModelId } from '@/lib/types';
 import { cn, fileToBase64, compressImage } from '@/utils/helpers';
-import { getCurrentUser } from '@/app/actions/auth';
 import ModelSelector from './ModelSelector';
 
 interface MessageInputProps {
@@ -36,8 +35,10 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
     let cancelled = false;
     (async () => {
       try {
-        const user = await getCurrentUser();
-        if (!cancelled) setIsLoggedIn(!!user);
+        const response = await fetch('/api/auth/me', {
+          credentials: 'include',
+        });
+        if (!cancelled) setIsLoggedIn(response.ok);
       } catch {
         if (!cancelled) setIsLoggedIn(false);
       }

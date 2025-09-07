@@ -1,9 +1,81 @@
-import Link from 'next/link';
-import { loginFormAction, registerFormAction } from '@/app/actions/auth';
+'use client';
+
+import { useState } from 'react';
 
 export default function LoginPage({ searchParams }: { searchParams: { mode?: string; error?: string } }) {
-  const mode = (searchParams?.mode === 'register' ? 'register' : 'login') as 'login' | 'register';
-  const error = searchParams?.error;
+  const initialMode = (searchParams?.mode === 'register' ? 'register' : 'login') as 'login' | 'register';
+  const initialError = searchParams?.error;
+  
+  const [mode, setMode] = useState(initialMode);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(initialError || null);
+  
+  // 登录表单状态
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(false);
+  
+  // 注册表单状态
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, password, remember }),
+        credentials: 'include',
+      });
+      const res = await response.json();
+      if (!response.ok || !res?.ok) {
+        throw new Error(res?.error || "登录失败");
+      }
+      window.location.href = res?.redirect || "/";
+    } catch (e: any) {
+      setError(e?.message || "登录失败");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    
+    try {
+      if (password !== confirmPassword) {
+        throw new Error("两次输入的密码不一致");
+      }
+      
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password, confirmPassword }),
+        credentials: 'include',
+      });
+      const res = await response.json();
+      if (!response.ok || !res?.ok) {
+        throw new Error(res?.error || "注册失败");
+      }
+      // 注册成功后跳转到登录模式
+      setMode('login');
+      setIdentifier(email || username);
+      setPassword('');
+      setConfirmPassword('');
+      setError(null);
+    } catch (e: any) {
+      setError(e?.message || "注册失败");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="h-full flex items-center justify-center p-6">
@@ -11,26 +83,29 @@ export default function LoginPage({ searchParams }: { searchParams: { mode?: str
         <h1 className="text-xl font-semibold mb-4">登录 / 注册</h1>
 
         <div className="grid grid-cols-2 gap-2 mb-4">
-          <Link
-            href="/login"
+          <button
+            type="button"
+            onClick={() => setMode('login')}
             className={`rounded-md border px-3 py-2 text-center text-sm ${mode === 'login' ? 'bg-accent' : ''}`}
-          >登录</Link>
-          <Link
-            href="/login?mode=register"
+          >登录</button>
+          <button
+            type="button"
+            onClick={() => setMode('register')}
             className={`rounded-md border px-3 py-2 text-center text-sm ${mode === 'register' ? 'bg-accent' : ''}`}
-          >注册</Link>
+          >注册</button>
         </div>
 
         {error && (
-          <div className="mb-4 text-sm text-destructive">{decodeURIComponent(error)}</div>
+          <div className="mb-4 text-sm text-destructive">{error}</div>
         )}
 
         {mode === 'login' ? (
-          <form action={loginFormAction} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-sm mb-1">用户名或邮箱</label>
               <input
-                name="identifier"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 type="text"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 required
@@ -39,7 +114,8 @@ export default function LoginPage({ searchParams }: { searchParams: { mode?: str
             <div>
               <label className="block text-sm mb-1">密码</label>
               <input
-                name="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 type="password"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 required
@@ -48,24 +124,34 @@ export default function LoginPage({ searchParams }: { searchParams: { mode?: str
             </div>
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 text-sm">
-                <input name="remember" type="checkbox" />
+                <input 
+                  type="checkbox" 
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                />
                 记住我（30天）
               </label>
-              <Link href="/login?mode=register" className="text-sm text-blue-600 hover:underline">没有账号？去注册</Link>
+              <button
+                type="button"
+                onClick={() => setMode('register')}
+                className="text-sm text-blue-600 hover:underline"
+              >没有账号？去注册</button>
             </div>
             <button
               type="submit"
-              className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              disabled={loading}
+              className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
-              登录
+              {loading ? '登录中...' : '登录'}
             </button>
           </form>
         ) : (
-          <form action={registerFormAction} className="space-y-4">
+          <form onSubmit={handleRegister} className="space-y-4">
             <div>
               <label className="block text-sm mb-1">用户名</label>
               <input
-                name="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 type="text"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 required
@@ -75,7 +161,8 @@ export default function LoginPage({ searchParams }: { searchParams: { mode?: str
             <div>
               <label className="block text-sm mb-1">邮箱</label>
               <input
-                name="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 type="email"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 required
@@ -84,7 +171,8 @@ export default function LoginPage({ searchParams }: { searchParams: { mode?: str
             <div>
               <label className="block text-sm mb-1">密码</label>
               <input
-                name="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 type="password"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 required
@@ -95,7 +183,8 @@ export default function LoginPage({ searchParams }: { searchParams: { mode?: str
             <div>
               <label className="block text-sm mb-1">确认密码</label>
               <input
-                name="confirmPassword"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 type="password"
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 required
@@ -103,13 +192,18 @@ export default function LoginPage({ searchParams }: { searchParams: { mode?: str
               />
             </div>
             <div className="flex items-center justify-between">
-              <Link href="/login" className="text-sm text-blue-600 hover:underline">已有账号？去登录</Link>
+              <button
+                type="button"
+                onClick={() => setMode('login')}
+                className="text-sm text-blue-600 hover:underline"
+              >已有账号？去登录</button>
             </div>
             <button
               type="submit"
-              className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+              disabled={loading}
+              className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
-              注册
+              {loading ? '注册中...' : '注册'}
             </button>
           </form>
         )}

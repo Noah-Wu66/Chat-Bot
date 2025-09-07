@@ -14,14 +14,6 @@ import {
 import { useChatStore } from '@/store/chatStore';
 import { Conversation } from '@/lib/types';
 import { formatRelativeTime, truncateText, cn } from '@/utils/helpers';
-// 客户端默认使用 Server Actions 完成读写
-import {
-  listConversationsAction,
-  createConversationAction,
-  updateConversationTitleAction,
-  deleteConversationAction,
-} from '@/app/actions/conversations';
-import { getCurrentUser, logoutAction } from '@/app/actions/auth';
 
 export default function Sidebar() {
   const {
@@ -43,12 +35,22 @@ export default function Sidebar() {
   // 加载对话列表
   useEffect(() => {
     loadConversations();
-    // 加载当前用户（Server Action）
+    // 加载当前用户
     (async () => {
       try {
-        const u = await getCurrentUser();
-        if (u) setUser({ username: (u as any).username, email: (u as any).email });
-        else setUser(null);
+        const response = await fetch('/api/auth/me', {
+          credentials: 'include',
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            setUser({ username: data.user.username, email: data.user.email });
+          } else {
+            setUser(null);
+          }
+        } else {
+          setUser(null);
+        }
       } catch {
         setUser(null);
       }
@@ -58,10 +60,18 @@ export default function Sidebar() {
   const loadConversations = async () => {
     try {
       setLoading(true);
-      const data = await listConversationsAction();
-      setConversations(Array.isArray(data) ? data : []);
+      const response = await fetch('/api/conversations', {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setConversations(Array.isArray(data) ? data : []);
+      } else {
+        setConversations([]);
+      }
     } catch (error) {
       // 忽略错误
+      setConversations([]);
     } finally {
       setLoading(false);
     }
@@ -74,19 +84,35 @@ export default function Sidebar() {
       return;
     }
     try {
-      const data = await listConversationsAction(query);
-      setConversations(Array.isArray(data) ? data : []);
+      const response = await fetch(`/api/conversations?search=${encodeURIComponent(query)}`, {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setConversations(Array.isArray(data) ? data : []);
+      } else {
+        setConversations([]);
+      }
     } catch (error) {
       // 忽略错误
+      setConversations([]);
     }
   };
 
   // 创建新对话
   const createNewConversation = async () => {
     try {
-      const newConversation = await createConversationAction({ title: '新对话', model: currentModel, settings: {} } as any);
-      setConversations([newConversation as any, ...conversations]);
-      setCurrentConversation(newConversation as any);
+      const response = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: '新对话', model: currentModel, settings: {} }),
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const newConversation = await response.json();
+        setConversations([newConversation, ...conversations]);
+        setCurrentConversation(newConversation);
+      }
     } catch (error) {
       // 忽略错误
     }
@@ -101,11 +127,17 @@ export default function Sidebar() {
     }
 
     try {
-      const res = await deleteConversationAction(id);
-      if ((res as any)?.ok) {
-        setConversations(conversations.filter(conv => conv.id !== id));
-        if (currentConversation?.id === id) {
-          setCurrentConversation(null);
+      const response = await fetch(`/api/conversations?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const res = await response.json();
+        if (res?.ok) {
+          setConversations(conversations.filter(conv => conv.id !== id));
+          if (currentConversation?.id === id) {
+            setCurrentConversation(null);
+          }
         }
       }
     } catch (error) {
@@ -127,18 +159,26 @@ export default function Sidebar() {
     }
 
     try {
-      const res = await updateConversationTitleAction(editingId, editTitle.trim());
-      if ((res as any)?.ok) {
-        setConversations(conversations.map(conv => 
-          conv.id === editingId 
-            ? { ...conv, title: editTitle.trim() }
-            : conv
-        ));
-        if (currentConversation?.id === editingId) {
-          setCurrentConversation({
-            ...currentConversation,
-            title: editTitle.trim(),
-          });
+      const response = await fetch('/api/conversations', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingId, title: editTitle.trim() }),
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const res = await response.json();
+        if (res?.ok) {
+          setConversations(conversations.map(conv => 
+            conv.id === editingId 
+              ? { ...conv, title: editTitle.trim() }
+              : conv
+          ));
+          if (currentConversation?.id === editingId) {
+            setCurrentConversation({
+              ...currentConversation,
+              title: editTitle.trim(),
+            });
+          }
         }
       }
     } catch (error) {
@@ -339,8 +379,12 @@ export default function Sidebar() {
         <button
           onClick={async () => {
             try {
-              const res = await logoutAction();
-              window.location.href = ((res as any)?.redirect) || '/login';
+              const response = await fetch('/api/auth/logout', {
+                method: 'POST',
+                credentials: 'include',
+              });
+              const res = await response.json();
+              window.location.href = res?.redirect || '/login';
             } catch (e) {
               window.location.href = '/login';
             }

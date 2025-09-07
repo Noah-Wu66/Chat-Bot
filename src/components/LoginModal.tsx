@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useChatStore } from "@/store/chatStore";
-import { loginAction, registerAction } from "@/app/actions/auth";
 
 export default function LoginModal() {
   const { loginOpen, setLoginOpen } = useChatStore();
@@ -43,22 +42,38 @@ export default function LoginModal() {
     setError(null);
     try {
       if (mode === "login") {
-        const res = await loginAction({ identifier, password, remember });
-        if (!res?.ok) throw new Error((res as any)?.error || "登录失败");
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier, password, remember }),
+          credentials: 'include',
+        });
+        const res = await response.json();
+        if (!response.ok || !res?.ok) {
+          throw new Error(res?.error || "登录失败");
+        }
         setLoginOpen(false);
-        window.location.href = (res as any)?.redirect || "/";
+        window.location.href = res?.redirect || "/";
       } else {
         if (password !== confirmPassword) {
           throw new Error("两次输入的密码不一致");
         }
-        const res = await registerAction({ username, email, password, confirmPassword });
-        if (!res?.ok) throw new Error((res as any)?.error || "注册失败");
+        const response = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, email, password, confirmPassword }),
+          credentials: 'include',
+        });
+        const res = await response.json();
+        if (!response.ok || !res?.ok) {
+          throw new Error(res?.error || "注册失败");
+        }
         // 注册成功后跳转到登录页
         setMode("login");
         setIdentifier(email || username);
         setPassword("");
         setConfirmPassword("");
-        window.location.href = (res as any)?.redirect || "/login";
+        window.location.href = res?.redirect || "/login";
       }
     } catch (e: any) {
       setError(e?.message || (mode === "login" ? "登录失败" : "注册失败"));

@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { ChevronDown, Zap, Search, Brain, MessageSquare } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
-import { createConversationAction } from '@/app/actions/conversations';
 import { generateTitleFromMessage } from '@/utils/helpers';
 import { MODELS, ModelId, getModelConfig } from '@/lib/types';
 import { cn } from '@/utils/helpers';
@@ -101,9 +100,17 @@ export default function ModelSelector({ variant = 'default' }: Props) {
                           // 每个对话仅允许一种模型：切换模型时开启新对话
                           try {
                             const title = generateTitleFromMessage('新对话');
-                            const newConv = await createConversationAction({ title, model, settings } as any);
-                            setCurrentConversation({ ...newConv, messages: [] } as any);
-                            addConversation({ ...newConv, messages: [] } as any);
+                            const response = await fetch('/api/conversations', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ title, model, settings }),
+                              credentials: 'include',
+                            });
+                            if (response.ok) {
+                              const newConv = await response.json();
+                              setCurrentConversation({ ...newConv, messages: [] } as any);
+                              addConversation({ ...newConv, messages: [] } as any);
+                            }
                           } catch (e) {
                             // 静默失败
                           }

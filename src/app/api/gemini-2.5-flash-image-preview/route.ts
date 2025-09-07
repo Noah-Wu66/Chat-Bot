@@ -2,9 +2,20 @@
 import { getAIClient } from '@/lib/ai';
 import { performWebSearchSummary } from '@/lib/router';
 import { getConversationModel } from '@/lib/models/Conversation';
-import { getCurrentUser } from '@/app/actions/auth';
+import { cookies } from 'next/headers';
+import { verifyJWT } from '@/lib/auth';
 
 export const runtime = 'nodejs';
+
+// 获取当前用户的辅助函数
+async function getCurrentUser() {
+  const cookieStore = cookies();
+  const token = cookieStore.get('auth_token')?.value;
+  if (!token) return null;
+  const payload = verifyJWT(token);
+  if (!payload) return null;
+  return payload;
+}
 
 export async function POST(req: Request) {
   const user = await getCurrentUser();
@@ -139,7 +150,7 @@ export async function POST(req: Request) {
 
   const buildMessagesWithHistory = (src: string | any[]): CCMessage[] => {
     const messages: CCMessage[] = [];
-    messages.push({ role: 'system', content: [{ type: 'text', text: '总是用中文回复' }] as CCPart[] });
+    messages.push({ role: 'system', content: [{ type: 'text', text: '只生成图片，不要输出任何文字' }] as CCPart[] });
     if (historyText) {
       messages.push({ role: 'user', content: [{ type: 'text', text: `以下是对话历史（供参考）：\n${historyText}` } as CCPart] });
     }
@@ -373,7 +384,7 @@ export async function POST(req: Request) {
           const resp: any = await (ai as any).chat.completions.create({
             model: modelToUse,
             messages,
-            modalities: ['text', 'image'],
+            modalities: ['image'],
             temperature,
           });
 
@@ -395,46 +406,11 @@ export async function POST(req: Request) {
               encoder.encode(`data: ${JSON.stringify({ type: 'debug', stage: 'parsed', dbg, textLen: parsed.text.length, images: parsed.images.length })}\n\n`)
             );
           } catch {}
-          let textContent = parsed.text;
+          let textContent = '';
           let images = parsed.images.slice();
 
-          // 若未返回图片，尝试使用 Images API 进行兜底生成
-          if (images.length === 0) {
-            try {
-              // 使用增强前或增强后的输入都可；仅使用文本部分
-              const promptText = extractPrimaryTextFromInput(augmentedInput);
-              if (promptText) {
-                const imgResp: any = await (ai as any).images.generate({
-                  model: modelToUse,
-                  prompt: promptText,
-                  size: '1024x1024',
-                  n: 1,
-                });
-                const arr = (imgResp?.data || []) as any[];
-                for (const item of arr) {
-                  const b64 = item?.b64_json || item?.data || '';
-                  const url = item?.url || '';
-                  if (typeof b64 === 'string' && b64) images.push(`data:image/png;base64,${b64}`);
-                  if (typeof url === 'string' && url) images.push(url);
-                }
-                try {
-                  controller.enqueue(
-                    encoder.encode(`data: ${JSON.stringify({ type: 'debug', stage: 'fallback_images_generate', generated: Array.isArray(arr) ? arr.length : 0 })}\n\n`)
-                  );
-                } catch {}
-              }
-            } catch (err: any) {
-              try {
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({ type: 'debug', stage: 'fallback_error', message: err?.message || String(err) })}\n\n`)
-                );
-              } catch {}
-            }
-          }
+          // 不进行兜底文本->图片生成，严格只根据模型返回的图片输出
 
-          if (textContent) {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'content', content: textContent })}\n\n`));
-          }
           if (images.length > 0) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'images', images })}\n\n`));
           }
@@ -447,7 +423,7 @@ export async function POST(req: Request) {
                   messages: {
                     id: Date.now().toString(36),
                     role: 'assistant',
-                    content: textContent || (msg?.content || ''),
+                    content: '',
                     images: images.length > 0 ? images : undefined,
                     timestamp: new Date(),
                     model: modelToUse,
@@ -503,37 +479,15 @@ export async function POST(req: Request) {
     const resp: any = await (ai as any).chat.completions.create({
       model: modelToUse,
       messages,
-      modalities: ['text', 'image'],
+      modalities: ['image'],
       temperature,
     });
     const choice = resp?.choices?.[0];
     const msg = choice?.message || {};
     const result = extractTextAndImagesFromMessage(msg);
-    content = result.text;
+    content = '';
     imagesNonStream = result.images.slice();
-
-    // 若没有图片，使用 Images API 兜底一次
-    if (!imagesNonStream || imagesNonStream.length === 0) {
-      try {
-        // 使用增强后的输入以获得更准确的文本摘要
-        const promptText = extractPrimaryTextFromInput(augmentedInput);
-        if (promptText) {
-          const imgResp: any = await (ai as any).images.generate({
-            model: modelToUse,
-            prompt: promptText,
-            size: '1024x1024',
-            n: 1,
-          });
-          const arr = (imgResp?.data || []) as any[];
-          for (const item of arr) {
-            const b64 = item?.b64_json || item?.data || '';
-            const url = item?.url || '';
-            if (typeof b64 === 'string' && b64) imagesNonStream.push(`data:image/png;base64,${b64}`);
-            if (typeof url === 'string' && url) imagesNonStream.push(url);
-          }
-        }
-      } catch {}
-    }
+    // 不进行兜底文本->图片生成，严格只根据模型返回的图片输出
   } catch (e: any) {
     console.error('[Gemini] 非流式请求失败:', e?.message || String(e));
     throw e;
@@ -546,7 +500,7 @@ export async function POST(req: Request) {
         messages: {
           id: Date.now().toString(36),
           role: 'assistant',
-          content,
+          content: '',
           images: imagesNonStream.length > 0 ? imagesNonStream : undefined,
           timestamp: new Date(),
           model: modelToUse,
@@ -559,7 +513,7 @@ export async function POST(req: Request) {
 
   return Response.json(
     {
-      message: { role: 'assistant', content, model: modelToUse, images: imagesNonStream.length > 0 ? imagesNonStream : undefined, metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined },
+      message: { role: 'assistant', content: '', model: modelToUse, images: imagesNonStream.length > 0 ? imagesNonStream : undefined, metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined },
       requestId,
     },
     { headers: { 'X-Request-Id': requestId, 'X-Model': modelToUse } }
