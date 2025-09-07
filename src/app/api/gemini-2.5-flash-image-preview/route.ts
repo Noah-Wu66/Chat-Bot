@@ -160,12 +160,15 @@ export async function POST(req: Request) {
   const extractTextAndImagesFromMessage = (msg: any): { text: string; images: string[] } => {
     const textParts: string[] = [];
     const images: string[] = [];
+    const seenTexts = new Set<string>();
 
     const pushText = (t: any) => {
       const s = typeof t === 'string' ? t : '';
       if (!s) return;
-      if (textParts.length === 0 || textParts[textParts.length - 1] !== s) {
+      // 全局去重，避免相同文本在不同分段（如 output_text 与 text）被重复收集
+      if (!seenTexts.has(s)) {
         textParts.push(s);
+        seenTexts.add(s);
       }
       // 从文本中解析可能的图片 URL（markdown/dataURL/常见扩展名）
       extractUrlImagesFromText(s, images);
