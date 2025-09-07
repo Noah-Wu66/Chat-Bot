@@ -159,6 +159,20 @@ export default function MessageList({
             </div>
           )}
 
+          {/* 视频 */}
+          {message.videos && message.videos.length > 0 && (
+            <div className="flex flex-col gap-3">
+              {message.videos.map((video, vIndex) => (
+                <video
+                  key={vIndex}
+                  src={video}
+                  controls
+                  className="w-full max-w-[720px] rounded-lg border"
+                />
+              ))}
+            </div>
+          )}
+
           {/* 推理过程 */}
           {message.metadata?.reasoning && (
             <div className="reasoning-panel">

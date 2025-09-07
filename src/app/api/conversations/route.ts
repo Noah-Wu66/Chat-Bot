@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
             timestamp: new Date(m.timestamp),
             model: m.model,
             images: Array.isArray(m.images) ? m.images : undefined,
+            videos: Array.isArray(m.videos) ? m.videos : undefined,
             functionCall: m.functionCall,
             functionResult: m.functionResult,
             metadata: m.metadata,

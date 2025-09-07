@@ -106,9 +106,12 @@ export default function ChatInterface() {
       }
 
       // 按模型选择 API 路由
-      const apiEndpoint = currentModel === 'gemini-2.5-flash-image-preview'
-        ? '/api/gemini-2.5-flash-image-preview'
-        : '/api/gpt-5';
+      let apiEndpoint = '/api/gpt-5';
+      if (currentModel === 'gemini-2.5-flash-image-preview') {
+        apiEndpoint = '/api/gemini-2.5-flash-image-preview';
+      } else if (currentModel === 'veo3-fast') {
+        apiEndpoint = '/api/veo3-fast';
+      }
 
       // Responses API 入参：文本或图文
       // - 纯文本：input 直接用 string
@@ -194,6 +197,7 @@ export default function ChatInterface() {
 
         let assistantContent = '';
         let assistantImages: string[] = [];
+        let assistantVideos: string[] = [];
         let reasoning = '';
         let chunkCount = 0;
         let routedModel: string | null = null;
@@ -245,6 +249,11 @@ export default function ChatInterface() {
                     sample: Array.isArray(data.images) && data.images.length > 0 ? data.images[0]?.slice?.(0, 64) : undefined,
                   });
                   break;
+                case 'video':
+                  if (data.url && typeof data.url === 'string') {
+                    assistantVideos = [data.url];
+                  }
+                  break;
                 case 'search':
                   searchUsed = !!(data.used || data.searchUsed);
                   break;
@@ -276,6 +285,7 @@ export default function ChatInterface() {
                     timestamp: new Date(),
                     model: routedModel || currentModel,
                     images: assistantImages && assistantImages.length > 0 ? assistantImages : undefined,
+                    videos: assistantVideos && assistantVideos.length > 0 ? assistantVideos : undefined,
                     metadata: {
                       reasoning: reasoning || undefined,
                       verbosity: settings.text?.verbosity,
@@ -476,7 +486,7 @@ export default function ChatInterface() {
                 setCurrentConversation({ ...currentConversation, messages: kept } as any);
 
                 // 重新发送该用户消息（regenerate 模式：不重复写入用户消息，只让模型重答）
-                const apiEndpoint = currentModel === 'gemini-2.5-flash-image-preview' ? '/api/gemini-2.5-flash-image-preview' : '/api/gpt-5';
+                const apiEndpoint = currentModel === 'gemini-2.5-flash-image-preview' ? '/api/gemini-2.5-flash-image-preview' : (currentModel === 'veo3-fast' ? '/api/veo3-fast' : '/api/gpt-5');
 
                 const toImageItem = (img: string) => ({ type: 'input_image', image_url: img } as any);
                 let input: string | any[];
@@ -522,6 +532,7 @@ export default function ChatInterface() {
                 let searchUsed = false;
                 let latestSources: any[] = [];
                 let sseBuffer = '';
+                let assistantVideos: string[] = [];
                 while (true) {
                   const { done, value } = await reader.read();
                   if (done) break;
@@ -544,6 +555,9 @@ export default function ChatInterface() {
                         case 'images':
                           if (Array.isArray(data.images)) assistantImages = data.images.filter((u: any) => typeof u === 'string' && u);
                           break;
+                        case 'video':
+                          if (data.url && typeof data.url === 'string') assistantVideos = [data.url];
+                          break;
                         case 'reasoning':
                           reasoning += data.content;
                           setReasoningContent(reasoning);
@@ -562,6 +576,7 @@ export default function ChatInterface() {
                             timestamp: new Date(),
                             model: currentModel,
                             images: assistantImages && assistantImages.length > 0 ? assistantImages : undefined,
+                            videos: assistantVideos && assistantVideos.length > 0 ? assistantVideos : undefined,
                             metadata: {
                               reasoning: reasoning || undefined,
                               verbosity: settings.text?.verbosity,

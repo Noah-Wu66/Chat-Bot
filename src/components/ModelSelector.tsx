@@ -33,7 +33,7 @@ export default function ModelSelector({ variant = 'default' }: Props) {
   };
 
   const modelGroups = {
-    '可用模型': ['gpt-5', 'gemini-2.5-flash-image-preview'],
+    '可用模型': ['gpt-5', 'gemini-2.5-flash-image-preview', 'veo3-fast'],
   } as const;
 
   return (

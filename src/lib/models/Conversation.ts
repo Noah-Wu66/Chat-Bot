@@ -8,6 +8,7 @@ export interface IMessageDoc {
   timestamp: Date;
   model?: string;
   images?: string[];
+  videos?: string[];
   functionCall?: { name: string; arguments: string };
   functionResult?: { name: string; result: string };
   metadata?: Record<string, any>;
@@ -32,6 +33,7 @@ const MessageSchema = new Schema<any>(
     timestamp: { type: Date, default: () => new Date() },
     model: { type: String },
     images: [{ type: String }],
+    videos: [{ type: String }],
     functionCall: { name: String, arguments: String },
     functionResult: { name: String, result: String },
     metadata: { type: Schema.Types.Mixed },

@@ -6,6 +6,7 @@ export interface Message {
   timestamp: Date;
   model?: string;
   images?: string[];
+  videos?: string[];
   functionCall?: {
     name: string;
     arguments: string;
@@ -53,6 +54,16 @@ export interface ConversationSettings {
     size?: number; // 联网搜索条目数量
   };
   stream?: boolean;
+  // Veo3 Fast 专属设置
+  veo3?: {
+    aspectRatio?: '16:9' | '9:16' | '1:1';
+    duration?: '8s';
+    resolution?: '720p' | '1080p';
+    generateAudio?: boolean;
+    // 仅文生视频使用
+    enhancePrompt?: boolean;
+    autoFix?: boolean;
+  };
 }
 
 // 支持的模型列表（仅保留 Gemini 2.5 Flash 图像生成）
@@ -82,6 +93,19 @@ export const MODELS: Record<string, ModelConfig> = {
     supportsVerbosity: false,
     supportsTemperature: true,
     maxTokens: 8192,
+  },
+  // Veo3 Fast（视频生成，无上下文）
+  'veo3-fast': {
+    name: 'Veo3 Fast',
+    description: '视频生成（无上下文）：文本或图生视频',
+    type: 'chat',
+    supportsVision: true,
+    supportsSearch: false,
+    supportsTools: false,
+    supportsReasoning: false,
+    supportsVerbosity: false,
+    supportsTemperature: false,
+    maxTokens: 1,
   },
 };
 

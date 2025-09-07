@@ -78,6 +78,14 @@ const defaultSettings: ConversationSettings = {
     size: 10,
   },
   stream: true,
+  veo3: {
+    aspectRatio: '16:9',
+    duration: '8s',
+    resolution: '720p',
+    generateAudio: true,
+    enhancePrompt: true,
+    autoFix: true,
+  },
 };
 
 export const useChatStore = create<ChatState>()(
@@ -145,6 +153,17 @@ export const useChatStore = create<ChatState>()(
           delete newSettings.temperature;
         } else if (typeof newSettings.temperature !== 'number') {
           newSettings.temperature = 0.8;
+        }
+        // 确保 Veo3 默认值存在（向后兼容旧持久化）
+        if (!newSettings.veo3) {
+          newSettings.veo3 = {
+            aspectRatio: '16:9',
+            duration: '8s',
+            resolution: '720p',
+            generateAudio: true,
+            enhancePrompt: true,
+            autoFix: true,
+          };
         }
         
         set({ settings: newSettings });
