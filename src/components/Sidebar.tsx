@@ -31,6 +31,10 @@ export default function Sidebar() {
   const [editTitle, setEditTitle] = useState('');
   const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<{ username: string; email: string } | null>(null);
+  // 删除确认弹窗状态
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [confirmingDeleteTitle, setConfirmingDeleteTitle] = useState<string>('');
+  const [deleting, setDeleting] = useState(false);
 
   // 加载对话列表
   useEffect(() => {
@@ -118,31 +122,45 @@ export default function Sidebar() {
     }
   };
 
-  // 删除对话
-  const deleteConversation = async (id: string, e: React.MouseEvent) => {
+  // 打开删除确认弹窗
+  const openDeleteConfirm = (conversation: Conversation, e: React.MouseEvent) => {
     e.stopPropagation();
-    
-    if (!confirm('确定要删除这个对话吗？')) {
-      return;
-    }
+    setConfirmingDeleteId(conversation.id);
+    setConfirmingDeleteTitle(conversation.title || '未命名对话');
+  };
 
+  // 执行删除
+  const confirmDelete = async () => {
+    if (!confirmingDeleteId) return;
     try {
-      const response = await fetch(`/api/conversations?id=${encodeURIComponent(id)}`, {
+      setDeleting(true);
+      const response = await fetch(`/api/conversations?id=${encodeURIComponent(confirmingDeleteId)}`, {
         method: 'DELETE',
         credentials: 'include',
       });
       if (response.ok) {
         const res = await response.json();
         if (res?.ok) {
-          setConversations(conversations.filter(conv => conv.id !== id));
-          if (currentConversation?.id === id) {
+          setConversations(conversations.filter(conv => conv.id !== confirmingDeleteId));
+          if (currentConversation?.id === confirmingDeleteId) {
             setCurrentConversation(null);
           }
         }
       }
     } catch (error) {
       // 忽略错误
+    } finally {
+      setDeleting(false);
+      setConfirmingDeleteId(null);
+      setConfirmingDeleteTitle('');
     }
+  };
+
+  // 关闭删除确认弹窗
+  const cancelDelete = () => {
+    if (deleting) return;
+    setConfirmingDeleteId(null);
+    setConfirmingDeleteTitle('');
   };
 
   // 编辑对话标题
@@ -322,7 +340,7 @@ export default function Sidebar() {
                                 <Edit3 className="h-3 w-3" />
                               </button>
                               <button
-                                onClick={(e) => deleteConversation(conversation.id, e)}
+                                onClick={(e) => openDeleteConfirm(conversation, e)}
                                 className="rounded p-1 text-muted-foreground hover:bg-destructive hover:text-destructive-foreground touch-manipulation"
                                 title="删除对话"
                               >
@@ -421,6 +439,51 @@ export default function Sidebar() {
           <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
           <div className="fixed left-0 top-0 h-full w-80 max-w-[85vw] shadow-xl">
             {sidebarContent}
+          </div>
+        </div>
+      )}
+
+      {/* 删除确认弹窗 */}
+      {confirmingDeleteId && (
+        <div className="fixed inset-0 z-[60] bg-black/40">
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <div className="w-full max-w-sm rounded-xl border border-border bg-background shadow-lg overflow-hidden">
+              <div className="flex items-center justify-between border-b border-border p-3 sm:p-4">
+                <h2 className="text-base sm:text-lg font-semibold">删除对话</h2>
+                <button
+                  onClick={cancelDelete}
+                  className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground touch-manipulation"
+                  aria-label="关闭"
+                  disabled={deleting}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="p-3 sm:p-4 space-y-2">
+                <p className="text-sm">确定要删除以下对话吗？此操作不可恢复。</p>
+                <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                  {confirmingDeleteTitle}
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2 border-t p-3 sm:p-4">
+                <button
+                  type="button"
+                  onClick={cancelDelete}
+                  className="rounded-md border px-3 py-1.5 text-sm hover:bg-accent touch-manipulation disabled:opacity-60"
+                  disabled={deleting}
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDelete}
+                  className="rounded-md bg-destructive px-3 py-1.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 touch-manipulation disabled:opacity-60"
+                  disabled={deleting}
+                >
+                  {deleting ? '正在删除...' : '删除'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
