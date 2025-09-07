@@ -340,9 +340,19 @@ export default function ChatInterface() {
             id: generateId(),
             timestamp: new Date(),
           });
-          // 顶部来源条已移除，不再维护全局来源列表
-          const routing = data.routing;
-          // 运行日志已在服务端记录
+        } else {
+          // 兜底：如果服务端直接返回 video 字段
+          const videoUrl = data?.data?.video?.url || data?.video?.url || data?.output?.video?.url;
+          if (videoUrl) {
+            addMessage({
+              id: generateId(),
+              role: 'assistant',
+              content: '',
+              timestamp: new Date(),
+              model: currentModel,
+              videos: [videoUrl],
+            } as any);
+          }
         }
       }
     } catch (error: any) {
