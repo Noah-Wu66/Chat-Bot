@@ -22,13 +22,14 @@ export async function POST(req: Request) {
   if (!user) return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
 
   const body = await req.json();
-  const { conversationId, input, model, settings, stream, webSearch } = body as {
+  const { conversationId, input, model, settings, stream, webSearch, regenerate } = body as {
     conversationId: string;
     input: string | any[];
     model: string;
     settings: any;
     stream?: boolean;
     webSearch?: boolean;
+    regenerate?: boolean;
   };
 
   const ai = getAIClient();
@@ -47,27 +48,29 @@ export async function POST(req: Request) {
     userContent = input;
   }
 
-  await Conversation.updateOne(
-    { id: conversationId, userId: user.sub },
-    {
-      $push: {
-        messages: {
-          id: Date.now().toString(36),
-          role: 'user',
-          content: userContent,
-          timestamp: new Date(),
-          model,
+  if (!regenerate) {
+    await Conversation.updateOne(
+      { id: conversationId, userId: user.sub },
+      {
+        $push: {
+          messages: {
+            id: Date.now().toString(36),
+            role: 'user',
+            content: userContent,
+            timestamp: new Date(),
+            model,
+          },
         },
-      },
-      $set: { updatedAt: new Date() },
-    }
-  );
+        $set: { updatedAt: new Date() },
+      }
+    );
+  }
 
   // 构建历史文本
   const MAX_HISTORY = 30;
   const doc = await Conversation.findOne({ id: conversationId, userId: user.sub }, { messages: 1 }).lean();
   const fullHistory: any[] = Array.isArray((doc as any)?.messages) ? (doc as any).messages : [];
-  const historyWithoutCurrent = fullHistory.length > 0 ? fullHistory.slice(0, -1) : [];
+  const historyWithoutCurrent = regenerate ? fullHistory : (fullHistory.length > 0 ? fullHistory.slice(0, -1) : []);
   const buildHistoryText = (list: any[]): string => {
     const items = list.slice(-MAX_HISTORY).filter((m: any) => m && (m.role === 'user' || m.role === 'assistant'));
     return items.map((m: any) => `${m.role === 'user' ? '用户' : '助手'}: ${String(m.content ?? '')}`).join('\n');

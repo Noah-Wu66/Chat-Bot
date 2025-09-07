@@ -56,6 +56,7 @@ interface ChatState {
   // 消息操作
   addMessage: (message: Message) => void;
   updateMessage: (messageId: string, updates: Partial<Message>) => void;
+  truncateMessagesBefore: (messageId: string) => void;
 
   // 重置状态
   reset: () => void;
@@ -221,6 +222,23 @@ export const useChatStore = create<ChatState>()(
             conversations: state.conversations.map((conv) =>
               conv.id === updatedConversation.id ? updatedConversation : conv
             ),
+          };
+        });
+      },
+
+      truncateMessagesBefore: (messageId) => {
+        set((state) => {
+          if (!state.currentConversation) return state;
+          const idx = state.currentConversation.messages.findIndex((m) => m.id === messageId);
+          if (idx === -1) return state;
+          const truncated = {
+            ...state.currentConversation,
+            messages: state.currentConversation.messages.slice(0, idx),
+            updatedAt: new Date(),
+          };
+          return {
+            currentConversation: truncated,
+            conversations: state.conversations.map((c) => c.id === truncated.id ? truncated : c),
           };
         });
       },

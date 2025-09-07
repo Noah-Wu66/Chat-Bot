@@ -22,13 +22,14 @@ export async function POST(req: Request) {
   if (!user) return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
 
   const body = await req.json();
-  const { conversationId, input, model, settings, stream, webSearch } = body as {
+  const { conversationId, input, model, settings, stream, webSearch, regenerate } = body as {
     conversationId: string;
     input: string | any[];
     model: string;
     settings: any;
     stream?: boolean;
     webSearch?: boolean;
+    regenerate?: boolean;
   };
 
   const ai = getAIClient();
@@ -48,33 +49,35 @@ export async function POST(req: Request) {
     userContent = input;
   }
 
-  await Conversation.updateOne(
-    { id: conversationId, userId: user.sub },
-    {
-      $push: {
-        messages: {
-          id: Date.now().toString(36),
-          role: 'user',
-          content: userContent,
-          timestamp: new Date(),
-          model,
+  if (!regenerate) {
+    await Conversation.updateOne(
+      { id: conversationId, userId: user.sub },
+      {
+        $push: {
+          messages: {
+            id: Date.now().toString(36),
+            role: 'user',
+            content: userContent,
+            timestamp: new Date(),
+            model,
+          },
         },
-      },
-      $set: { updatedAt: new Date() },
-    }
-  );
+        $set: { updatedAt: new Date() },
+      }
+    );
+  }
 
   // 从数据库获取历史，构建用于 Responses API 的上下文输入
   const MAX_HISTORY = 30;
   const doc = await Conversation.findOne({ id: conversationId, userId: user.sub }, { messages: 1 }).lean();
   const fullHistory: any[] = Array.isArray((doc as any)?.messages) ? (doc as any).messages : [];
-  // 移除刚写入的当前用户消息，避免与 input 重复；仅保留更早历史
-  const historyWithoutCurrent = fullHistory.length > 0 ? fullHistory.slice(0, -1) : [];
+  // regenerate 模式不写入当前用户消息，因此不需要移除最后一条
+  const historyBase = regenerate ? fullHistory : (fullHistory.length > 0 ? fullHistory.slice(0, -1) : []);
   const buildHistoryText = (list: any[]): string => {
     const items = list.slice(-MAX_HISTORY).filter((m: any) => m && (m.role === 'user' || m.role === 'assistant'));
     return items.map((m: any) => `${m.role === 'user' ? '用户' : '助手'}: ${String(m.content ?? '')}`).join('\n');
   };
-  const historyText = buildHistoryText(historyWithoutCurrent);
+  const historyText = buildHistoryText(historyBase);
   // 归一化 Responses 输入为消息数组，并注入历史摘要（作为一条用户消息文本）
   const buildResponsesInputWithHistory = (src: string | any[]): any[] => {
     const dev = { role: 'developer', content: [{ type: 'input_text', text: '总是用中文回复' }] } as any;

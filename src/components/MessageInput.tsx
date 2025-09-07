@@ -15,11 +15,16 @@ interface MessageInputProps {
   placeholder?: string;
   autoFocus?: boolean;
   onStop?: () => void;
+  // 编辑模式支持
+  initialValue?: string;
+  initialImages?: string[];
+  isEditing?: boolean;
+  onCancelEdit?: () => void;
 }
 
-export default function MessageInput({ onSendMessage, disabled, variant = 'default', placeholder, autoFocus, onStop }: MessageInputProps) {
-  const [message, setMessage] = useState('');
-  const [images, setImages] = useState<string[]>([]);
+export default function MessageInput({ onSendMessage, disabled, variant = 'default', placeholder, autoFocus, onStop, initialValue, initialImages, isEditing, onCancelEdit }: MessageInputProps) {
+  const [message, setMessage] = useState(initialValue ?? '');
+  const [images, setImages] = useState<string[]>(Array.isArray(initialImages) ? initialImages : []);
   const [isDragging, setIsDragging] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -54,6 +59,14 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
       textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
     }
   }, []);
+
+  // 同步外部初始值（进入/退出编辑时）
+  useEffect(() => {
+    if (typeof initialValue === 'string') setMessage(initialValue);
+  }, [initialValue]);
+  useEffect(() => {
+    if (Array.isArray(initialImages)) setImages(initialImages);
+  }, [initialImages]);
 
   // 处理输入变化
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -322,38 +335,50 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
 
           {/* 移除语音与朗读占位按钮 */}
 
-          {/* 发送 / 停止按钮 */}
-          {isStreaming ? (
-            <button
-              type="button"
-              onClick={onStop}
-              disabled={disabled || !isStreaming}
-              className={cn(
-                "rounded-md p-1.5 sm:p-2 transition-colors bg-destructive text-destructive-foreground hover:bg-destructive/90 touch-manipulation",
-                "disabled:pointer-events-none disabled:opacity-50"
-              )}
-              title="停止生成"
-            >
-              <Square className="h-4 w-4" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={!canSend}
-              className={cn(
-                "rounded-md p-1.5 sm:p-2 transition-colors touch-manipulation",
-                canSend
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "text-muted-foreground cursor-not-allowed opacity-50"
-              )}
-              title="发送消息 (Enter)"
-            >
-              <Send className="h-4 w-4" />
-            </button>
-          )}
+          {/* 停止始终可点击 + 发送按钮 */}
+          <button
+            type="button"
+            onClick={onStop}
+            className={cn(
+              "rounded-md p-1.5 sm:p-2 transition-colors touch-manipulation",
+              isStreaming
+                ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            )}
+            title="停止"
+          >
+            <Square className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={!canSend}
+            className={cn(
+              "rounded-md p-1.5 sm:p-2 transition-colors touch-manipulation",
+              canSend
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "text-muted-foreground cursor-not-allowed opacity-50"
+            )}
+            title={isEditing ? "保存并重新生成" : "发送消息 (Enter)"}
+          >
+            <Send className="h-4 w-4" />
+          </button>
         </div>
       </div>
+
+      {isEditing && (
+        <div className={cn("mt-2 flex items-center justify-end gap-2", variant === 'center' && "px-1")}>
+          <button
+            type="button"
+            onClick={() => { if (onCancelEdit) onCancelEdit(); }}
+            className="rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            title="取消编辑"
+          >
+            取消
+          </button>
+        </div>
+      )}
 
       {/* 提示信息 */}
       <div className={cn("mt-2 flex items-center justify-between text-xs text-muted-foreground flex-wrap gap-2", variant === 'center' && "px-1")}>

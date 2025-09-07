@@ -133,4 +133,33 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
+// 局部更新：按消息ID截断（不含该消息）
+export async function PATCH(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
+
+  try {
+    const { id, op, messageId } = await req.json();
+    if (!id || !op) return new Response(JSON.stringify({ error: '缺少参数' }), { status: 400 });
+    if (op !== 'truncate_before') return new Response(JSON.stringify({ error: '不支持的操作' }), { status: 400 });
+    if (!messageId) return new Response(JSON.stringify({ error: '缺少 messageId' }), { status: 400 });
+
+    const Conversation = await getConversationModel();
+    const doc: any = await Conversation.findOne({ id, userId: user.sub }, { messages: 1 }).lean();
+    if (!doc) return new Response(JSON.stringify({ error: '对话不存在' }), { status: 404 });
+    const list: any[] = Array.isArray(doc.messages) ? doc.messages : [];
+    const idx = list.findIndex((m: any) => String(m?.id) === String(messageId));
+    if (idx === -1) return new Response(JSON.stringify({ error: '消息不存在' }), { status: 404 });
+    const truncated = list.slice(0, idx);
+    await Conversation.updateOne(
+      { id, userId: user.sub },
+      { $set: { messages: truncated, updatedAt: new Date() } }
+    );
+    return Response.json({ ok: true, truncatedCount: list.length - truncated.length });
+  } catch (error: any) {
+    console.error('截断对话失败:', error);
+    return new Response(JSON.stringify({ error: '截断对话失败' }), { status: 500 });
+  }
+}
+
 

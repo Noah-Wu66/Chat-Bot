@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { User, Bot, Copy, Brain, Link as LinkIcon, ExternalLink } from 'lucide-react';
+import { User, Bot, Copy, Brain, Link as LinkIcon, ExternalLink, Pencil, RefreshCw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -17,13 +17,17 @@ interface MessageListProps {
   isStreaming?: boolean;
   streamingContent?: string;
   reasoningContent?: string;
+  onEditMessage?: (message: Message) => void;
+  onRegenerateAssistant?: (assistantMessage: Message) => void;
 }
 
 export default function MessageList({
   messages,
   isStreaming,
   streamingContent,
-  reasoningContent
+  reasoningContent,
+  onEditMessage,
+  onRegenerateAssistant,
 }: MessageListProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [sourcesModalOpen, setSourcesModalOpen] = useState(false);
@@ -212,9 +216,30 @@ export default function MessageList({
             </div>
           )}
 
-          {/* 操作：复制 + 数据来源（圆角长方形容器 + 查看来源）*/}
+          {/* 用户消息操作：编辑 */}
+          {isUser && (
+            <div className={cn("mt-1 flex items-center gap-1 sm:gap-2 text-muted-foreground text-[10px] flex-wrap", isUser && "justify-end")}> 
+              <button
+                onClick={() => onEditMessage && onEditMessage(message)}
+                className="rounded-full border px-1.5 py-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground touch-manipulation"
+                title="编辑并重新生成"
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+
+          {/* 助手消息操作：重新回答 + 复制 + 数据来源（圆角长方形容器 + 查看来源）*/}
           {!isUser && (
             <div className="mt-1 flex items-center gap-1 sm:gap-2 text-muted-foreground text-[10px] flex-wrap">
+              <button
+                onClick={() => onRegenerateAssistant && onRegenerateAssistant(message)}
+                disabled={!!isStreaming}
+                className="rounded-full border px-1.5 py-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground touch-manipulation disabled:pointer-events-none disabled:opacity-50"
+                title="重新回答"
+              >
+                <RefreshCw className="h-3 w-3" />
+              </button>
               <button
                 onClick={() => handleCopy(message.content)}
                 className="rounded-full border px-1.5 py-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground touch-manipulation"

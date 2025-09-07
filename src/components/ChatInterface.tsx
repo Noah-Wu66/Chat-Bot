@@ -27,11 +27,14 @@ export default function ChatInterface() {
   const [streamingContent, setStreamingContent] = useState('');
   const [reasoningContent, setReasoningContent] = useState('');
   const abortRef = useRef<AbortController | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState<string>('');
+  const [editingImages, setEditingImages] = useState<string[] | undefined>(undefined);
   // 已移除顶部来源条，不再在此维护来源弹窗状态
   const { webSearchEnabled } = useChatStore();
 
 
-  // 发送消息
+  // 发送消息（支持编辑模式：提交前会截断后续消息）
   const handleSendMessage = useCallback(async (content: string, images?: string[]) => {
     try {
       setError(null);
@@ -53,8 +56,29 @@ export default function ChatInterface() {
         images,
       };
 
-      // 如果没有当前对话，或当前对话模型与所选模型不一致，则创建新对话，并确保本地立即包含首条用户消息
+      // 编辑场景：在发送前，若存在 editingMessageId，则向后端请求截断，并本地乐观截断
       let conversationId = currentConversation?.id;
+      if (editingMessageId && conversationId) {
+        try {
+          await fetch('/api/conversations', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ id: conversationId, op: 'truncate_before', messageId: editingMessageId }),
+          });
+        } catch {}
+        // 本地截断
+        setCurrentConversation({
+          ...currentConversation!,
+          messages: currentConversation!.messages.slice(0, currentConversation!.messages.findIndex(m => m.id === editingMessageId)),
+          updatedAt: new Date(),
+        } as any);
+        setEditingMessageId(null);
+        setEditingValue('');
+        setEditingImages(undefined);
+      }
+
+      // 如果没有当前对话，或当前对话模型与所选模型不一致，则创建新对话，并确保本地立即包含首条用户消息
       if (!conversationId || currentConversation?.model !== currentModel) {
         const title = generateTitleFromMessage(content);
         const response = await fetch('/api/conversations', {
@@ -344,6 +368,7 @@ export default function ChatInterface() {
     addMessage,
     setStreaming,
     setError,
+    editingMessageId,
   ]);
 
   const handleStopStreaming = useCallback(() => {
@@ -411,6 +436,165 @@ export default function ChatInterface() {
             isStreaming={isStreaming}
             streamingContent={streamingContent}
             reasoningContent={reasoningContent}
+            onEditMessage={(msg) => {
+              setEditingMessageId(msg.id);
+              setEditingValue(msg.content || '');
+              setEditingImages(Array.isArray(msg.images) ? msg.images : undefined);
+            }}
+            onRegenerateAssistant={async (assistantMsg) => {
+              try {
+                if (!currentConversation) return;
+                setError(null);
+                setStreaming(true);
+                setStreamingContent('');
+                setReasoningContent('');
+
+                const controller = new AbortController();
+                abortRef.current = controller;
+
+                // 找到该助手消息之前最近一条用户消息，作为重答的起点
+                const msgs = currentConversation.messages;
+                const aIndex = msgs.findIndex(m => m.id === assistantMsg.id);
+                if (aIndex <= 0) throw new Error('未找到可重答的用户消息');
+                let userIndex = -1;
+                for (let i = aIndex - 1; i >= 0; i--) {
+                  if (msgs[i].role === 'user') { userIndex = i; break; }
+                }
+                if (userIndex === -1) throw new Error('未找到可重答的用户消息');
+                const userMsg = msgs[userIndex];
+
+                // 后端：将会话截断到该用户消息之前（不含该用户消息），然后 regenerate 模式直接用这条用户消息作为 input 触发模型重答
+                await fetch('/api/conversations', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({ id: currentConversation.id, op: 'truncate_before', messageId: userMsg.id })
+                });
+
+                // 本地乐观截断：仅保留 userMsg 之前的所有消息
+                const kept = msgs.slice(0, userIndex);
+                setCurrentConversation({ ...currentConversation, messages: kept } as any);
+
+                // 重新发送该用户消息（regenerate 模式：不重复写入用户消息，只让模型重答）
+                const apiEndpoint = currentModel === 'gemini-2.5-flash-image-preview' ? '/api/gemini-2.5-flash-image-preview' : '/api/gpt-5';
+
+                const toImageItem = (img: string) => ({ type: 'input_image', image_url: img } as any);
+                let input: string | any[];
+                if (Array.isArray(userMsg.images) && userMsg.images.length > 0) {
+                  input = [ { role: 'user', content: [ { type: 'input_text', text: userMsg.content }, ...(userMsg.images || []).map(toImageItem) ] } ];
+                } else {
+                  input = userMsg.content;
+                }
+
+                const response = await fetch(apiEndpoint, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  signal: controller.signal,
+                  body: JSON.stringify({
+                    conversationId: currentConversation.id,
+                    input,
+                    model: currentModel,
+                    settings,
+                    stream: true,
+                    regenerate: true,
+                    ...(MODELS[currentModel]?.supportsSearch ? { webSearch: webSearchEnabled } : {}),
+                  })
+                });
+
+                if (!response.ok) {
+                  const err = await response.json();
+                  throw new Error(err?.error || '请求失败');
+                }
+
+                const contentType = response.headers.get('Content-Type') || '';
+                const canStream = contentType.includes('text/event-stream');
+                if (!canStream) throw new Error('不支持的响应');
+
+                const reader = response.body?.getReader();
+                const decoder = new TextDecoder();
+                if (!reader) throw new Error('无法读取响应流');
+
+                let assistantContent = '';
+                let assistantImages: string[] = [];
+                let reasoning = '';
+                let assistantAdded = false;
+                let searchUsed = false;
+                let latestSources: any[] = [];
+                let sseBuffer = '';
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  const chunk = decoder.decode(value, { stream: true });
+                  sseBuffer += chunk;
+                  while (true) {
+                    const sepIndex = sseBuffer.indexOf('\n\n');
+                    if (sepIndex === -1) break;
+                    const block = sseBuffer.slice(0, sepIndex);
+                    sseBuffer = sseBuffer.slice(sepIndex + 2);
+                    try {
+                      const dataLines = block.split('\n').filter(l => l.startsWith('data: ')).map(l => l.slice(6));
+                      if (dataLines.length === 0) continue;
+                      const data = JSON.parse(dataLines.join('\n'));
+                      switch (data.type) {
+                        case 'content':
+                          assistantContent += data.content;
+                          setStreamingContent(assistantContent);
+                          break;
+                        case 'images':
+                          if (Array.isArray(data.images)) assistantImages = data.images.filter((u: any) => typeof u === 'string' && u);
+                          break;
+                        case 'reasoning':
+                          reasoning += data.content;
+                          setReasoningContent(reasoning);
+                          break;
+                        case 'search':
+                          searchUsed = !!(data.used || data.searchUsed);
+                          break;
+                        case 'search_sources':
+                          if (Array.isArray(data.sources)) latestSources = data.sources;
+                          break;
+                        case 'done': {
+                          const assistantMessage = {
+                            id: generateId(),
+                            role: 'assistant' as const,
+                            content: assistantContent,
+                            timestamp: new Date(),
+                            model: currentModel,
+                            images: assistantImages && assistantImages.length > 0 ? assistantImages : undefined,
+                            metadata: {
+                              reasoning: reasoning || undefined,
+                              verbosity: settings.text?.verbosity,
+                              searchUsed: searchUsed || undefined,
+                              sources: latestSources && latestSources.length > 0 ? latestSources : undefined,
+                            },
+                          };
+                          addMessage(assistantMessage);
+                          assistantAdded = true;
+                          setStreamingContent('');
+                          setReasoningContent('');
+                          break;
+                        }
+                        case 'error':
+                          throw new Error(data.error);
+                        default:
+                          break;
+                      }
+                    } catch {}
+                  }
+                }
+                if (!assistantAdded && assistantContent && !controller.signal.aborted) {
+                  addMessage({ id: generateId(), role: 'assistant', content: assistantContent, timestamp: new Date(), model: currentModel } as any);
+                }
+              } catch (e: any) {
+                setError(e?.message || '重答失败');
+              } finally {
+                setStreaming(false);
+                setStreamingContent('');
+                setReasoningContent('');
+                abortRef.current = null;
+              }
+            }}
           />
 
           {/* 顶部来源条已按需求移除 */}
@@ -422,6 +606,10 @@ export default function ChatInterface() {
                 onSendMessage={handleSendMessage}
                 disabled={isStreaming}
                 onStop={handleStopStreaming}
+                initialValue={editingValue}
+                initialImages={editingImages}
+                isEditing={!!editingMessageId}
+                onCancelEdit={() => { setEditingMessageId(null); setEditingValue(''); setEditingImages(undefined); }}
               />
             </div>
           </div>
