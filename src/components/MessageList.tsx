@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { User, Bot, Copy, Brain, Link as LinkIcon, ExternalLink, Pencil, RefreshCw, Play } from 'lucide-react';
+import { User, Bot, Copy, Brain, Link as LinkIcon, ExternalLink, Pencil, RefreshCw, Play, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Message } from '@/lib/types';
 import { useChatStore } from '@/store/chatStore';
-import { formatTime, copyToClipboard, cn } from '@/utils/helpers';
+import { formatTime, copyToClipboard, cn, generateTitleFromMessage } from '@/utils/helpers';
 import LoadingSpinner from './LoadingSpinner';
 import SearchSourcesModal from './SearchSourcesModal';
 import ImagePreviewModal from './ImagePreviewModal';
@@ -90,7 +90,10 @@ export default function MessageList({
   const [sourcesForModal, setSourcesForModal] = useState<any[]>([]);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [previewVideoSrc, setPreviewVideoSrc] = useState<string | null>(null);
-  const { currentModel, setCurrentModel, setPresetInputImages } = useChatStore();
+  const [confirmVideoOpen, setConfirmVideoOpen] = useState(false);
+  const [pendingVideoImage, setPendingVideoImage] = useState<string | null>(null);
+  const [processingVideo, setProcessingVideo] = useState(false);
+  const { currentModel, setCurrentModel, setPresetInputImages, settings, setCurrentConversation, addConversation } = useChatStore();
   const isGeneratingModel = currentModel === 'veo3-fast' || currentModel === 'gemini-2.5-flash-image-preview';
 
   // 自动滚动到底部
@@ -108,6 +111,16 @@ export default function MessageList({
       }
     } catch {}
   }, [messages, streamingContent]);
+
+  // 控制中心弹窗时禁止背景滚动
+  useEffect(() => {
+    if (!confirmVideoOpen) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [confirmVideoOpen]);
 
   // 复制消息内容
   const handleCopy = async (content: string) => {
@@ -221,12 +234,8 @@ export default function MessageList({
                         className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] hover:bg-accent hover:text-accent-foreground touch-manipulation"
                         title="将此图变成视频"
                         onClick={() => {
-                          const ok = window.confirm('是否把此图变成视频？');
-                          if (!ok) return;
-                          try {
-                            setCurrentModel('veo3-fast' as any);
-                            setPresetInputImages([image]);
-                          } catch {}
+                          setPendingVideoImage(image);
+                          setConfirmVideoOpen(true);
                         }}
                       >
                         <Play className="h-3 w-3" />
@@ -418,6 +427,77 @@ export default function MessageList({
 
           {previewVideoSrc && (
             <VideoPreviewModal src={previewVideoSrc} onClose={() => setPreviewVideoSrc(null)} />
+          )}
+
+          {/* 生成视频确认弹窗（中心弹窗） */}
+          {confirmVideoOpen && (
+            <div className="fixed inset-0 z-50">
+              <div className="fixed inset-0 bg-black/40" onClick={() => processingVideo ? null : setConfirmVideoOpen(false)} />
+              <div className="fixed inset-0 flex items-center justify-center p-3 sm:p-4">
+                <div className="w-full max-w-sm rounded-xl border border-border bg-background shadow-lg overflow-hidden">
+                  <div className="flex items-center justify-between border-b border-border p-3 sm:p-4">
+                    <h2 className="text-base sm:text-lg font-semibold">生成视频</h2>
+                    <button
+                      onClick={() => processingVideo ? null : setConfirmVideoOpen(false)}
+                      className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground touch-manipulation"
+                      aria-label="关闭"
+                      disabled={processingVideo}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="p-3 sm:p-4 space-y-2">
+                    <p className="text-sm">是否把此图变成视频？将切换至 Veo3 并新建对话。</p>
+                  </div>
+                  <div className="flex items-center justify-end gap-2 border-t p-3 sm:p-4">
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground touch-manipulation"
+                      onClick={() => setConfirmVideoOpen(false)}
+                      disabled={processingVideo}
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:opacity-90 disabled:opacity-60 touch-manipulation"
+                      onClick={async () => {
+                        if (!pendingVideoImage) return;
+                        setProcessingVideo(true);
+                        try {
+                          // 切换模型并预置图片
+                          setCurrentModel('veo3-fast' as any);
+                          setPresetInputImages([pendingVideoImage]);
+
+                          // 切换模型时立即新建对话并设为当前
+                          try {
+                            const title = generateTitleFromMessage('新对话');
+                            const response = await fetch('/api/conversations', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ title, model: 'veo3-fast', settings }),
+                              credentials: 'include',
+                            });
+                            if (response.ok) {
+                              const newConv = await response.json();
+                              setCurrentConversation({ ...newConv, messages: [] } as any);
+                              addConversation({ ...newConv, messages: [] } as any);
+                            }
+                          } catch {}
+                        } finally {
+                          setProcessingVideo(false);
+                          setConfirmVideoOpen(false);
+                          setPendingVideoImage(null);
+                        }
+                      }}
+                      disabled={processingVideo}
+                    >
+                      {processingVideo ? '处理中…' : '确定'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* 等待模型响应时的占位加载 */}

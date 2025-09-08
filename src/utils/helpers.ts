@@ -68,16 +68,14 @@ export function generateTitleFromMessage(content: string): string {
     .replace(/[#*`_~]/g, '')
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .trim();
-  
-  // 截断到合适长度
-  const title = truncateText(cleanContent, 50);
-  
-  // 如果标题为空或太短，使用默认标题
-  if (title.length < 5) {
-    return '新对话';
-  }
-  
-  return title;
+
+  if (!cleanContent) return '新对话';
+
+  // 取前 10 个“字符”（兼容 emoji/中文等多字节）
+  const chars = Array.from(cleanContent);
+  const limit = 10;
+  const head = chars.slice(0, limit).join('');
+  return chars.length > limit ? head + '...' : head;
 }
 
 // 验证图片 URL

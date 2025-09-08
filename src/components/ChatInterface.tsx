@@ -18,6 +18,7 @@ export default function ChatInterface() {
     setCurrentConversation,
     addConversation,
     addMessage,
+    updateConversation,
     currentModel,
     settings,
     isStreaming,
@@ -102,6 +103,22 @@ export default function ChatInterface() {
         addConversation(withFirstMessage);
         conversationId = newConversation.id;
       } else {
+        // 现有会话：如是该会话的第一条用户消息，则按规则重命名标题
+        if (currentConversation && (currentConversation.messages?.length || 0) === 0) {
+          const newTitle = generateTitleFromMessage(content);
+          if (newTitle && newTitle !== currentConversation.title) {
+            try {
+              await fetch('/api/conversations', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ id: currentConversation.id, title: newTitle }),
+              });
+              updateConversation(currentConversation.id, { title: newTitle });
+              setCurrentConversation({ ...currentConversation, title: newTitle } as any);
+            } catch {}
+          }
+        }
         // 现有会话，直接追加本地消息
         addMessage(userMessage);
       }

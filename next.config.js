@@ -9,15 +9,6 @@ const nextConfig = {
       },
     ],
   },
-  async rewrites() {
-    // 单服务：仅处理 favicon 重写
-    return [
-      {
-        source: '/favicon.ico',
-        destination: '/icon.svg',
-      },
-    ];
-  },
   webpack: (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,

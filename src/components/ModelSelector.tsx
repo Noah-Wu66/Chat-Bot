@@ -17,61 +17,16 @@ export default function ModelSelector({ variant = 'default' }: Props) {
 
   const currentModelConfig = getModelConfig(currentModel);
 
-  const BananaIcon = ({ className }: { className?: string }) => (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      fill="none"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 14c2 4 6 7 11 7 3 0 4.5-1 5.5-2.5-2 1-4 1-6 .5-3-.9-5.5-3.5-6.5-7z" />
-      <path d="M4 10c1-3 3-5 6-6 1.5-.5 3-.5 4.5 0-.8 1.2-1.2 2.6-1.2 4.1 0 1 .2 2 .5 2.9" />
-    </svg>
-  );
-
-  const OpenAIIcon = ({ className }: { className?: string }) => (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M13.73 4.6c-.99-.57-2.47-.57-3.46 0L5.3 6.88c-.99.57-1.73 1.98-1.73 3.15v4.53c0 1.17.74 2.58 1.73 3.15l4.97 2.28c.99.57 2.47.57 3.46 0l4.97-2.28c.99-.57 1.73-1.98 1.73-3.15v-4.53c0-1.17-.74-2.58-1.73-3.15L13.73 4.6z" />
-      <path d="M12 7.25v9.5" />
-      <path d="M7.25 12h9.5" />
-    </svg>
-  );
-
-  const GeminiIcon = ({ className }: { className?: string }) => (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <defs>
-        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#4285F4" />
-          <stop offset="50%" stopColor="#9B72F2" />
-          <stop offset="100%" stopColor="#D96570" />
-        </linearGradient>
-      </defs>
-      <path d="M12 2c3.5 0 6 2.5 6 6 0 2-.8 3.7-2 4.9-1.2 1.2-2.9 2.1-4 2.7-1.1-.6-2.8-1.5-4-2.7C6.8 11.7 6 10 6 8c0-3.5 2.5-6 6-6z" fill="url(#g)" />
-      <path d="M12 21.5c-2.2 0-4-1.8-4-4 0-1.3.6-2.4 1.4-3.2.8-.8 1.9-1.4 2.6-1.8.7.4 1.8 1 2.6 1.8.8.8 1.4 1.9 1.4 3.2 0 2.2-1.8 4-4 4z" fill="url(#g)" opacity="0.8" />
-    </svg>
+  const EmojiIcon = ({ className, emoji }: { className?: string; emoji: string }) => (
+    <span className={className} aria-hidden="true" role="img">
+      {emoji}
+    </span>
   );
 
   const getModelIcon = (model: ModelId) => {
-    if (model === 'gemini-2.5-flash-image-preview') return BananaIcon as any;
-    if (model === 'gpt-5') return OpenAIIcon as any;
-    if (model === 'veo3-fast') return GeminiIcon as any;
+    if (model === 'gemini-2.5-flash-image-preview') return ((props: any) => <EmojiIcon {...props} emoji="🖼️" />) as any;
+    if (model === 'gpt-5') return ((props: any) => <EmojiIcon {...props} emoji="🤖" />) as any;
+    if (model === 'veo3-fast') return ((props: any) => <EmojiIcon {...props} emoji="🎬" />) as any;
     const config = getModelConfig(model);
     if (config.supportsSearch) return Search;
     if (config.supportsReasoning) return Brain;

@@ -31,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/icon.svg" />
+        <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50%25' y='60%25' dominant-baseline='middle' text-anchor='middle' font-size='80'%3E🤖%3C/text%3E%3C/svg%3E" />
       </head>
       <body className={`${inter.className} antialiased`}>
         <div className="min-h-[100dvh] h-[100dvh] sm:h-[100vh] overflow-hidden touch-manipulation">
