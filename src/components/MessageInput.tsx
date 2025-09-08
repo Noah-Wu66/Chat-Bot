@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Paperclip, X, Image as ImageIcon, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle, Square } from 'lucide-react';
+import { Send, Paperclip, X, Image as ImageIcon, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle, Square, Settings } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS, ModelId } from '@/lib/types';
 import { cn, fileToBase64, compressImage } from '@/utils/helpers';
@@ -176,6 +176,9 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
   const showStop = isStreaming;
 
 
+  // 移动端设置菜单
+  const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
+
   return (
     <div className={cn("relative", variant === 'center' && "max-w-2xl mx-auto")}>
       {/* 拖拽覆盖层 */}
@@ -190,7 +193,151 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
         </div>
       )}
 
-      {/* 顶部栏：模型切换 + 联网搜索开关 + 额外控制按钮（小屏隐藏） */}
+      {/* 移动端紧凑控制栏 */}
+      <div className="mb-2 flex items-center justify-between gap-2 sm:hidden">
+        <div className="flex items-center gap-1">
+          {/* 模型选择器 */}
+          <ModelSelector variant="ghost" />
+          
+          {/* 设置按钮 */}
+          <button
+            type="button"
+            onClick={() => setMobileSettingsOpen(!mobileSettingsOpen)}
+            className="compact rounded-full border p-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            <Settings className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        {/* 最重要的开关直接显示 */}
+        {modelConfig.supportsSearch && (
+          <button
+            type="button"
+            onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+            disabled={disabled || isStreaming}
+            className={cn(
+              "compact inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs",
+              webSearchEnabled ? "bg-green-600 text-white border-green-600" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+              "disabled:pointer-events-none disabled:opacity-50"
+            )}
+          >
+            <Search className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+
+      {/* 移动端设置面板 */}
+      {mobileSettingsOpen && (
+        <div className="mb-2 rounded-lg border bg-background/95 p-2 sm:hidden">
+          <div className="space-y-2">
+            {modelConfig.supportsReasoning && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">推理深度</span>
+                <select
+                  disabled={disabled || isStreaming}
+                  value={settings?.reasoning?.effort || 'high'}
+                  onChange={(e) => setSettings({ reasoning: { ...(settings?.reasoning || {}), effort: e.target.value as any } })}
+                  className="rounded-md border px-2 py-1 text-xs"
+                >
+                  <option value="minimal">极低</option>
+                  <option value="low">较低</option>
+                  <option value="medium">中等</option>
+                  <option value="high">高</option>
+                </select>
+              </div>
+            )}
+
+            {modelConfig.supportsVerbosity && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">输出篇幅</span>
+                <select
+                  disabled={disabled || isStreaming}
+                  value={settings?.text?.verbosity || 'medium'}
+                  onChange={(e) => setSettings({ text: { ...(settings?.text || {}), verbosity: e.target.value as any } })}
+                  className="rounded-md border px-2 py-1 text-xs"
+                >
+                  <option value="low">简洁</option>
+                  <option value="medium">适中</option>
+                  <option value="high">详细</option>
+                </select>
+              </div>
+            )}
+
+            {modelConfig.supportsSearch && webSearchEnabled && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">搜索深度</span>
+                <select
+                  disabled={disabled || isStreaming}
+                  value={settings?.web?.size || 10}
+                  onChange={(e) => setSettings({ web: { ...(settings?.web || {}), size: parseInt(e.target.value) } })}
+                  className="rounded-md border px-2 py-1 text-xs"
+                >
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="30">30</option>
+                  <option value="50">50</option>
+                </select>
+              </div>
+            )}
+
+            {currentModel === 'veo3-fast' && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">画幅比例</span>
+                  <select
+                    disabled={disabled || isStreaming}
+                    value={settings.veo3?.aspectRatio || '16:9'}
+                    onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), aspectRatio: e.target.value as any } })}
+                    className="rounded-md border px-2 py-1 text-xs"
+                  >
+                    <option value="16:9">16:9</option>
+                    <option value="9:16">9:16</option>
+                    <option value="1:1">1:1</option>
+                  </select>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">分辨率</span>
+                  <select
+                    disabled={disabled || isStreaming}
+                    value={settings.veo3?.resolution || '720p'}
+                    onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), resolution: e.target.value as any } })}
+                    className="rounded-md border px-2 py-1 text-xs"
+                  >
+                    <option value="720p">720p</option>
+                    <option value="1080p">1080p</option>
+                  </select>
+                </div>
+              </>
+            )}
+
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">完成音效</span>
+              <input
+                type="checkbox"
+                className="accent-primary"
+                disabled={disabled || isStreaming}
+                checked={settings?.sound?.onComplete !== false}
+                onChange={(e) => setSettings({ sound: { ...(settings?.sound || {}), onComplete: e.target.checked } })}
+              />
+            </div>
+
+            {currentModel === 'veo3-fast' && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">生成音频</span>
+                <input
+                  type="checkbox"
+                  className="accent-primary"
+                  disabled={disabled || isStreaming}
+                  checked={settings.veo3?.generateAudio === true}
+                  onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), generateAudio: e.target.checked } })}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 桌面端顶部栏：模型切换 + 联网搜索开关 + 额外控制按钮 */}
       <div className={cn("mb-2 hidden sm:flex items-center justify-between gap-2", variant === 'center' && "px-1") }>
         <div className="flex items-center gap-1 sm:gap-2 relative flex-wrap">
           {/* 切换模型按钮（在联网搜索按钮左侧） */}
@@ -347,7 +494,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
           }
           className={cn(
             "chat-input w-full border-0 bg-transparent focus:ring-0 resize-none",
-            variant === 'center' ? "min-h-[56px] text-base px-4 sm:px-5 py-3 sm:py-4 rounded-2xl pr-28 sm:pr-32 pl-8 sm:pl-10" : "pr-24 sm:pr-28 pl-8"
+            variant === 'center' ? "min-h-[48px] sm:min-h-[56px] text-sm sm:text-base px-3 sm:px-5 py-2.5 sm:py-4 rounded-2xl pr-24 sm:pr-32 pl-8 sm:pl-10" : "pr-20 sm:pr-28 pl-6 sm:pl-8 py-2 sm:py-3"
           )}
           disabled={disabled || isStreaming}
           rows={1}
@@ -356,8 +503,8 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
 
         {/* 操作按钮 */}
         <div className={cn(
-          "absolute flex items-center gap-1",
-          variant === 'center' ? "right-2 bottom-2 sm:right-2 sm:bottom-2" : "right-2 bottom-2"
+          "absolute flex items-center gap-0.5 sm:gap-1",
+          variant === 'center' ? "right-1.5 bottom-1.5 sm:right-2 sm:bottom-2" : "right-1 bottom-1 sm:right-2 sm:bottom-2"
         )}>
           {/* 附件按钮 */}
           {modelConfig.supportsVision && (
@@ -379,12 +526,12 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
                 onClick={() => fileInputRef.current?.click()}
                 disabled={disabled || isStreaming || images.length >= 5}
                 className={cn(
-                  "rounded-md p-1.5 sm:p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground touch-manipulation",
+                  "compact rounded-md p-1 sm:p-1.5 md:p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground touch-manipulation",
                   "disabled:pointer-events-none disabled:opacity-50"
                 )}
                 title="上传图片"
               >
-                <Paperclip className="h-4 w-4" />
+                <Paperclip className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
             </>
           )}
@@ -395,7 +542,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
             onClick={() => { if (showStop) { onStop && onStop(); } else { handleSend(); } }}
             disabled={!showStop && !canSend}
             className={cn(
-              "rounded-md p-1.5 sm:p-2 transition-colors touch-manipulation",
+              "compact rounded-md p-1 sm:p-1.5 md:p-2 transition-colors touch-manipulation",
               showStop
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 : (canSend
@@ -404,7 +551,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
             )}
             title={showStop ? "停止" : (isEditing ? "保存并重新生成" : "发送消息 (Enter)")}
           >
-            {showStop ? <Square className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+            {showStop ? <Square className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
           </button>
         </div>
       </div>

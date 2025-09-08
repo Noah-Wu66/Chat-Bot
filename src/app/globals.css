@@ -395,3 +395,34 @@
 .pt-safe-area-inset-top {
   padding-top: env(safe-area-inset-top, 0);
 }
+
+/* 移动端优化 */
+@media (max-width: 640px) {
+  /* 防止文字选中干扰触摸操作 */
+  .touch-manipulation {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  /* 优化点击区域 */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* 紧凑的按钮 */
+  button.compact {
+    min-height: 32px;
+    min-width: 32px;
+  }
+  
+  /* 防止横向滚动 */
+  body {
+    overflow-x: hidden;
+  }
+  
+  /* 输入框优化 */
+  input, textarea, select {
+    font-size: 16px; /* 防止 iOS 自动缩放 */
+  }
+}

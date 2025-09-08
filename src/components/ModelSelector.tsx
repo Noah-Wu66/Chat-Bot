@@ -91,18 +91,18 @@ export default function ModelSelector({ variant = 'default' }: Props) {
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           variant === 'ghost'
-            ? "flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+            ? "flex items-center gap-1 sm:gap-2 rounded-full border px-2 sm:px-3 py-1 sm:py-1.5 text-xs text-muted-foreground hover:text-foreground"
             : "flex w-full items-center justify-between gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground",
           variant === 'ghost' ? "bg-transparent" : "",
           isOpen && variant !== 'ghost' && "ring-2 ring-ring ring-offset-2"
         )}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           {(() => {
             const Icon = getModelIcon(currentModel);
-            return <Icon className="h-4 w-4" />;
+            return <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />;
           })()}
-          <span className={cn("font-medium", variant === 'ghost' && "text-sm")}>{currentModelConfig.name}</span>
+          <span className={cn("font-medium text-xs sm:text-sm", variant === 'ghost' && "hidden sm:inline")}>{currentModelConfig.name}</span>
         </div>
         {variant !== 'ghost' && (
           <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />

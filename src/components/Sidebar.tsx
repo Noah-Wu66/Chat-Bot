@@ -248,7 +248,7 @@ export default function Sidebar() {
         <div className="flex items-center gap-2">
           <button
             onClick={createNewConversation}
-            className="flex w-full items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 touch-manipulation"
+            className="sidebar-new-chat flex w-full items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 touch-manipulation"
           >
             <Plus className="h-4 w-4" />
             新建对话
@@ -441,10 +441,10 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* 移动端菜单按钮 */}
+      {/* 移动端菜单按钮 - 顶部靠左 */}
       <button
         onClick={() => setSidebarOpen(true)}
-        className="fixed safe-top-4 left-4 z-40 rounded-md bg-background p-2 shadow-md border border-border lg:hidden touch-manipulation"
+        className="compact fixed top-2 left-2 z-40 rounded-md bg-background p-1.5 shadow-md border border-border lg:hidden touch-manipulation"
       >
         <Menu className="h-4 w-4" />
       </button>
