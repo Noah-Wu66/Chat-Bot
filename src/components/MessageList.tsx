@@ -231,15 +231,15 @@ export default function MessageList({
                     <div className="mt-1 flex items-center gap-2">
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] hover:bg-accent hover:text-accent-foreground touch-manipulation"
+                        className="inline-flex items-center rounded-full border p-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground touch-manipulation"
                         title="将此图变成视频"
+                        aria-label="生成视频"
                         onClick={() => {
                           setPendingVideoImage(image);
                           setConfirmVideoOpen(true);
                         }}
                       >
-                        <Play className="h-3 w-3" />
-                        <span>生成视频</span>
+                        <Play className="h-2.5 w-2.5" />
                       </button>
                     </div>
                   )}
@@ -319,10 +319,11 @@ export default function MessageList({
             <div className={cn("mt-1 flex items-center gap-1 sm:gap-2 text-muted-foreground text-[10px] flex-wrap", isUser && "justify-end")}> 
               <button
                 onClick={() => onEditMessage && onEditMessage(message)}
-                className="rounded-full border px-1.5 py-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground touch-manipulation"
+                className="rounded-full border p-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground touch-manipulation"
                 title="编辑并重新生成"
+                aria-label="编辑"
               >
-                <Pencil className="h-3 w-3" />
+                <Pencil className="h-2.5 w-2.5" />
               </button>
             </div>
           )}
@@ -333,19 +334,21 @@ export default function MessageList({
               <button
                 onClick={() => onRegenerateAssistant && onRegenerateAssistant(message)}
                 disabled={!!isStreaming}
-                className="rounded-full border px-1.5 py-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground touch-manipulation disabled:pointer-events-none disabled:opacity-50"
+                className="rounded-full border p-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground touch-manipulation disabled:pointer-events-none disabled:opacity-50"
                 title="重新回答"
+                aria-label="重新回答"
               >
-                <RefreshCw className="h-3 w-3" />
+                <RefreshCw className="h-2.5 w-2.5" />
               </button>
               {/* 对于 Gemini 图片消息：移除复制按钮 */}
               {!(message.model === 'gemini-2.5-flash-image-preview' && message.images && message.images.length > 0) && (
                 <button
                   onClick={() => handleCopy(message.content)}
-                  className="rounded-full border px-1.5 py-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground touch-manipulation"
+                  className="rounded-full border p-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground touch-manipulation"
                   title="复制"
+                  aria-label="复制"
                 >
-                  <Copy className="h-3 w-3" />
+                  <Copy className="h-2.5 w-2.5" />
                 </button>
               )}
 

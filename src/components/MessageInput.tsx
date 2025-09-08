@@ -196,16 +196,18 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
       {/* 移动端紧凑控制栏 */}
       <div className="mb-2 flex items-center justify-between gap-2 sm:hidden">
         <div className="flex items-center gap-1">
-          {/* 模型选择器 */}
+          {/* 模型选择器（已在组件内显示名称） */}
           <ModelSelector variant="ghost" />
-          
-          {/* 设置按钮 */}
+
+          {/* 设置按钮：添加文字 */}
           <button
             type="button"
             onClick={() => setMobileSettingsOpen(!mobileSettingsOpen)}
-            className="compact rounded-full border p-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            className="compact inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            title="其他设置"
           >
             <Settings className="h-3.5 w-3.5" />
+            <span>设置</span>
           </button>
         </div>
 
@@ -220,8 +222,10 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
               webSearchEnabled ? "bg-green-600 text-white border-green-600" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
               "disabled:pointer-events-none disabled:opacity-50"
             )}
+            title={webSearchEnabled ? "已开启联网搜索" : "点击开启联网搜索"}
           >
             <Search className="h-3 w-3" />
+            <span>搜索</span>
           </button>
         )}
       </div>
@@ -458,9 +462,11 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
               />
               <button
                 onClick={() => removeImage(index)}
-                className="absolute -top-1 -right-1 rounded-full bg-destructive p-1 text-destructive-foreground hover:bg-destructive/90 touch-manipulation"
+                className="absolute -top-1 -right-1 rounded-full bg-destructive p-0.5 text-destructive-foreground hover:bg-destructive/90 touch-manipulation"
+                aria-label="移除图片"
+                title="移除"
               >
-                <X className="h-3 w-3" />
+                <X className="h-2.5 w-2.5" />
               </button>
             </div>
           ))}

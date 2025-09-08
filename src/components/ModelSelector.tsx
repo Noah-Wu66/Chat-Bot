@@ -57,7 +57,8 @@ export default function ModelSelector({ variant = 'default' }: Props) {
             const Icon = getModelIcon(currentModel);
             return <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />;
           })()}
-          <span className={cn("font-medium text-xs sm:text-sm", variant === 'ghost' && "hidden sm:inline")}>{currentModelConfig.name}</span>
+          {/* 移动端也显示模型名称，避免仅图标不明所以 */}
+          <span className={cn("font-medium text-xs sm:text-sm", variant === 'ghost' && "inline")}>{currentModelConfig.name}</span>
         </div>
         {variant !== 'ghost' && (
           <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
