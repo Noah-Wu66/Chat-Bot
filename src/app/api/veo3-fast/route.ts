@@ -102,7 +102,6 @@ export async function POST(req: Request) {
           generate_audio,
           resolution,
         },
-        logs: true,
       }
     : {
         input: {
@@ -114,7 +113,6 @@ export async function POST(req: Request) {
           resolution,
           generate_audio,
         },
-        logs: true,
       };
 
   if (stream) {
