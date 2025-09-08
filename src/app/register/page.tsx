@@ -41,7 +41,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="h-full flex items-center justify-center p-6">
+    <div className="min-h-[100dvh] h-[100dvh] sm:h-[100vh] flex items-center justify-center px-4 py-6 pt-safe-area-inset-top pb-safe-area-inset-bottom">
       <div className="w-full max-w-md rounded-xl border border-border p-6 bg-background">
         <h1 className="text-xl font-semibold mb-4">注册</h1>
         

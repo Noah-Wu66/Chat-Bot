@@ -64,11 +64,11 @@
   }
   
   .chat-message.user {
-    @apply ml-auto max-w-[80%] bg-primary text-primary-foreground;
+    @apply ml-auto max-w-[88%] sm:max-w-[80%] bg-primary text-primary-foreground;
   }
   
   .chat-message.assistant {
-    @apply mr-auto max-w-[80%] bg-muted text-muted-foreground;
+    @apply mr-auto max-w-[88%] sm:max-w-[80%] bg-muted text-muted-foreground;
   }
   
   .chat-input {
@@ -353,6 +353,16 @@
 /* 移动端优化 */
 .touch-manipulation {
   touch-action: manipulation;
+}
+
+/* iOS 平滑滚动和容器滚动隔离 */
+.touch-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 顶部安全区偏移工具类（用于悬浮按钮避让刘海） */
+.safe-top-4 {
+  top: calc(env(safe-area-inset-top, 0px) + 1rem);
 }
 
 /* 文本截断 */

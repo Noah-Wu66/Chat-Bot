@@ -118,7 +118,7 @@ export default function ModelSelector({ variant = 'default' }: Props) {
           />
           
           {/* 上弹菜单（统一为向上弹出与一致风格） */}
-          <div className="absolute bottom-full left-0 z-20 mb-2 w-full min-w-[320px] rounded-md border bg-background p-2 text-xs shadow">
+          <div className="absolute bottom-full left-0 z-20 mb-2 w-auto min-w-[280px] sm:min-w-[320px] max-w-[92vw] rounded-md border bg-background p-2 text-xs shadow">
             <div className="max-h-[400px] overflow-y-auto scrollbar-thin">
               {Object.entries(modelGroups).map(([groupName, models]) => (
                 <div key={groupName} className="mb-2">

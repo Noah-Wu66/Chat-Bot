@@ -34,7 +34,7 @@ export default function RootLayout({
         <link rel="icon" href="/icon.svg" />
       </head>
       <body className={`${inter.className} antialiased`}>
-        <div className="h-screen overflow-hidden touch-manipulation">
+        <div className="min-h-[100dvh] h-[100dvh] sm:h-[100vh] overflow-hidden touch-manipulation">
           {children}
         </div>
       </body>

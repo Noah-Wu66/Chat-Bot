@@ -190,8 +190,8 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
         </div>
       )}
 
-      {/* 顶部栏：模型切换 + 联网搜索开关 + 额外控制按钮 */}
-      <div className={cn("mb-2 flex items-center justify-between gap-2", variant === 'center' && "px-1") }>
+      {/* 顶部栏：模型切换 + 联网搜索开关 + 额外控制按钮（小屏隐藏） */}
+      <div className={cn("mb-2 hidden sm:flex items-center justify-between gap-2", variant === 'center' && "px-1") }>
         <div className="flex items-center gap-1 sm:gap-2 relative flex-wrap">
           {/* 切换模型按钮（在联网搜索按钮左侧） */}
           <ModelSelector variant="ghost" />

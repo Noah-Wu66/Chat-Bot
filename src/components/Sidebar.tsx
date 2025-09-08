@@ -242,7 +242,7 @@ export default function Sidebar() {
   }, {} as Record<string, Conversation[]>);
 
   const sidebarContent = (
-    <div className="flex h-full flex-col bg-muted/30">
+    <div className="flex h-full flex-col bg-muted/30 pb-safe-area-inset-bottom">
       {/* 顶部：仅保留新建按钮，向 ChatGPT 靠拢 */}
       <div className="border-b border-border p-3 sm:p-4">
         <div className="flex items-center gap-2">
@@ -444,7 +444,7 @@ export default function Sidebar() {
       {/* 移动端菜单按钮 */}
       <button
         onClick={() => setSidebarOpen(true)}
-        className="fixed top-4 left-4 z-40 rounded-md bg-background p-2 shadow-md border border-border lg:hidden touch-manipulation"
+        className="fixed safe-top-4 left-4 z-40 rounded-md bg-background p-2 shadow-md border border-border lg:hidden touch-manipulation"
       >
         <Menu className="h-4 w-4" />
       </button>

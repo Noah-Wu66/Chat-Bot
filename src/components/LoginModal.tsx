@@ -84,8 +84,8 @@ export default function LoginModal() {
 
   return (
     <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <div className="w-full max-w-sm rounded-xl border border-border bg-background shadow-lg max-h-[90vh] overflow-hidden">
+      <div className="fixed inset-0 flex items-center justify-center px-4 py-4 pt-safe-area-inset-top pb-safe-area-inset-bottom">
+        <div className="w-full max-w-sm rounded-xl border border-border bg-background shadow-lg max-h-[90dvh] overflow-hidden">
           <div className="flex items-center justify-between border-b border-border p-3 sm:p-4">
             <h2 className="text-base sm:text-lg font-semibold">登录 / 注册</h2>
             <button
@@ -116,7 +116,7 @@ export default function LoginModal() {
             </div>
           </div>
 
-          <div className="max-h-[60vh] overflow-y-auto">
+          <div className="max-h-[60dvh] overflow-y-auto">
             <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-3">
             {error && (
               <div className="text-sm text-destructive">{error}</div>
