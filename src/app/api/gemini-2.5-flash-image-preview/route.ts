@@ -4,6 +4,7 @@ import { performWebSearchSummary } from '@/lib/router';
 import { getConversationModel } from '@/lib/models/Conversation';
 import { cookies } from 'next/headers';
 import { verifyJWT } from '@/lib/auth';
+import { getUserModel } from '@/lib/models/User';
 
 export const runtime = 'nodejs';
 
@@ -14,12 +15,21 @@ async function getCurrentUser() {
   if (!token) return null;
   const payload = verifyJWT(token);
   if (!payload) return null;
-  return payload;
+  try {
+    const User = await getUserModel();
+    const u = await User.findOne({ id: payload.sub }).lean();
+    if (!u) return null;
+    if ((u as any).isBanned) return { ...payload, isBanned: true } as any;
+    return { ...payload, isBanned: Boolean((u as any).isBanned) } as any;
+  } catch {
+    return payload as any;
+  }
 }
 
 export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (!user) return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
+  if ((user as any).isBanned) return new Response(JSON.stringify({ error: '账户已被封禁' }), { status: 403 });
 
   const body = await req.json();
   const { conversationId, input, model, settings, stream, webSearch, regenerate } = body as {

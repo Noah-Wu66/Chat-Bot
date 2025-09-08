@@ -30,7 +30,8 @@ export default function Sidebar() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState<{ username: string; email: string } | null>(null);
+  const [user, setUser] = useState<{ username: string; email: string; isSuperAdmin?: boolean } | null>(null);
+  const [superExists, setSuperExists] = useState<boolean | null>(null);
   // 删除确认弹窗状态
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [confirmingDeleteTitle, setConfirmingDeleteTitle] = useState<string>('');
@@ -48,7 +49,7 @@ export default function Sidebar() {
         if (response.ok) {
           const data = await response.json();
           if (data.user) {
-            setUser({ username: data.user.username, email: data.user.email });
+            setUser({ username: data.user.username, email: data.user.email, isSuperAdmin: Boolean(data.user.isSuperAdmin) });
           } else {
             setUser(null);
           }
@@ -57,6 +58,18 @@ export default function Sidebar() {
         }
       } catch {
         setUser(null);
+      }
+      // 查询是否已有超级管理员
+      try {
+        const r = await fetch('/api/admin/exists', { credentials: 'include' });
+        if (r.ok) {
+          const j = await r.json();
+          setSuperExists(Boolean(j.exists));
+        } else {
+          setSuperExists(true);
+        }
+      } catch {
+        setSuperExists(true);
       }
     })();
   }, []);
@@ -393,6 +406,16 @@ export default function Sidebar() {
             }}
           >管理</button>
         </div>
+
+        {/* 超级管理员入口按钮：仅超管可见 */}
+        {user?.isSuperAdmin && (
+          <button
+            onClick={() => { window.location.href = '/admin'; }}
+            className="sidebar-item w-full touch-manipulation"
+          >
+            系统管理
+          </button>
+        )}
         
         <button
           onClick={async () => {

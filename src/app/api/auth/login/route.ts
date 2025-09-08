@@ -30,6 +30,8 @@ export async function POST(req: NextRequest) {
       sub: user.id,
       username: user.username,
       email: user.email,
+      isSuperAdmin: Boolean((user as any).isSuperAdmin),
+      isBanned: Boolean((user as any).isBanned),
     }, remember ? 60 * 60 * 24 * 30 : undefined);
 
     setAuthCookie(token, Boolean(remember));

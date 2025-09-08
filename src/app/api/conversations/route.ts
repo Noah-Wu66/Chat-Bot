@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyJWT } from '@/lib/auth';
+import { getUserModel } from '@/lib/models/User';
 import { generateId } from '@/utils/helpers';
 import { getConversationModel } from '@/lib/models/Conversation';
 import type { Conversation, Message } from '@/lib/types';
@@ -14,13 +15,23 @@ async function getCurrentUser() {
   if (!token) return null;
   const payload = verifyJWT(token);
   if (!payload) return null;
-  return payload;
+  // 加载封禁状态
+  try {
+    const User = await getUserModel();
+    const u = await User.findOne({ id: payload.sub }).lean();
+    if (!u) return null;
+    if ((u as any).isBanned) return { ...payload, isBanned: true } as any;
+    return { ...payload, isBanned: Boolean((u as any).isBanned) } as any;
+  } catch {
+    return payload as any;
+  }
 }
 
 // 获取对话列表
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
+  if ((user as any).isBanned) return new Response(JSON.stringify({ error: '账户已被封禁' }), { status: 403 });
   
   try {
     const { searchParams } = new URL(req.url);
@@ -66,6 +77,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
+  if ((user as any).isBanned) return new Response(JSON.stringify({ error: '账户已被封禁' }), { status: 403 });
   
   try {
     const body = await req.json();
@@ -103,6 +115,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
+  if ((user as any).isBanned) return new Response(JSON.stringify({ error: '账户已被封禁' }), { status: 403 });
   
   try {
     const { id, title } = await req.json();
@@ -119,6 +132,7 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
+  if ((user as any).isBanned) return new Response(JSON.stringify({ error: '账户已被封禁' }), { status: 403 });
   
   try {
     const { searchParams } = new URL(req.url);
@@ -138,6 +152,7 @@ export async function DELETE(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const user = await getCurrentUser();
   if (!user) return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
+  if ((user as any).isBanned) return new Response(JSON.stringify({ error: '账户已被封禁' }), { status: 403 });
 
   try {
     const { id, op, messageId } = await req.json();

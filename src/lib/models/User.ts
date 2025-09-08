@@ -6,6 +6,8 @@ export interface IUserDoc extends mongoose.Document {
   username: string;
   email: string;
   passwordHash: string;
+  isSuperAdmin: boolean;
+  isBanned: boolean;
   createdAt: Date;
 }
 
@@ -15,6 +17,8 @@ const UserSchema = new Schema<IUserDoc>(
     username: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true },
     passwordHash: { type: String, required: true },
+    isSuperAdmin: { type: Boolean, default: false },
+    isBanned: { type: Boolean, default: false },
     createdAt: { type: Date, default: () => new Date() },
   },
   { versionKey: false }

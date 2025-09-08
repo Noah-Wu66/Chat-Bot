@@ -7,10 +7,12 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Message } from '@/lib/types';
+import { useChatStore } from '@/store/chatStore';
 import { formatTime, copyToClipboard, cn } from '@/utils/helpers';
 import LoadingSpinner from './LoadingSpinner';
 import SearchSourcesModal from './SearchSourcesModal';
 import ImagePreviewModal from './ImagePreviewModal';
+import VideoPreviewModal from './VideoPreviewModal';
 
 interface MessageListProps {
   messages: Message[];
@@ -33,6 +35,9 @@ export default function MessageList({
   const [sourcesModalOpen, setSourcesModalOpen] = useState(false);
   const [sourcesForModal, setSourcesForModal] = useState<any[]>([]);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [previewVideoSrc, setPreviewVideoSrc] = useState<string | null>(null);
+  const { currentModel } = useChatStore();
+  const isGeneratingModel = currentModel === 'veo3-fast' || currentModel === 'gemini-2.5-flash-image-preview';
 
   // 自动滚动到底部
   useEffect(() => {
@@ -159,16 +164,27 @@ export default function MessageList({
             </div>
           )}
 
-          {/* 视频 */}
+          {/* 视频（缩略预览 + 点击弹窗）*/}
           {message.videos && message.videos.length > 0 && (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
               {message.videos.map((video, vIndex) => (
-                <video
+                <button
                   key={vIndex}
-                  src={video}
-                  controls
-                  className="w-full max-w-[720px] rounded-lg border"
-                />
+                  className="group relative overflow-hidden rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary touch-manipulation"
+                  onClick={() => setPreviewVideoSrc(video)}
+                  title="点击预览大视频"
+                >
+                  <video
+                    src={video}
+                    className="h-32 sm:h-48 max-h-48 sm:max-h-72 w-auto max-w-full object-contain"
+                    muted
+                    playsInline
+                    controls={false}
+                  />
+                  <div className="pointer-events-none absolute inset-0 flex items-end justify-end p-1">
+                    <span className="rounded bg-black/50 px-1.5 py-0.5 text-[10px] text-white">点击放大</span>
+                  </div>
+                </button>
               ))}
             </div>
           )}
@@ -338,6 +354,10 @@ export default function MessageList({
             <ImagePreviewModal src={previewSrc} onClose={() => setPreviewSrc(null)} />
           )}
 
+          {previewVideoSrc && (
+            <VideoPreviewModal src={previewVideoSrc} onClose={() => setPreviewVideoSrc(null)} />
+          )}
+
           {/* 等待模型响应时的占位加载 */}
           {isStreaming && !streamingContent && (
             <div className="chat-message flex gap-2 sm:gap-3 p-3 sm:p-4">
@@ -347,11 +367,11 @@ export default function MessageList({
               <div className="flex-1 space-y-2">
                 <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                   <span className="font-medium">AI助手</span>
-                  <span className="loading-dots">AI正在思考中</span>
+                  <span className="loading-dots">{`AI正在${isGeneratingModel ? '生成中' : '思考中'}`}</span>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <LoadingSpinner size="sm" />
-                  <span className="text-xs sm:text-sm">思考中</span>
+                  <span className="text-xs sm:text-sm">{isGeneratingModel ? '生成中' : '思考中'}</span>
                 </div>
               </div>
             </div>

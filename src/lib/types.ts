@@ -225,6 +225,8 @@ export interface User {
   username: string;
   email: string;
   passwordHash: string;
+  isSuperAdmin: boolean;
+  isBanned: boolean;
   createdAt: Date;
 }
 

@@ -26,6 +26,8 @@ export interface JWTPayload {
   sub: string; // userId
   username: string;
   email: string;
+  isSuperAdmin?: boolean;
+  isBanned?: boolean;
   iat: number;
   exp?: number;
 }
