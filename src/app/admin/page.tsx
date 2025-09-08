@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { X } from 'lucide-react';
 
 interface AdminUser {
   id: string;
@@ -20,6 +21,8 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [stats, setStats] = useState<StatsItem[]>([]);
   const [operating, setOperating] = useState<string | null>(null);
+  const [confirmingUser, setConfirmingUser] = useState<{ id: string; username: string } | null>(null);
+  const [deletingUser, setDeletingUser] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -135,22 +138,7 @@ export default function AdminPage() {
                   {!u.isSuperAdmin && (
                     <button
                       disabled={operating === u.id}
-                      onClick={async () => {
-                        if (!confirm('确认删除该用户及其所有对话？此操作不可恢复。')) return;
-                        try {
-                          setOperating(u.id);
-                          const resp = await fetch(`/api/admin/users?userId=${encodeURIComponent(u.id)}`, {
-                            method: 'DELETE',
-                            credentials: 'include',
-                          });
-                          if (!resp.ok) throw new Error('删除失败');
-                          setUsers(list => list.filter(it => it.id !== u.id));
-                        } catch (e) {
-                          // ignore
-                        } finally {
-                          setOperating(null);
-                        }
-                      }}
+                      onClick={() => setConfirmingUser({ id: u.id, username: u.username })}
                       className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90 touch-manipulation"
                     >删除</button>
                   )}
@@ -160,6 +148,65 @@ export default function AdminPage() {
           })}
         </div>
       </div>
+      {confirmingUser && (
+        <div className="fixed inset-0 z-50">
+          <div className="fixed inset-0 bg-black/40" onClick={() => deletingUser ? null : setConfirmingUser(null)} />
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <div className="w-full max-w-sm rounded-xl border border-border bg-background shadow-lg overflow-hidden">
+              <div className="flex items-center justify-between border-b border-border p-3 sm:p-4">
+                <h2 className="text-base sm:text-lg font-semibold">删除用户</h2>
+                <button
+                  onClick={() => setConfirmingUser(null)}
+                  disabled={deletingUser}
+                  className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground touch-manipulation"
+                  aria-label="关闭"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="p-3 sm:p-4 space-y-2">
+                <p className="text-sm">确认删除用户 “{confirmingUser.username}” 及其所有对话？此操作不可恢复。</p>
+              </div>
+              <div className="flex items-center justify-end gap-2 border-t p-3 sm:p-4">
+                <button
+                  type="button"
+                  onClick={() => setConfirmingUser(null)}
+                  disabled={deletingUser}
+                  className="rounded-md border px-3 py-1.5 text-sm hover:bg-accent touch-manipulation disabled:opacity-60"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  disabled={deletingUser}
+                  onClick={async () => {
+                    if (!confirmingUser) return;
+                    try {
+                      setDeletingUser(true);
+                      setOperating(confirmingUser.id);
+                      const resp = await fetch(`/api/admin/users?userId=${encodeURIComponent(confirmingUser.id)}`, {
+                        method: 'DELETE',
+                        credentials: 'include',
+                      });
+                      if (!resp.ok) throw new Error('删除失败');
+                      setUsers(list => list.filter(it => it.id !== confirmingUser.id));
+                      setConfirmingUser(null);
+                    } catch (e) {
+                      // ignore
+                    } finally {
+                      setDeletingUser(false);
+                      setOperating(null);
+                    }
+                  }}
+                  className="rounded-md bg-destructive px-3 py-1.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 touch-manipulation disabled:opacity-60"
+                >
+                  {deletingUser ? '正在删除...' : '删除'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -31,6 +31,61 @@ export default function MessageList({
   onEditMessage,
   onRegenerateAssistant,
 }: MessageListProps) {
+  function VideoAutoPreview({ src, onClick }: { src: string; onClick: () => void }) {
+    const videoRef = useRef<HTMLVideoElement>(null);
+    useEffect(() => {
+      const v = videoRef.current;
+      if (!v) return;
+      const onLoadedData = () => {
+        try {
+          // 确保展示第一帧
+          v.pause();
+          if (v.currentTime > 0) return;
+          v.currentTime = 0;
+        } catch {}
+      };
+      v.addEventListener('loadeddata', onLoadedData);
+      try {
+        // 预加载并尝试静音自动播放以解码首帧，然后立刻暂停
+        v.preload = 'auto';
+        v.muted = true;
+        // @ts-expect-error: playsInline 属性在部分环境为只读但可设定
+        v.playsInline = true;
+        v.load();
+        const p = v.play();
+        if (p && typeof (p as any).then === 'function') {
+          (p as Promise<void>).then(() => {
+            try { v.pause(); } catch {}
+          }).catch(() => {
+            // 自动播放可能被阻止，忽略即可（已设置 preload）
+          });
+        }
+      } catch {}
+      return () => {
+        try { v.removeEventListener('loadeddata', onLoadedData); } catch {}
+      };
+    }, [src]);
+    return (
+      <button
+        className="group relative overflow-hidden rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary touch-manipulation"
+        onClick={onClick}
+        title="点击预览大视频"
+      >
+        <video
+          ref={videoRef}
+          src={src}
+          className="h-32 sm:h-48 max-h-48 sm:max-h-72 w-auto max-w-full object-contain"
+          muted
+          playsInline
+          controls={false}
+          preload="auto"
+        />
+        <div className="pointer-events-none absolute inset-0 flex items-end justify-end p-1">
+          <span className="rounded bg-black/50 px-1.5 py-0.5 text-[10px] text-white">点击放大</span>
+        </div>
+      </button>
+    );
+  }
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [sourcesModalOpen, setSourcesModalOpen] = useState(false);
   const [sourcesForModal, setSourcesForModal] = useState<any[]>([]);
@@ -168,23 +223,7 @@ export default function MessageList({
           {message.videos && message.videos.length > 0 && (
             <div className="flex flex-wrap gap-2 sm:gap-3">
               {message.videos.map((video, vIndex) => (
-                <button
-                  key={vIndex}
-                  className="group relative overflow-hidden rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary touch-manipulation"
-                  onClick={() => setPreviewVideoSrc(video)}
-                  title="点击预览大视频"
-                >
-                  <video
-                    src={video}
-                    className="h-32 sm:h-48 max-h-48 sm:max-h-72 w-auto max-w-full object-contain"
-                    muted
-                    playsInline
-                    controls={false}
-                  />
-                  <div className="pointer-events-none absolute inset-0 flex items-end justify-end p-1">
-                    <span className="rounded bg-black/50 px-1.5 py-0.5 text-[10px] text-white">点击放大</span>
-                  </div>
-                </button>
+                <VideoAutoPreview key={vIndex} src={video} onClick={() => setPreviewVideoSrc(video)} />
               ))}
             </div>
           )}
