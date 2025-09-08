@@ -463,13 +463,10 @@ export default function MessageList({
                       className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:opacity-90 disabled:opacity-60 touch-manipulation"
                       onClick={async () => {
                         if (!pendingVideoImage) return;
+                        const imageToCarry = pendingVideoImage;
                         setProcessingVideo(true);
                         try {
-                          // 切换模型并预置图片
-                          setCurrentModel('veo3-fast' as any);
-                          setPresetInputImages([pendingVideoImage]);
-
-                          // 切换模型时立即新建对话并设为当前
+                          // 先新建对话并设为当前，再预填图片，避免被旧输入框消费
                           try {
                             const title = generateTitleFromMessage('新对话');
                             const response = await fetch('/api/conversations', {
@@ -482,6 +479,12 @@ export default function MessageList({
                               const newConv = await response.json();
                               setCurrentConversation({ ...newConv, messages: [] } as any);
                               addConversation({ ...newConv, messages: [] } as any);
+                              // 切换全局模型
+                              setCurrentModel('veo3-fast' as any);
+                              // 等待一帧后再预置图片，确保新输入框已挂载
+                              setTimeout(() => {
+                                setPresetInputImages([imageToCarry]);
+                              }, 0);
                             }
                           } catch {}
                         } finally {
