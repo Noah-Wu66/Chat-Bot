@@ -25,12 +25,7 @@ export default function ModelSelector({ variant = 'default' }: Props) {
     return MessageSquare;
   };
 
-  const getModelBadgeClass = (model: ModelId) => {
-    const config = getModelConfig(model);
-    if (config.supportsSearch) return 'model-badge search';
-    if (config.supportsReasoning) return 'model-badge responses';
-    return 'model-badge chat';
-  };
+  // 取消类型/功能标签展示，仅保留标题与简介
 
   const modelGroups = {
     '可用模型': ['gpt-5', 'gemini-2.5-flash-image-preview', 'veo3-fast'],
@@ -54,11 +49,6 @@ export default function ModelSelector({ variant = 'default' }: Props) {
             return <Icon className="h-4 w-4" />;
           })()}
           <span className={cn("font-medium", variant === 'ghost' && "text-sm")}>{currentModelConfig.name}</span>
-          {variant !== 'ghost' && (
-            <span className={getModelBadgeClass(currentModel)}>
-              {currentModelConfig.type === 'responses' ? 'Responses' : 'Chat'}
-            </span>
-          )}
         </div>
         {variant !== 'ghost' && (
           <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
@@ -73,8 +63,8 @@ export default function ModelSelector({ variant = 'default' }: Props) {
             onClick={() => setIsOpen(false)}
           />
           
-          {/* 下拉菜单 */}
-          <div className="absolute top-full left-0 z-20 mt-1 w-full min-w-[320px] rounded-lg border border-border bg-popover p-1 shadow-lg">
+          {/* 上弹菜单（统一为向上弹出与一致风格） */}
+          <div className="absolute bottom-full left-0 z-20 mb-2 w-full min-w-[320px] rounded-md border bg-background p-2 text-xs shadow">
             <div className="max-h-[400px] overflow-y-auto scrollbar-thin">
               {Object.entries(modelGroups).map(([groupName, models]) => (
                 <div key={groupName} className="mb-2">
@@ -125,35 +115,11 @@ export default function ModelSelector({ variant = 'default' }: Props) {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="font-medium">{config.name}</span>
-                            <span className={getModelBadgeClass(model)}>
-                              {config.type === 'responses' ? 'Responses' : 'Chat'}
-                            </span>
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {config.description}
                           </p>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {config.supportsVision && (
-                              <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                                视觉
-                              </span>
-                            )}
-                            {config.supportsSearch && (
-                              <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
-                                搜索
-                              </span>
-                            )}
-                            {config.supportsTools && (
-                              <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
-                                工具
-                              </span>
-                            )}
-                            {config.supportsReasoning && (
-                              <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300">
-                                推理
-                              </span>
-                            )}
-                          </div>
+                          
                         </div>
                       </button>
                     );

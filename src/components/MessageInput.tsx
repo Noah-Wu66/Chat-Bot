@@ -164,6 +164,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
   };
 
   const canSend = (message.trim() || images.length > 0) && !disabled && !isStreaming;
+  const showStop = isStreaming;
 
 
   return (
@@ -379,36 +380,22 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
             </>
           )}
 
-          {/* 移除语音与朗读占位按钮 */}
-
-          {/* 停止始终可点击 + 发送按钮 */}
+          {/* 发送/停止合并按钮：根据状态自动切换 */}
           <button
             type="button"
-            onClick={onStop}
+            onClick={() => { if (showStop) { onStop && onStop(); } else { handleSend(); } }}
+            disabled={!showStop && !canSend}
             className={cn(
               "rounded-md p-1.5 sm:p-2 transition-colors touch-manipulation",
-              isStreaming
+              showStop
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                : (canSend
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "text-muted-foreground cursor-not-allowed opacity-50")
             )}
-            title="停止"
+            title={showStop ? "停止" : (isEditing ? "保存并重新生成" : "发送消息 (Enter)")}
           >
-            <Square className="h-4 w-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={!canSend}
-            className={cn(
-              "rounded-md p-1.5 sm:p-2 transition-colors touch-manipulation",
-              canSend
-                ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                : "text-muted-foreground cursor-not-allowed opacity-50"
-            )}
-            title={isEditing ? "保存并重新生成" : "发送消息 (Enter)"}
-          >
-            <Send className="h-4 w-4" />
+            {showStop ? <Square className="h-4 w-4" /> : <Send className="h-4 w-4" />}
           </button>
         </div>
       </div>
