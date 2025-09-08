@@ -95,7 +95,7 @@ export async function POST(req: Request) {
   const aspect_ratio = veo?.aspectRatio || '16:9';
   const duration = veo?.duration || '8s';
   const resolution = veo?.resolution || '720p';
-  const generate_audio = typeof veo?.generateAudio === 'boolean' ? veo.generateAudio : true;
+  const generate_audio = typeof veo?.generateAudio === 'boolean' ? veo.generateAudio : false;
   const enhance_prompt = typeof veo?.enhancePrompt === 'boolean' ? veo.enhancePrompt : true;
   const auto_fix = typeof veo?.autoFix === 'boolean' ? veo.autoFix : true;
 
@@ -146,12 +146,20 @@ export async function POST(req: Request) {
           // 文档返回 { data: { video: { url } } } 或直接 { video: { url } }
           const videoUrl = data?.data?.video?.url || data?.video?.url || null;
 
-          if (videoUrl) {
+          if (!videoUrl) {
+            // 无视频：通过 error 事件提示（不写入上下文）
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: 'error', error: '生成失败\n结果包含敏感内容，请尝试重新编辑。' })}\n\n`)
+            );
+            controller.close();
+            return;
+          } else {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'video', url: videoUrl })}\n\n`));
           }
 
           // 写入数据库助手消息
           try {
+            // 仅当生成成功时写入上下文
             await Conversation.updateOne(
               { id: conversationId, userId: user.sub },
               {
@@ -160,7 +168,7 @@ export async function POST(req: Request) {
                     id: Date.now().toString(36),
                     role: 'assistant',
                     content: '',
-                    videos: videoUrl ? [videoUrl] : undefined,
+                    videos: [videoUrl],
                     timestamp: new Date(),
                     model: 'veo3-fast',
                   },
@@ -208,6 +216,13 @@ export async function POST(req: Request) {
   const data = await resp.json();
   const videoUrl = data?.data?.video?.url || data?.video?.url || null;
 
+  if (!videoUrl) {
+    return new Response(
+      JSON.stringify({ error: '生成失败\n结果包含敏感内容，请尝试重新编辑。' }),
+      { status: 422, headers: { 'X-Request-Id': requestId, 'X-Model': 'veo3-fast' } }
+    );
+  }
+
   await Conversation.updateOne(
     { id: conversationId, userId: user.sub },
     {
@@ -216,7 +231,7 @@ export async function POST(req: Request) {
           id: Date.now().toString(36),
           role: 'assistant',
           content: '',
-          videos: videoUrl ? [videoUrl] : undefined,
+          videos: [videoUrl],
           timestamp: new Date(),
           model: 'veo3-fast',
         },
@@ -230,7 +245,7 @@ export async function POST(req: Request) {
       role: 'assistant',
       content: '',
       model: 'veo3-fast',
-      videos: videoUrl ? [videoUrl] : undefined,
+      videos: [videoUrl],
     },
     requestId,
   }, { headers: { 'X-Request-Id': requestId, 'X-Model': 'veo3-fast' } });

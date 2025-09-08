@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { User, Bot, Copy, Brain, Link as LinkIcon, ExternalLink, Pencil, RefreshCw } from 'lucide-react';
+import { User, Bot, Copy, Brain, Link as LinkIcon, ExternalLink, Pencil, RefreshCw, Play } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -90,7 +90,7 @@ export default function MessageList({
   const [sourcesForModal, setSourcesForModal] = useState<any[]>([]);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [previewVideoSrc, setPreviewVideoSrc] = useState<string | null>(null);
-  const { currentModel } = useChatStore();
+  const { currentModel, setCurrentModel, setPresetInputImages } = useChatStore();
   const isGeneratingModel = currentModel === 'veo3-fast' || currentModel === 'gemini-2.5-flash-image-preview';
 
   // 自动滚动到底部
@@ -187,7 +187,7 @@ export default function MessageList({
             <span className="font-medium">
               {isUser ? '你' : isSystem ? '系统' : 'AI助手'}
             </span>
-            {message.model && (
+            {message.role === 'user' && message.model && (
               <span className="rounded bg-muted px-1 sm:px-1.5 py-0.5 text-[10px] sm:text-xs hidden sm:inline">
                 {message.model}
               </span>
@@ -199,21 +199,42 @@ export default function MessageList({
           {message.images && message.images.length > 0 && (
             <div className="flex flex-wrap gap-2 sm:gap-3">
               {message.images.map((image, imgIndex) => (
-                <button
-                  key={imgIndex}
-                  className="group relative overflow-hidden rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary touch-manipulation"
-                  onClick={() => {
-                    setPreviewSrc(image);
-                  }}
-                  title="点击预览大图"
-                >
-                  <img
-                    src={image}
-                    alt={`消息图片 ${imgIndex + 1}`}
-                    className="h-32 sm:h-48 max-h-48 sm:max-h-72 w-auto max-w-full object-contain"
-                  />
-                  <div className="pointer-events-none absolute inset-0 hidden items-end justify-end gap-1 p-1 group-hover:flex" />
-                </button>
+                <div key={imgIndex} className="relative">
+                  <button
+                    className="group relative overflow-hidden rounded-lg border focus:outline-none focus:ring-2 focus:ring-primary touch-manipulation"
+                    onClick={() => {
+                      setPreviewSrc(image);
+                    }}
+                    title="点击预览大图"
+                  >
+                    <img
+                      src={image}
+                      alt={`消息图片 ${imgIndex + 1}`}
+                      className="h-32 sm:h-48 max-h-48 sm:max-h-72 w-auto max-w-full object-contain"
+                    />
+                  </button>
+                  {/* Gemini 图片下方：移除复制按钮，新增播放按钮 */}
+                  {message.model === 'gemini-2.5-flash-image-preview' && (
+                    <div className="mt-1 flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] hover:bg-accent hover:text-accent-foreground touch-manipulation"
+                        title="将此图变成视频"
+                        onClick={() => {
+                          const ok = window.confirm('是否把此图变成视频？');
+                          if (!ok) return;
+                          try {
+                            setCurrentModel('veo3-fast' as any);
+                            setPresetInputImages([image]);
+                          } catch {}
+                        }}
+                      >
+                        <Play className="h-3 w-3" />
+                        <span>生成视频</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}
@@ -308,13 +329,16 @@ export default function MessageList({
               >
                 <RefreshCw className="h-3 w-3" />
               </button>
-              <button
-                onClick={() => handleCopy(message.content)}
-                className="rounded-full border px-1.5 py-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground touch-manipulation"
-                title="复制"
-              >
-                <Copy className="h-3 w-3" />
-              </button>
+              {/* 对于 Gemini 图片消息：移除复制按钮 */}
+              {!(message.model === 'gemini-2.5-flash-image-preview' && message.images && message.images.length > 0) && (
+                <button
+                  onClick={() => handleCopy(message.content)}
+                  className="rounded-full border px-1.5 py-0.5 text-[10px] hover:bg-accent hover:text-accent-foreground touch-manipulation"
+                  title="复制"
+                >
+                  <Copy className="h-3 w-3" />
+                </button>
+              )}
 
               {Array.isArray(message?.metadata?.sources) && message.metadata!.sources!.length > 0 && (
                 <div className="ml-1 flex items-center gap-1 sm:gap-2 flex-wrap">

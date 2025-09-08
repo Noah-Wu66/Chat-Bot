@@ -35,6 +35,9 @@ interface ChatState {
   // 错误状态
   error: string | null;
 
+  // 预填输入区的图片（用于“将图变视频”等跨组件操作）
+  presetInputImages: string[];
+
   // Actions
   setCurrentConversation: (conversation: Conversation | null) => void;
   setConversations: (conversations: Conversation[]) => void;
@@ -52,6 +55,9 @@ interface ChatState {
   setLoginOpen: (open: boolean) => void;
   setError: (error: string | null) => void;
   setWebSearchEnabled: (enabled: boolean) => void;
+
+  // 预填图片操作
+  setPresetInputImages: (images: string[]) => void;
 
   // 消息操作
   addMessage: (message: Message) => void;
@@ -85,7 +91,7 @@ const defaultSettings: ConversationSettings = {
     aspectRatio: '16:9',
     duration: '8s',
     resolution: '720p',
-    generateAudio: true,
+    generateAudio: false,
     enhancePrompt: true,
     autoFix: true,
   },
@@ -106,6 +112,7 @@ export const useChatStore = create<ChatState>()(
       loginOpen: false,
       webSearchEnabled: false,
       error: null,
+      presetInputImages: [],
 
       // Actions
       setCurrentConversation: (conversation) => {
@@ -163,7 +170,7 @@ export const useChatStore = create<ChatState>()(
             aspectRatio: '16:9',
             duration: '8s',
             resolution: '720p',
-            generateAudio: true,
+            generateAudio: false,
             enhancePrompt: true,
             autoFix: true,
           };
@@ -206,6 +213,10 @@ export const useChatStore = create<ChatState>()(
 
       setWebSearchEnabled: (enabled) => {
         set({ webSearchEnabled: enabled });
+      },
+
+      setPresetInputImages: (images) => {
+        set({ presetInputImages: Array.isArray(images) ? images : [] });
       },
 
       addMessage: (message) => {

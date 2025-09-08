@@ -87,7 +87,7 @@ export const MODELS: Record<string, ModelConfig> = {
   },
   // Gemini 2.5 Flash 图像生成（图文多模态）
   'gemini-2.5-flash-image-preview': {
-    name: 'Gemini 2.5 Flash Image',
+    name: 'Nano Banana',
     description: '图文多模态生成，文本更精准，图像更清晰',
     type: 'chat',
     supportsVision: true,

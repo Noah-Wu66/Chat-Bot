@@ -424,11 +424,21 @@ export async function POST(req: Request) {
 
           // 不进行兜底文本->图片生成，严格只根据模型返回的图片输出
 
-          if (images.length > 0) {
+          if (images.length === 0) {
+            // 无图片：返回错误提示（不写入上下文）
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({ type: 'error', error: '生成失败\n结果包含敏感内容，请尝试重新编辑。' })}\n\n`
+              )
+            );
+            controller.close();
+            return;
+          } else {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'images', images })}\n\n`));
           }
 
           try {
+            // 仅当成功返回图片时写入上下文
             await Conversation.updateOne(
               { id: conversationId, userId: user.sub },
               {
@@ -437,7 +447,7 @@ export async function POST(req: Request) {
                     id: Date.now().toString(36),
                     role: 'assistant',
                     content: '',
-                    images: images.length > 0 ? images : undefined,
+                    images: images,
                     timestamp: new Date(),
                     model: modelToUse,
                     metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined,
@@ -506,6 +516,14 @@ export async function POST(req: Request) {
     throw e;
   }
 
+  // 若未生成图片，返回错误（不写入上下文）
+  if (!Array.isArray(imagesNonStream) || imagesNonStream.length === 0) {
+    return new Response(
+      JSON.stringify({ error: '生成失败\n结果包含敏感内容，请尝试重新编辑。' }),
+      { status: 422, headers: { 'X-Request-Id': requestId, 'X-Model': modelToUse } }
+    );
+  }
+
   await Conversation.updateOne(
     { id: conversationId, userId: user.sub },
     {
@@ -514,7 +532,7 @@ export async function POST(req: Request) {
           id: Date.now().toString(36),
           role: 'assistant',
           content: '',
-          images: imagesNonStream.length > 0 ? imagesNonStream : undefined,
+          images: imagesNonStream,
           timestamp: new Date(),
           model: modelToUse,
           metadata: searchUsed ? { searchUsed: true } : undefined,
@@ -526,7 +544,7 @@ export async function POST(req: Request) {
 
   return Response.json(
     {
-      message: { role: 'assistant', content: '', model: modelToUse, images: imagesNonStream.length > 0 ? imagesNonStream : undefined, metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined },
+      message: { role: 'assistant', content: '', model: modelToUse, images: imagesNonStream, metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined },
       requestId,
     },
     { headers: { 'X-Request-Id': requestId, 'X-Model': modelToUse } }

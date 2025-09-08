@@ -35,7 +35,7 @@ export default function HomePage() {
           <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
           <div className="flex-1">
             <h4 className="font-medium text-destructive">出错了</h4>
-            <p className="text-sm text-destructive/80 mt-1">{error}</p>
+            <pre className="text-sm text-destructive/80 mt-1 whitespace-pre-wrap break-words">{error}</pre>
           </div>
           <button
             onClick={() => setError(null)}

@@ -29,7 +29,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { currentModel, isStreaming, setLoginOpen, webSearchEnabled, setWebSearchEnabled, settings, setSettings } = useChatStore();
+  const { currentModel, isStreaming, setLoginOpen, webSearchEnabled, setWebSearchEnabled, settings, setSettings, presetInputImages, setPresetInputImages } = useChatStore();
   const modelConfig = MODELS[currentModel];
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
@@ -68,6 +68,14 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
     if (Array.isArray(initialImages)) setImages(initialImages);
   }, [initialImages]);
 
+  // 监听预填图片（来自“将图变视频”入口）
+  useEffect(() => {
+    if (Array.isArray(presetInputImages) && presetInputImages.length > 0) {
+      setImages(prev => [...prev, ...presetInputImages]);
+      setPresetInputImages([]);
+    }
+  }, [presetInputImages, setPresetInputImages]);
+
   // 处理输入变化
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setMessage(e.target.value);
@@ -94,6 +102,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
     onSendMessage(message.trim(), images.length > 0 ? images : undefined);
     setMessage('');
     setImages([]);
+    setPresetInputImages([]);
 
     // 重置文本框高度
     if (textareaRef.current) {
@@ -225,6 +234,16 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
               />
             )}
 
+            {modelConfig.supportsSearch && webSearchEnabled && (
+              <SearchSizePopover
+                value={Number(settings?.web?.size) || 10}
+                disabled={disabled || isStreaming}
+                onChange={(v) => setSettings({ web: { ...(settings?.web || {}), size: v } })}
+                open={activePopover === 'search'}
+                onOpenChange={(o) => setActivePopover(o ? 'search' : null)}
+              />
+            )}
+
             {/* 完成音效开关（默认开启） */}
             <label className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground">
               <input
@@ -236,16 +255,6 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
               />
               完成音效
             </label>
-
-            {modelConfig.supportsSearch && webSearchEnabled && (
-              <SearchSizePopover
-                value={Number(settings?.web?.size) || 10}
-                disabled={disabled || isStreaming}
-                onChange={(v) => setSettings({ web: { ...(settings?.web || {}), size: v } })}
-                open={activePopover === 'search'}
-                onOpenChange={(o) => setActivePopover(o ? 'search' : null)}
-              />
-            )}
 
             {/* Veo3 Fast 设置（当选择 Veo3 Fast 模型时显示）*/}
             {currentModel === 'veo3-fast' && (
@@ -276,7 +285,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
                     type="checkbox"
                     className="accent-primary"
                     disabled={disabled || isStreaming}
-                    checked={settings.veo3?.generateAudio !== false}
+                    checked={settings.veo3?.generateAudio === true}
                     onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), generateAudio: e.target.checked } })}
                   />
                   音频
