@@ -95,24 +95,20 @@ export async function POST(req: Request) {
 
   const payload: any = imageUrl
     ? {
-        input: {
-          prompt: textPrompt || 'Animate this image',
-          image_url: imageUrl,
-          duration,
-          generate_audio,
-          resolution,
-        },
+        prompt: textPrompt || 'Animate this image',
+        image_url: imageUrl,
+        duration,
+        generate_audio,
+        resolution,
       }
     : {
-        input: {
-          prompt: textPrompt,
-          aspect_ratio,
-          duration,
-          enhance_prompt,
-          auto_fix,
-          resolution,
-          generate_audio,
-        },
+        prompt: textPrompt,
+        aspect_ratio,
+        duration,
+        enhance_prompt,
+        auto_fix,
+        resolution,
+        generate_audio,
       };
 
   if (stream) {
