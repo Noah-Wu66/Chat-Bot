@@ -10,6 +10,7 @@ import MessageInput from './MessageInput';
 import ModelSelector from './ModelSelector';
 import UserPanel from './UserPanel';
 import LoginModal from './LoginModal';
+import { playCompletionChime } from '@/utils/helpers';
 
 export default function ChatInterface() {
   const {
@@ -301,6 +302,7 @@ export default function ChatInterface() {
                   assistantAdded = true;
                   setStreamingContent('');
                   setReasoningContent('');
+                  try { if (settings?.sound?.onComplete !== false) { playCompletionChime(); } } catch {}
                   break;
                 case 'error':
                   throw new Error(data.error);
@@ -322,6 +324,7 @@ export default function ChatInterface() {
             model: routedModel || currentModel,
             metadata: reasoning ? { reasoning, verbosity: settings.text?.verbosity } : undefined,
           } as any);
+          try { if (settings?.sound?.onComplete !== false) { playCompletionChime(); } } catch {}
         }
         // 收尾：清理临时状态与日志观察器
         setStreamingContent('');
@@ -340,6 +343,7 @@ export default function ChatInterface() {
             id: generateId(),
             timestamp: new Date(),
           });
+          try { if (settings?.sound?.onComplete !== false) { playCompletionChime(); } } catch {}
         } else {
           // 兜底：如果服务端直接返回 video 字段
           const videoUrl = data?.data?.video?.url || data?.video?.url || data?.output?.video?.url;
@@ -352,6 +356,7 @@ export default function ChatInterface() {
               model: currentModel,
               videos: [videoUrl],
             } as any);
+            try { if (settings?.sound?.onComplete !== false) { playCompletionChime(); } } catch {}
           }
         }
       }
@@ -598,6 +603,7 @@ export default function ChatInterface() {
                           assistantAdded = true;
                           setStreamingContent('');
                           setReasoningContent('');
+                          try { if (settings?.sound?.onComplete !== false) { playCompletionChime(); } } catch {}
                           break;
                         }
                         case 'error':
@@ -610,6 +616,7 @@ export default function ChatInterface() {
                 }
                 if (!assistantAdded && assistantContent && !controller.signal.aborted) {
                   addMessage({ id: generateId(), role: 'assistant', content: assistantContent, timestamp: new Date(), model: currentModel } as any);
+                  try { if (settings?.sound?.onComplete !== false) { playCompletionChime(); } } catch {}
                 }
               } catch (e: any) {
                 setError(e?.message || '重答失败');

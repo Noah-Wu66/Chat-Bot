@@ -49,7 +49,6 @@ export default function MessageList({
         // 预加载并尝试静音自动播放以解码首帧，然后立刻暂停
         v.preload = 'auto';
         v.muted = true;
-        // @ts-expect-error: playsInline 属性在部分环境为只读但可设定
         v.playsInline = true;
         v.load();
         const p = v.play();

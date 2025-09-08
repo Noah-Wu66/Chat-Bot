@@ -78,6 +78,9 @@ const defaultSettings: ConversationSettings = {
     size: 10,
   },
   stream: true,
+  sound: {
+    onComplete: true,
+  },
   veo3: {
     aspectRatio: '16:9',
     duration: '8s',

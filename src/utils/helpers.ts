@@ -193,6 +193,40 @@ export function downloadAsFile(content: string, filename: string, type = 'text/p
   URL.revokeObjectURL(url);
 }
 
+// 模型完成提示音：柔和的双音提示
+export async function playCompletionChime(): Promise<void> {
+  try {
+    const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    if (ctx.state === 'suspended') {
+      try { await ctx.resume(); } catch {}
+    }
+
+    const now = ctx.currentTime;
+
+    const playTone = (frequency: number, start: number, duration: number, type: OscillatorType = 'sine') => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(frequency, now + start);
+      gain.gain.setValueAtTime(0.0001, now + start);
+      gain.gain.exponentialRampToValueAtTime(0.08, now + start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + start + duration);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now + start);
+      osc.stop(now + start + duration + 0.05);
+    };
+
+    // 两个快速上扬的音符，营造灵动感
+    playTone(880, 0, 0.12, 'sine');
+    playTone(1320, 0.12, 0.14, 'triangle');
+
+    // 结束后自动关闭以释放资源
+    setTimeout(() => { try { ctx.close(); } catch {} }, 500);
+  } catch {}
+}
+
 // 防抖函数
 export function debounce<T extends (...args: any[]) => any>(
   func: T,

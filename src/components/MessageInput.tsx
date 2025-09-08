@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Paperclip, X, Image as ImageIcon, Plus, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle, Square } from 'lucide-react';
+import { Send, Paperclip, X, Image as ImageIcon, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle, Square } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS, ModelId } from '@/lib/types';
 import { cn, fileToBase64, compressImage } from '@/utils/helpers';
@@ -224,6 +224,18 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
               />
             )}
 
+            {/* 完成音效开关（默认开启） */}
+            <label className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground">
+              <input
+                type="checkbox"
+                className="accent-primary"
+                disabled={disabled || isStreaming}
+                checked={(settings?.sound?.onComplete !== false)}
+                onChange={(e) => setSettings({ sound: { ...(settings?.sound || {}), onComplete: e.target.checked } })}
+              />
+              完成音效
+            </label>
+
             {modelConfig.supportsSearch && webSearchEnabled && (
               <SearchSizePopover
                 value={Number(settings?.web?.size) || 10}
@@ -310,10 +322,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        {/* 左侧 plus 图标（占位，不可点击）*/}
-        <div className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-          <Plus className="h-4 w-4" />
-        </div>
+        
         <textarea
           ref={textareaRef}
           value={message}

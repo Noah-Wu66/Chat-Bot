@@ -64,6 +64,10 @@ export interface ConversationSettings {
     enhancePrompt?: boolean;
     autoFix?: boolean;
   };
+  // 音效提醒设置
+  sound?: {
+    onComplete?: boolean;
+  };
 }
 
 // 支持的模型列表（仅保留 Gemini 2.5 Flash 图像生成）
