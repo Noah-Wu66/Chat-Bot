@@ -37,7 +37,11 @@ export default function ChatInterface() {
 
 
   // 发送消息（支持编辑模式：提交前会截断后续消息）
-  const handleSendMessage = useCallback(async (content: string, images?: string[]) => {
+  const handleSendMessage = useCallback(async (
+    content: string,
+    images?: string[],
+    media?: { audios?: string[]; videos?: string[] }
+  ) => {
     try {
       setError(null);
       setStreaming(true);
@@ -72,7 +76,7 @@ export default function ChatInterface() {
         // 本地截断
         setCurrentConversation({
           ...currentConversation!,
-          messages: currentConversation!.messages.slice(0, currentConversation!.messages.findIndex(m => m.id === editingMessageId)),
+          messages: currentConversation!.messages.slice(0, currentConversation!.messages.findIndex((m: any) => m.id === editingMessageId)),
           updatedAt: new Date(),
         } as any);
         setEditingMessageId(null);
@@ -129,6 +133,8 @@ export default function ChatInterface() {
         apiEndpoint = '/api/gemini-2.5-flash-image-preview';
       } else if (currentModel === 'veo3-fast') {
         apiEndpoint = '/api/veo3-fast';
+      } else if (currentModel === 'gemini-2.5-pro') {
+        apiEndpoint = '/api/gemini-2.5-pro';
       }
 
       // Responses API 入参：文本或图文
@@ -137,6 +143,39 @@ export default function ChatInterface() {
       const toImageItem = (img: string) => {
         // Responses API 不接受 image_data；统一用 image_url（可为 data URL 或远程 URL）
         return { type: 'input_image', image_url: img } as any;
+      };
+      const parseDataUrl = (dataUrl: string): { mime: string; data: string; format?: string } | null => {
+        try {
+          if (typeof dataUrl !== 'string') return null;
+          const m = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
+          if (!m) return { mime: 'application/octet-stream', data: dataUrl } as any;
+          const mime = m[1];
+          const data = m[2];
+          let format: string | undefined;
+          if (mime.startsWith('audio/')) {
+            const sub = mime.split('/')[1];
+            format = sub === 'mpeg' ? 'mp3' : (sub || 'wav');
+          }
+          return { mime, data, format };
+        } catch { return null; }
+      };
+      const toAudioItem = (b64OrDataUrl: string) => {
+        const parsed = parseDataUrl(b64OrDataUrl);
+        if (parsed && parsed.mime.startsWith('data:')) {
+          // already handled
+        }
+        if (parsed) {
+          return { type: 'input_audio', inline_data: { data: parsed.data, mime_type: parsed.mime }, audio: parsed.format ? { data: parsed.data, format: parsed.format } : undefined } as any;
+        }
+        // 退化：直接当作 data url
+        return { type: 'input_audio', inline_data: { data: b64OrDataUrl, mime_type: 'audio/m4a' } } as any;
+      };
+      const toVideoItem = (b64OrDataUrl: string) => {
+        const parsed = parseDataUrl(b64OrDataUrl);
+        if (parsed) {
+          return { type: 'input_video', inline_data: { data: parsed.data, mime_type: parsed.mime } } as any;
+        }
+        return { type: 'input_video', inline_data: { data: b64OrDataUrl, mime_type: 'video/mp4' } } as any;
       };
 
       let input: string | any[];
@@ -147,6 +186,26 @@ export default function ChatInterface() {
             content: [
               { type: 'input_text', text: content },
               ...images.map(toImageItem),
+            ],
+          },
+        ];
+      } else if (media && (Array.isArray(media.audios) ? media.audios.length > 0 : false)) {
+        input = [
+          {
+            role: 'user',
+            content: [
+              { type: 'input_text', text: content },
+              ...((media.audios || []).map(toAudioItem)),
+            ],
+          },
+        ];
+      } else if (media && (Array.isArray(media.videos) ? media.videos.length > 0 : false)) {
+        input = [
+          {
+            role: 'user',
+            content: [
+              { type: 'input_text', text: content },
+              ...((media.videos || []).map(toVideoItem)),
             ],
           },
         ];
@@ -493,11 +552,11 @@ export default function ChatInterface() {
 
                 // 找到该助手消息之前最近一条用户消息，作为重答的起点
                 const msgs = currentConversation.messages;
-                const aIndex = msgs.findIndex(m => m.id === assistantMsg.id);
+                const aIndex = msgs.findIndex((m: any) => m.id === assistantMsg.id);
                 if (aIndex <= 0) throw new Error('未找到可重答的用户消息');
                 let userIndex = -1;
                 for (let i = aIndex - 1; i >= 0; i--) {
-                  if (msgs[i].role === 'user') { userIndex = i; break; }
+                  if ((msgs[i] as any).role === 'user') { userIndex = i; break; }
                 }
                 if (userIndex === -1) throw new Error('未找到可重答的用户消息');
                 const userMsg = msgs[userIndex];
@@ -515,7 +574,11 @@ export default function ChatInterface() {
                 setCurrentConversation({ ...currentConversation, messages: kept } as any);
 
                 // 重新发送该用户消息（regenerate 模式：不重复写入用户消息，只让模型重答）
-                const apiEndpoint = currentModel === 'gemini-2.5-flash-image-preview' ? '/api/gemini-2.5-flash-image-preview' : (currentModel === 'veo3-fast' ? '/api/veo3-fast' : '/api/gpt-5');
+                const apiEndpoint = currentModel === 'gemini-2.5-flash-image-preview'
+                  ? '/api/gemini-2.5-flash-image-preview'
+                  : (currentModel === 'veo3-fast'
+                    ? '/api/veo3-fast'
+                    : (currentModel === 'gemini-2.5-pro' ? '/api/gemini-2.5-pro' : '/api/gpt-5'));
 
                 const toImageItem = (img: string) => ({ type: 'input_image', image_url: img } as any);
                 let input: string | any[];

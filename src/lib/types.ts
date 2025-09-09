@@ -85,6 +85,19 @@ export const MODELS: Record<string, ModelConfig> = {
     supportsTemperature: false,
     maxTokens: 8192,
   },
+  // Gemini 2.5 Pro（原生联网搜索，多模态对话）
+  'gemini-2.5-pro': {
+    name: 'Gemini 2.5 Pro',
+    description: '原生联网搜索，文本/图像多模态对话',
+    type: 'chat',
+    supportsVision: true,
+    supportsSearch: false,
+    supportsTools: false,
+    supportsReasoning: false,
+    supportsVerbosity: false,
+    supportsTemperature: true,
+    maxTokens: 8192,
+  },
   // Gemini 2.5 Flash 图像生成（图文多模态）
   'gemini-2.5-flash-image-preview': {
     name: 'Nano Banana',

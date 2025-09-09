@@ -24,6 +24,7 @@ export default function ModelSelector({ variant = 'default' }: Props) {
 
   const getModelIcon = (model: ModelId) => {
     if (model === 'gemini-2.5-flash-image-preview') return ((props: any) => <EmojiIcon {...props} emoji="🖼️" />) as any;
+    if (model === 'gemini-2.5-pro') return ((props: any) => <EmojiIcon {...props} emoji="🌐" />) as any;
     if (model === 'gpt-5') return ((props: any) => <EmojiIcon {...props} emoji="🤖" />) as any;
     if (model === 'veo3-fast') return ((props: any) => <EmojiIcon {...props} emoji="🎬" />) as any;
     const config = getModelConfig(model);
@@ -36,7 +37,7 @@ export default function ModelSelector({ variant = 'default' }: Props) {
   // 取消类型/功能标签展示，仅保留标题与简介
 
   const modelGroups = {
-    '可用模型': ['gpt-5', 'gemini-2.5-flash-image-preview', 'veo3-fast'],
+    '可用模型': ['gpt-5', 'gemini-2.5-pro', 'gemini-2.5-flash-image-preview', 'veo3-fast'],
   } as const;
 
   return (

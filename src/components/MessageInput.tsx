@@ -8,7 +8,7 @@ import { cn, fileToBase64, compressImage } from '@/utils/helpers';
 import ModelSelector from './ModelSelector';
 
 interface MessageInputProps {
-  onSendMessage: (content: string, images?: string[]) => void;
+  onSendMessage: (content: string, images?: string[], media?: { audios?: string[]; videos?: string[] }) => void;
   disabled?: boolean;
   // UI 变体：默认底部输入，或首页居中大输入
   variant?: 'default' | 'center';
@@ -25,12 +25,17 @@ interface MessageInputProps {
 export default function MessageInput({ onSendMessage, disabled, variant = 'default', placeholder, autoFocus, onStop, initialValue, initialImages, isEditing, onCancelEdit }: MessageInputProps) {
   const [message, setMessage] = useState(initialValue ?? '');
   const [images, setImages] = useState<string[]>(Array.isArray(initialImages) ? initialImages : []);
+  const [audios, setAudios] = useState<Array<{ url: string; name: string; type: string }>>([]);
+  const [videos, setVideos] = useState<Array<{ url: string; name: string; type: string }>>([]);
+  const [audioData, setAudioData] = useState<string[]>([]);
+  const [videoData, setVideoData] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { currentModel, isStreaming, setLoginOpen, webSearchEnabled, setWebSearchEnabled, settings, setSettings, presetInputImages, setPresetInputImages } = useChatStore();
   const modelConfig = MODELS[currentModel];
+  const isGeminiPro = currentModel === 'gemini-2.5-pro';
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   // 各组件自行管理打开状态，避免跨模型互相干扰
@@ -91,16 +96,27 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
 
   // 发送消息
   const handleSend = () => {
-    if (!message.trim() && images.length === 0) return;
+    const hasAnyMedia = (images.length > 0) || (audioData.length > 0) || (videoData.length > 0);
+    if (!message.trim() && !hasAnyMedia) return;
     if (disabled || isStreaming) return;
     if (isLoggedIn === false) {
       setLoginOpen(true);
       return;
     }
 
-    onSendMessage(message.trim(), images.length > 0 ? images : undefined);
+    onSendMessage(
+      message.trim(),
+      images.length > 0 ? images : undefined,
+      isGeminiPro ? { audios: audioData.length > 0 ? audioData : undefined, videos: videoData.length > 0 ? videoData : undefined } : undefined
+    );
     setMessage('');
     setImages([]);
+    try { audios.forEach((a) => { try { URL.revokeObjectURL(a.url); } catch {} }); } catch {}
+    try { videos.forEach((v) => { try { URL.revokeObjectURL(v.url); } catch {} }); } catch {}
+    setAudios([]);
+    setVideos([]);
+    setAudioData([]);
+    setVideoData([]);
     setPresetInputImages([]);
 
     // 重置文本框高度
@@ -112,36 +128,88 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
   // 处理文件选择
   const handleFileSelect = async (files: FileList) => {
     if (!modelConfig.supportsVision) {
-      alert('当前模型不支持图像输入');
+      alert('当前模型不支持文件上传');
       return;
     }
 
-    const limit = Math.min(files.length, 5 - images.length);
-    const batch: File[] = [];
-    let totalBytes = 0;
+    // 互斥：检测本次选择的主类别
+    let pickedType: 'image' | 'audio' | 'video' | null = null;
+    for (let i = 0; i < files.length; i++) {
+      const t = files[i]?.type || '';
+      if (!t) continue;
+      if (t.startsWith('image/')) { pickedType = 'image'; break; }
+      if (t.startsWith('audio/')) { pickedType = 'audio'; break; }
+      if (t.startsWith('video/')) { pickedType = 'video'; break; }
+    }
+    if (!pickedType) return;
 
-    for (let i = 0; i < limit; i++) {
+    // 如果已有与本次不同的类别，清空之
+    const clearImages = () => setImages([]);
+    const clearAudios = () => { setAudios((prev) => { prev.forEach(p => { try { URL.revokeObjectURL(p.url); } catch {} }); return []; }); setAudioData([]); };
+    const clearVideos = () => { setVideos((prev) => { prev.forEach(p => { try { URL.revokeObjectURL(p.url); } catch {} }); return []; }); setVideoData([]); };
+    if (pickedType === 'image' && (audios.length > 0 || videos.length > 0)) { clearAudios(); clearVideos(); }
+    if (pickedType === 'audio' && (images.length > 0 || videos.length > 0)) { clearImages(); clearVideos(); }
+    if (pickedType === 'video' && (images.length > 0 || audios.length > 0)) { clearImages(); clearAudios(); }
+
+    const imageQuota = Math.max(0, 5 - images.length);
+    const audioQuota = isGeminiPro ? Math.max(0, 2 - audios.length) : 0;
+    const videoQuota = isGeminiPro ? Math.max(0, 2 - videos.length) : 0;
+
+    const imageFiles: File[] = [];
+    const audioFiles: File[] = [];
+    const videoFiles: File[] = [];
+
+    for (let i = 0; i < files.length; i++) {
       const f = files[i];
-      if (!f || !f.type.startsWith('image/')) continue;
-      batch.push(f);
-      totalBytes += f.size;
+      if (!f) continue;
+      const t = f.type || '';
+      if (pickedType === 'image' && t.startsWith('image/')) {
+        if (imageFiles.length < imageQuota) imageFiles.push(f);
+      } else if (pickedType === 'audio' && isGeminiPro && t.startsWith('audio/')) {
+        if (audioFiles.length < audioQuota) audioFiles.push(f);
+      } else if (pickedType === 'video' && isGeminiPro && t.startsWith('video/')) {
+        if (videoFiles.length < videoQuota) videoFiles.push(f);
+      }
     }
 
-    // 20MB 阈值（与后端/平台限制一致）
-    const MAX_TOTAL_BYTES = 20 * 1024 * 1024;
-    const shouldCompress = totalBytes > MAX_TOTAL_BYTES;
-
-    const newImages: string[] = [];
-    for (const file of batch) {
-      try {
-        const processed = shouldCompress ? await compressImage(file) : file;
-        const base64 = await fileToBase64(processed);
-        newImages.push(base64);
-      } catch {}
+    // 处理图片（必要时压缩 -> base64）
+    if (imageFiles.length > 0) {
+      let totalBytes = 0;
+      for (const f of imageFiles) totalBytes += f.size;
+      const MAX_TOTAL_BYTES = 20 * 1024 * 1024; // 20MB
+      const shouldCompress = totalBytes > MAX_TOTAL_BYTES;
+      const newImages: string[] = [];
+      for (const file of imageFiles) {
+        try {
+          const processed = shouldCompress ? await compressImage(file) : file;
+          const base64 = await fileToBase64(processed);
+          newImages.push(base64);
+        } catch {}
+      }
+      if (newImages.length > 0) setImages(prev => [...prev, ...newImages]);
     }
 
-    if (newImages.length > 0) {
-      setImages(prev => [...prev, ...newImages]);
+    // 处理音频/视频（仅本地预览，不上行）
+    if (audioFiles.length > 0) {
+      const newAudios = audioFiles.map((f) => ({ url: URL.createObjectURL(f), name: f.name, type: f.type || 'audio' }));
+      setAudios(prev => [...prev, ...newAudios]);
+      // 转 base64（data URL）用于上行
+      for (const file of audioFiles) {
+        try {
+          const b64 = await fileToBase64(file);
+          setAudioData(prev => [...prev, b64]);
+        } catch {}
+      }
+    }
+    if (videoFiles.length > 0) {
+      const newVideos = videoFiles.map((f) => ({ url: URL.createObjectURL(f), name: f.name, type: f.type || 'video' }));
+      setVideos(prev => [...prev, ...newVideos]);
+      for (const file of videoFiles) {
+        try {
+          const b64 = await fileToBase64(file);
+          setVideoData(prev => [...prev, b64]);
+        } catch {}
+      }
     }
   };
 
@@ -171,6 +239,26 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
     setImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  // 移除音频
+  const removeAudio = (index: number) => {
+    setAudios(prev => {
+      const target = prev[index];
+      try { if (target?.url) URL.revokeObjectURL(target.url); } catch {}
+      return prev.filter((_, i) => i !== index);
+    });
+    setAudioData(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // 移除视频
+  const removeVideo = (index: number) => {
+    setVideos(prev => {
+      const target = prev[index];
+      try { if (target?.url) URL.revokeObjectURL(target.url); } catch {}
+      return prev.filter((_, i) => i !== index);
+    });
+    setVideoData(prev => prev.filter((_, i) => i !== index));
+  };
+
   const canSend = (message.trim() || images.length > 0) && !disabled && !isStreaming;
   const showStop = isStreaming;
 
@@ -185,7 +273,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
           <div className="text-center">
             <ImageIcon className="mx-auto h-8 w-8 text-primary" />
             <p className="mt-2 text-sm font-medium text-primary">
-              拖拽图片到这里
+              {isGeminiPro ? '拖拽文件到这里（图片/音频/视频）' : '拖拽图片到这里'}
             </p>
           </div>
         </div>
@@ -244,11 +332,11 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
 
       {/* 桌面端单独的顶部栏已与移动端合并 */}
 
-      {/* 图片预览 */}
-      {images.length > 0 && (
+      {/* 媒体预览：图片 / 音频 / 视频 */}
+      {(images.length > 0 || audios.length > 0 || videos.length > 0) && (
         <div className="mb-3 flex flex-wrap gap-2">
           {images.map((image, index) => (
-            <div key={index} className="relative">
+            <div key={`img-${index}`} className="relative">
               <img
                 src={image}
                 alt={`上传的图片 ${index + 1}`}
@@ -258,6 +346,35 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
                 onClick={() => removeImage(index)}
                 className="absolute -top-1 -right-1 rounded-full bg-destructive p-0.5 text-destructive-foreground hover:bg-destructive/90 touch-manipulation"
                 aria-label="移除图片"
+                title="移除"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </div>
+          ))}
+
+          {isGeminiPro && audios.map((a, index) => (
+            <div key={`aud-${index}`} className="relative flex items-center gap-1 rounded-md border px-2 py-1">
+              <audio src={a.url} controls className="h-8" />
+              <span className="max-w-[160px] truncate text-[11px] text-muted-foreground" title={a.name}>{a.name}</span>
+              <button
+                onClick={() => removeAudio(index)}
+                className="absolute -top-1 -right-1 rounded-full bg-destructive p-0.5 text-destructive-foreground hover:bg-destructive/90 touch-manipulation"
+                aria-label="移除音频"
+                title="移除"
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </div>
+          ))}
+
+          {isGeminiPro && videos.map((v, index) => (
+            <div key={`vid-${index}`} className="relative">
+              <video src={v.url} controls className="h-20 w-28 rounded-md bg-black" />
+              <button
+                onClick={() => removeVideo(index)}
+                className="absolute -top-1 -right-1 rounded-full bg-destructive p-0.5 text-destructive-foreground hover:bg-destructive/90 touch-manipulation"
+                aria-label="移除视频"
                 title="移除"
               >
                 <X className="h-2.5 w-2.5" />
@@ -288,7 +405,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
           placeholder={
             placeholder ?? (
               modelConfig.supportsVision
-                ? (variant === 'center' ? "您在忙什么？" : "输入消息或拖拽图片...")
+                ? (variant === 'center' ? "您在忙什么？" : (isGeminiPro ? "输入消息或拖拽文件..." : "输入消息或拖拽图片..."))
                 : (variant === 'center' ? "您在忙什么？" : "输入消息...")
             )
           }
@@ -312,7 +429,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept={isGeminiPro ? "image/*,audio/*,video/*" : "image/*"}
                 multiple
                 className="hidden"
                 onChange={(e) => {
@@ -324,12 +441,17 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={disabled || isStreaming || images.length >= 5}
+                disabled={(() => {
+                  if (disabled || isStreaming) return true;
+                  if (!isGeminiPro) return images.length >= 5;
+                  const canMore = (images.length < 5) || (audios.length < 2) || (videos.length < 2);
+                  return !canMore;
+                })()}
                 className={cn(
                   "compact rounded-md p-1 sm:p-1.5 md:p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground touch-manipulation",
                   "disabled:pointer-events-none disabled:opacity-50"
                 )}
-                title="上传图片"
+                title={isGeminiPro ? "上传文件" : "上传图片"}
               >
                 <Paperclip className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </button>
@@ -383,7 +505,9 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
           <span className="hidden sm:inline">Enter 发送，Shift+Enter 换行</span>
           <span className="sm:hidden">Enter 发送</span>
           {modelConfig.supportsVision && (
-            <span className="hidden sm:inline">支持图片上传 ({images.length}/5)</span>
+            isGeminiPro
+              ? <span className="hidden sm:inline">支持文件上传 图片({images.length}/5){audios.length>0?` 音频(${audios.length}/2)`:''}{videos.length>0?` 视频(${videos.length}/2)`:''}</span>
+              : <span className="hidden sm:inline">支持图片上传 ({images.length}/5)</span>
           )}
         </div>
         {message.length > 0 && (
