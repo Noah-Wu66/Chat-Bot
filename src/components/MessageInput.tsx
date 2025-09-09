@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Paperclip, X, Image as ImageIcon, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle, Square, Video } from 'lucide-react';
+import { Send, Paperclip, X, Image as ImageIcon, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle, Square, Video, SlidersHorizontal } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS, ModelId } from '@/lib/types';
 import { cn, fileToBase64, compressImage } from '@/utils/helpers';
@@ -33,8 +33,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
   const modelConfig = MODELS[currentModel];
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
-  // 互斥弹窗：effort / verbosity / search / veo3
-  const [activePopover, setActivePopover] = useState<'effort' | 'verbosity' | 'search' | 'veo3' | null>(null);
+  // 各组件自行管理打开状态，避免跨模型互相干扰
   // 检查登录状态（不阻塞 UI）
   useEffect(() => {
     let cancelled = false;
@@ -198,54 +197,24 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
           {/* 切换模型 */}
           <ModelSelector variant="ghost" />
 
-          {/* 联网搜索开关 */}
-          {modelConfig.supportsSearch && (
-            <button
-              type="button"
-              onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+          {/* GPT-5 设置合并弹窗 */}
+          {currentModel === 'gpt-5' && (
+            <Gpt5SettingsPopover
+              value={{
+                web: !!webSearchEnabled,
+                effort: ((settings?.reasoning?.effort as any) || 'high'),
+                verbosity: ((settings?.text?.verbosity as any) || 'medium'),
+                searchSize: Number(settings?.web?.size) || 10,
+              }}
               disabled={disabled || isStreaming}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-full border px-2 sm:px-3 py-1 text-xs",
-                webSearchEnabled ? "bg-green-600 text-white border-green-600" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                "disabled:pointer-events-none disabled:opacity-50"
-              )}
-              title={webSearchEnabled ? "已开启联网搜索" : "点击开启联网搜索"}
-            >
-              <Search className="h-3.5 w-3.5" />
-              <span>联网搜索</span>
-            </button>
-          )}
-
-          {/* 推理深度 */}
-          {modelConfig.supportsReasoning && (
-            <EffortPopover
-              value={(settings?.reasoning?.effort as any) || 'high'}
-              disabled={disabled || isStreaming}
-              onChange={(v) => setSettings({ reasoning: { ...(settings?.reasoning || {}), effort: v as any } })}
-              open={activePopover === 'effort'}
-              onOpenChange={(o) => setActivePopover(o ? 'effort' : null)}
-            />
-          )}
-
-          {/* 输出篇幅 */}
-          {modelConfig.supportsVerbosity && (
-            <VerbosityPopover
-              value={(settings?.text?.verbosity as any) || 'medium'}
-              disabled={disabled || isStreaming}
-              onChange={(v) => setSettings({ text: { ...(settings?.text || {}), verbosity: v as any } })}
-              open={activePopover === 'verbosity'}
-              onOpenChange={(o) => setActivePopover(o ? 'verbosity' : null)}
-            />
-          )}
-
-          {/* 搜索深度（仅当开启联网搜索时显示） */}
-          {modelConfig.supportsSearch && webSearchEnabled && (
-            <SearchSizePopover
-              value={Number(settings?.web?.size) || 10}
-              disabled={disabled || isStreaming}
-              onChange={(v) => setSettings({ web: { ...(settings?.web || {}), size: v } })}
-              open={activePopover === 'search'}
-              onOpenChange={(o) => setActivePopover(o ? 'search' : null)}
+              onChange={(v) => {
+                if (Object.prototype.hasOwnProperty.call(v, 'web')) setWebSearchEnabled(Boolean((v as any).web));
+                if (Object.prototype.hasOwnProperty.call(v, 'effort')) setSettings({ reasoning: { ...(settings?.reasoning || {}), effort: (v as any).effort } });
+                if (Object.prototype.hasOwnProperty.call(v, 'verbosity')) setSettings({ text: { ...(settings?.text || {}), verbosity: (v as any).verbosity } });
+                if (Object.prototype.hasOwnProperty.call(v, 'searchSize')) setSettings({ web: { ...(settings?.web || {}), size: Number((v as any).searchSize) } });
+              }}
+              open={undefined}
+              onOpenChange={undefined}
             />
           )}
 
@@ -261,8 +230,8 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
               }}
               disabled={disabled || isStreaming}
               onChange={(v) => setSettings({ veo3: { ...(settings.veo3 || {}), ...(v as any) } })}
-              open={activePopover === 'veo3'}
-              onOpenChange={(o) => setActivePopover(o ? 'veo3' : null)}
+              open={undefined}
+              onOpenChange={undefined}
             />
           )}
         </div>
@@ -427,7 +396,8 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
 
 function EffortPopover({ value, disabled, onChange, open, onOpenChange }: { value: 'minimal' | 'low' | 'medium' | 'high'; disabled?: boolean; onChange: (v: 'minimal' | 'low' | 'medium' | 'high') => void; open?: boolean; onOpenChange?: (o: boolean) => void }) {
   const [innerOpen, setInnerOpen] = useState(false);
-  const isOpen = typeof open === 'boolean' ? open : innerOpen;
+  const isControlled = typeof open === 'boolean';
+  const isOpen = isControlled ? (open as boolean) : innerOpen;
   const toggle = () => (onOpenChange ? onOpenChange(!isOpen) : setInnerOpen(o => !o));
   const steps: Array<{ v: 'minimal'|'low'|'medium'|'high'; label: string }> = [
     { v: 'minimal', label: '极低' },
@@ -609,7 +579,8 @@ function Veo3SettingsPopover({
   onOpenChange?: (o: boolean) => void;
 }) {
   const [innerOpen, setInnerOpen] = useState(false);
-  const isOpen = typeof open === 'boolean' ? open : innerOpen;
+  const isControlled = typeof open === 'boolean';
+  const isOpen = isControlled ? (open as boolean) : innerOpen;
   const toggle = () => (onOpenChange ? onOpenChange(!isOpen) : setInnerOpen((o) => !o));
   const summary = `${value.aspectRatio} · ${value.resolution}${value.generateAudio ? ' · 音频' : ''}`;
   const setAspect = (ar: '16:9' | '9:16' | '1:1') => onChange({ aspectRatio: ar });
@@ -681,6 +652,146 @@ function Veo3SettingsPopover({
               onChange={(e) => setAudio(e.target.checked)}
             />
           </label>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Gpt5SettingsPopover({
+  value,
+  disabled,
+  onChange,
+  open,
+  onOpenChange,
+}: {
+  value: { web: boolean; effort: 'minimal' | 'low' | 'medium' | 'high'; verbosity: 'low' | 'medium' | 'high'; searchSize: number };
+  disabled?: boolean;
+  onChange: (v: Partial<{ web: boolean; effort: 'minimal' | 'low' | 'medium' | 'high'; verbosity: 'low' | 'medium' | 'high'; searchSize: number }>) => void;
+  open?: boolean;
+  onOpenChange?: (o: boolean) => void;
+}) {
+  const [innerOpen, setInnerOpen] = useState(false);
+  const isControlled = typeof open === 'boolean';
+  const isOpen = isControlled ? (open as boolean) : innerOpen;
+  const toggle = () => (onOpenChange ? onOpenChange(!isOpen) : setInnerOpen((o) => !o));
+  const effortLabelMap: Record<'minimal' | 'low' | 'medium' | 'high', string> = { minimal: '极低', low: '较低', medium: '中等', high: '高' };
+  const summary = `推理:${effortLabelMap[value.effort]} · 篇幅:${value.verbosity === 'low' ? '简洁' : value.verbosity === 'high' ? '详细' : '适中'} · 联网:${value.web ? `开(${value.searchSize})` : '关'}`;
+  const effortSteps: Array<{ v: 'minimal'|'low'|'medium'|'high'; label: string }> = [
+    { v: 'minimal', label: '极低' },
+    { v: 'low', label: '较低' },
+    { v: 'medium', label: '中等' },
+    { v: 'high', label: '高' },
+  ];
+  const effortIdx = Math.max(0, effortSteps.findIndex((s) => s.v === value.effort));
+  const setEffortIdx = (i: number) => onChange({ effort: effortSteps[Math.min(Math.max(0, i), effortSteps.length - 1)].v });
+  const verbositySteps: Array<{ v: 'low'|'medium'|'high'; label: string }> = [
+    { v: 'low', label: '简洁' },
+    { v: 'medium', label: '适中' },
+    { v: 'high', label: '详细' },
+  ];
+  const verbosityIdx = Math.max(0, verbositySteps.findIndex((s) => s.v === value.verbosity));
+  const setVerbosityIdx = (i: number) => onChange({ verbosity: verbositySteps[Math.min(Math.max(0, i), verbositySteps.length - 1)].v });
+  const searchSteps = [10, 20, 30, 40, 50, 100];
+  const searchIdx = Math.max(0, searchSteps.findIndex((n) => n === value.searchSize));
+  const setSearchIdx = (i: number) => onChange({ searchSize: searchSteps[Math.min(Math.max(0, i), searchSteps.length - 1)] });
+  const showSearchWarn = value.web && value.searchSize >= 50;
+  const showEffortWarn = effortIdx >= 2;
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={toggle}
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] hover:bg-accent hover:text-accent-foreground",
+          "disabled:pointer-events-none disabled:opacity-50"
+        )}
+        title="GPT-5 设置"
+      >
+        <SlidersHorizontal className="h-3.5 w-3.5" />
+        <span>{summary}</span>
+        <ChevronDown className="h-3 w-3" />
+      </button>
+      {isOpen && (
+        <div className="absolute bottom-full left-0 mb-2 z-10 w-[280px] rounded-md border bg-background p-2 text-xs shadow">
+          <div className="mb-2">
+            <label className="flex items-center justify-between rounded-md border px-2 py-1">
+              <div className="flex items-center gap-2 text-[11px]"><Search className="h-3.5 w-3.5" />联网搜索</div>
+              <input
+                type="checkbox"
+                className="accent-primary"
+                disabled={disabled}
+                checked={value.web}
+                onChange={(e) => onChange({ web: e.target.checked })}
+              />
+            </label>
+          </div>
+          {value.web && (
+            <div className="mb-2">
+              <div className="mb-1 text-[11px] text-muted-foreground">搜索深度</div>
+              <div className="mb-2 flex items-center justify-between">
+                {searchSteps.map((n, i) => (
+                  <span key={n} className={cn("px-1", i === searchIdx ? "text-foreground" : "text-muted-foreground")}>{n}</span>
+                ))}
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={searchSteps.length - 1}
+                step={1}
+                value={searchIdx}
+                onChange={(e) => setSearchIdx(parseInt(e.target.value))}
+                className="w-full"
+              />
+              {showSearchWarn && (
+                <div className="mt-2 flex items-start gap-1 text-[11px] text-amber-600">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5" />
+                  <span>来源过多会增加幻觉，仅在需要多来源验证时使用。</span>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="mb-2">
+            <div className="mb-1 text-[11px] text-muted-foreground">推理深度</div>
+            <div className="mb-2 flex items-center justify-between">
+              {effortSteps.map((s, i) => (
+                <span key={s.v} className={cn("px-1", i === effortIdx ? "text-foreground" : "text-muted-foreground")}>{s.label}</span>
+              ))}
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={effortSteps.length - 1}
+              step={1}
+              value={effortIdx}
+              onChange={(e) => setEffortIdx(parseInt(e.target.value))}
+              className="w-full"
+            />
+            {showEffortWarn && (
+              <div className="mt-2 flex items-start gap-1 text-[11px] text-amber-600">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5" />
+                <span>较高推理深度会显著延长思考时间。</span>
+              </div>
+            )}
+          </div>
+          <div>
+            <div className="mb-1 text-[11px] text-muted-foreground">输出篇幅</div>
+            <div className="mb-2 flex items-center justify-between">
+              {verbositySteps.map((s, i) => (
+                <span key={s.v} className={cn("px-1", i === verbosityIdx ? "text-foreground" : "text-muted-foreground")}>{s.label}</span>
+              ))}
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={verbositySteps.length - 1}
+              step={1}
+              value={verbosityIdx}
+              onChange={(e) => setVerbosityIdx(parseInt(e.target.value))}
+              className="w-full"
+            />
+          </div>
         </div>
       )}
     </div>
