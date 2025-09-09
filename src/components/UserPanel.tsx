@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, User as UserIcon, Mail, KeyRound, LogOut, ShieldCheck, Settings } from "lucide-react";
+import { X, User as UserIcon, Mail, KeyRound, LogOut, ShieldCheck, Settings, Volume2 } from "lucide-react";
 import { useChatStore } from "@/store/chatStore";
 
 export default function UserPanel() {
-  const { userPanelOpen, setUserPanelOpen } = useChatStore();
+  const { userPanelOpen, setUserPanelOpen, settings, setSettings } = useChatStore();
   const [user, setUser] = useState<{ username: string; email: string; isSuperAdmin?: boolean } | null>(null);
   const [superExists, setSuperExists] = useState<boolean | null>(null);
   const [registering, setRegistering] = useState(false);
@@ -160,6 +160,25 @@ export default function UserPanel() {
                 <div className="settings-panel">
                   <h3 className="font-medium mb-3 text-sm sm:text-base">会话</h3>
                   <p className="text-xs text-muted-foreground">您可以在左侧对话列表中管理会话记录。</p>
+                </div>
+
+                <div className="settings-panel">
+                  <h3 className="font-medium mb-3 text-sm sm:text-base">偏好</h3>
+                  <div className="space-y-2">
+                    <label className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Volume2 className="h-4 w-4" />
+                        <span>完成音效</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        className="accent-primary"
+                        checked={(settings?.sound?.onComplete !== false)}
+                        onChange={(e) => setSettings({ sound: { ...(settings?.sound || {}), onComplete: e.target.checked } })}
+                      />
+                    </label>
+                    <div className="text-xs text-muted-foreground pl-7">AI 回复结束时播放提示音。</div>
+                  </div>
                 </div>
 
                 {/* 超级管理员专属：系统管理入口 */}

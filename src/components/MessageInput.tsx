@@ -250,18 +250,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
             />
           )}
 
-          {/* 完成音效开关 */}
-          <label className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground">
-            <input
-              type="checkbox"
-              className="accent-primary"
-              disabled={disabled || isStreaming}
-              checked={(settings?.sound?.onComplete !== false)}
-              onChange={(e) => setSettings({ sound: { ...(settings?.sound || {}), onComplete: e.target.checked } })}
-            />
-            <span className="hidden sm:inline">完成音效</span>
-            <span className="sm:hidden">音效</span>
-          </label>
+          
 
           {/* Veo3 Fast 设置 */}
           {currentModel === 'veo3-fast' && (
