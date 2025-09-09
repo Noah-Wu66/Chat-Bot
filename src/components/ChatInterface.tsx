@@ -7,7 +7,7 @@ import { generateId, generateTitleFromMessage } from '@/utils/helpers';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 // 删除顶部来源条相关导入
-import ModelSelector from './ModelSelector';
+// 顶部不再显示模型切换按钮
 import UserPanel from './UserPanel';
 import LoginModal from './LoginModal';
 import { playCompletionChime } from '@/utils/helpers';
@@ -427,34 +427,22 @@ export default function ChatInterface() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* 顶栏：移动端和桌面端不同布局 */}
+      {/* 顶栏：移除模型按钮，仅保留用户面板与标题区域 */}
       <div className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        {/* 移动端顶栏 */}
+        {/* 移动端顶栏（不含模型切换）*/}
         <div className="flex items-center justify-between px-3 py-2 sm:hidden">
-          {/* 左侧：留出菜单按钮空间 + 模型切换 */}
-          <div className="flex items-center gap-2 ml-10">
-            <ModelSelector variant="ghost" />
-          </div>
-          
-          {/* 右侧：用户按钮 */}
+          <div className="flex items-center gap-2 ml-10" />
           <UserPanel />
         </div>
 
-        {/* 桌面端顶栏 */}
+        {/* 桌面端顶栏（不含模型切换）*/}
         <div className="hidden sm:flex items-center justify-between px-4 py-3 md:px-6">
-          {/* 左侧：模型切换 */}
-          <div className="flex items-center gap-2 md:gap-3">
-            <ModelSelector variant="ghost" />
-          </div>
-
-          {/* 中间：标题 */}
+          <div className="flex items-center gap-2 md:gap-3" />
           <div className="flex-1 flex items-center justify-center px-2">
             {currentConversation?.title && (
               <div className="text-xs text-muted-foreground truncate max-w-[200px] md:max-w-none">{currentConversation.title}</div>
             )}
           </div>
-
-          {/* 右侧：用户面板 */}
           <div className="flex items-center">
             <UserPanel />
           </div>

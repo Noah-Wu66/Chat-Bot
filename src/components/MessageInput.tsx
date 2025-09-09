@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Paperclip, X, Image as ImageIcon, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle, Square, Settings } from 'lucide-react';
+import { Send, Paperclip, X, Image as ImageIcon, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle, Square } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS, ModelId } from '@/lib/types';
 import { cn, fileToBase64, compressImage } from '@/utils/helpers';
@@ -176,8 +176,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
   const showStop = isStreaming;
 
 
-  // 移动端设置菜单
-  const [mobileSettingsOpen, setMobileSettingsOpen] = useState(false);
+  // 统一：不再使用移动端折叠菜单，直接与桌面一致展示
 
   return (
     <div className={cn("relative", variant === 'center' && "max-w-2xl mx-auto")}>
@@ -193,141 +192,102 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
         </div>
       )}
 
-      {/* 移动端紧凑控制栏 */}
-      <div className="mb-2 flex items-center justify-between gap-2 sm:hidden">
-        <div className="flex items-center gap-1">
-          {/* 模型选择器（已在组件内显示名称） */}
+      {/* 顶部控制栏（移动端与桌面端统一） */}
+      <div className={cn("mb-2 flex items-center justify-between gap-2", variant === 'center' && "px-1") }>
+        <div className="flex items-center gap-1 sm:gap-2 relative flex-wrap">
+          {/* 切换模型 */}
           <ModelSelector variant="ghost" />
 
-          {/* 设置按钮：添加文字 */}
-          <button
-            type="button"
-            onClick={() => setMobileSettingsOpen(!mobileSettingsOpen)}
-            className="compact inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            title="其他设置"
-          >
-            <Settings className="h-3.5 w-3.5" />
-            <span>设置</span>
-          </button>
-        </div>
+          {/* 联网搜索开关 */}
+          {modelConfig.supportsSearch && (
+            <button
+              type="button"
+              onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+              disabled={disabled || isStreaming}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full border px-2 sm:px-3 py-1 text-xs",
+                webSearchEnabled ? "bg-green-600 text-white border-green-600" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                "disabled:pointer-events-none disabled:opacity-50"
+              )}
+              title={webSearchEnabled ? "已开启联网搜索" : "点击开启联网搜索"}
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">联网搜索</span>
+              <span className="sm:hidden">搜索</span>
+            </button>
+          )}
 
-        {/* 最重要的开关直接显示 */}
-        {modelConfig.supportsSearch && (
-          <button
-            type="button"
-            onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-            disabled={disabled || isStreaming}
-            className={cn(
-              "compact inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs",
-              webSearchEnabled ? "bg-green-600 text-white border-green-600" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-              "disabled:pointer-events-none disabled:opacity-50"
-            )}
-            title={webSearchEnabled ? "已开启联网搜索" : "点击开启联网搜索"}
-          >
-            <Search className="h-3 w-3" />
-            <span>搜索</span>
-          </button>
-        )}
-      </div>
+          {/* 推理深度 */}
+          {modelConfig.supportsReasoning && (
+            <EffortPopover
+              value={(settings?.reasoning?.effort as any) || 'high'}
+              disabled={disabled || isStreaming}
+              onChange={(v) => setSettings({ reasoning: { ...(settings?.reasoning || {}), effort: v as any } })}
+              open={activePopover === 'effort'}
+              onOpenChange={(o) => setActivePopover(o ? 'effort' : null)}
+            />
+          )}
 
-      {/* 移动端设置面板 */}
-      {mobileSettingsOpen && (
-        <div className="mb-2 rounded-lg border bg-background/95 p-2 sm:hidden">
-          <div className="space-y-2">
-            {modelConfig.supportsReasoning && (
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">推理深度</span>
-                <select
-                  disabled={disabled || isStreaming}
-                  value={settings?.reasoning?.effort || 'high'}
-                  onChange={(e) => setSettings({ reasoning: { ...(settings?.reasoning || {}), effort: e.target.value as any } })}
-                  className="rounded-md border px-2 py-1 text-xs"
-                >
-                  <option value="minimal">极低</option>
-                  <option value="low">较低</option>
-                  <option value="medium">中等</option>
-                  <option value="high">高</option>
-                </select>
-              </div>
-            )}
+          {/* 输出篇幅 */}
+          {modelConfig.supportsVerbosity && (
+            <VerbosityPopover
+              value={(settings?.text?.verbosity as any) || 'medium'}
+              disabled={disabled || isStreaming}
+              onChange={(v) => setSettings({ text: { ...(settings?.text || {}), verbosity: v as any } })}
+              open={activePopover === 'verbosity'}
+              onOpenChange={(o) => setActivePopover(o ? 'verbosity' : null)}
+            />
+          )}
 
-            {modelConfig.supportsVerbosity && (
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">输出篇幅</span>
-                <select
-                  disabled={disabled || isStreaming}
-                  value={settings?.text?.verbosity || 'medium'}
-                  onChange={(e) => setSettings({ text: { ...(settings?.text || {}), verbosity: e.target.value as any } })}
-                  className="rounded-md border px-2 py-1 text-xs"
-                >
-                  <option value="low">简洁</option>
-                  <option value="medium">适中</option>
-                  <option value="high">详细</option>
-                </select>
-              </div>
-            )}
+          {/* 搜索深度（仅当开启联网搜索时显示） */}
+          {modelConfig.supportsSearch && webSearchEnabled && (
+            <SearchSizePopover
+              value={Number(settings?.web?.size) || 10}
+              disabled={disabled || isStreaming}
+              onChange={(v) => setSettings({ web: { ...(settings?.web || {}), size: v } })}
+              open={activePopover === 'search'}
+              onOpenChange={(o) => setActivePopover(o ? 'search' : null)}
+            />
+          )}
 
-            {modelConfig.supportsSearch && webSearchEnabled && (
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">搜索深度</span>
-                <select
-                  disabled={disabled || isStreaming}
-                  value={settings?.web?.size || 10}
-                  onChange={(e) => setSettings({ web: { ...(settings?.web || {}), size: parseInt(e.target.value) } })}
-                  className="rounded-md border px-2 py-1 text-xs"
-                >
-                  <option value="10">10</option>
-                  <option value="20">20</option>
-                  <option value="30">30</option>
-                  <option value="50">50</option>
-                </select>
-              </div>
-            )}
+          {/* 完成音效开关 */}
+          <label className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground">
+            <input
+              type="checkbox"
+              className="accent-primary"
+              disabled={disabled || isStreaming}
+              checked={(settings?.sound?.onComplete !== false)}
+              onChange={(e) => setSettings({ sound: { ...(settings?.sound || {}), onComplete: e.target.checked } })}
+            />
+            <span className="hidden sm:inline">完成音效</span>
+            <span className="sm:hidden">音效</span>
+          </label>
 
-            {currentModel === 'veo3-fast' && (
-              <>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">画幅比例</span>
-                  <select
-                    disabled={disabled || isStreaming}
-                    value={settings.veo3?.aspectRatio || '16:9'}
-                    onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), aspectRatio: e.target.value as any } })}
-                    className="rounded-md border px-2 py-1 text-xs"
-                  >
-                    <option value="16:9">16:9</option>
-                    <option value="9:16">9:16</option>
-                    <option value="1:1">1:1</option>
-                  </select>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">分辨率</span>
-                  <select
-                    disabled={disabled || isStreaming}
-                    value={settings.veo3?.resolution || '720p'}
-                    onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), resolution: e.target.value as any } })}
-                    className="rounded-md border px-2 py-1 text-xs"
-                  >
-                    <option value="720p">720p</option>
-                    <option value="1080p">1080p</option>
-                  </select>
-                </div>
-              </>
-            )}
-
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">完成音效</span>
-              <input
-                type="checkbox"
-                className="accent-primary"
+          {/* Veo3 Fast 设置 */}
+          {currentModel === 'veo3-fast' && (
+            <div className="flex items-center gap-1 sm:gap-2">
+              <select
                 disabled={disabled || isStreaming}
-                checked={settings?.sound?.onComplete !== false}
-                onChange={(e) => setSettings({ sound: { ...(settings?.sound || {}), onComplete: e.target.checked } })}
-              />
-            </div>
-
-            {currentModel === 'veo3-fast' && (
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">生成音频</span>
+                value={settings.veo3?.aspectRatio || '16:9'}
+                onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), aspectRatio: e.target.value as any } })}
+                className="rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+                title="画幅比例"
+              >
+                <option value="16:9">16:9</option>
+                <option value="9:16">9:16</option>
+                <option value="1:1">1:1</option>
+              </select>
+              <select
+                disabled={disabled || isStreaming}
+                value={settings.veo3?.resolution || '720p'}
+                onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), resolution: e.target.value as any } })}
+                className="rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+                title="分辨率"
+              >
+                <option value="720p">720p</option>
+                <option value="1080p">1080p</option>
+              </select>
+              <label className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground">
                 <input
                   type="checkbox"
                   className="accent-primary"
@@ -335,120 +295,20 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
                   checked={settings.veo3?.generateAudio === true}
                   onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), generateAudio: e.target.checked } })}
                 />
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 桌面端顶部栏：模型切换 + 联网搜索开关 + 额外控制按钮 */}
-      <div className={cn("mb-2 hidden sm:flex items-center justify-between gap-2", variant === 'center' && "px-1") }>
-        <div className="flex items-center gap-1 sm:gap-2 relative flex-wrap">
-          {/* 切换模型按钮（在联网搜索按钮左侧） */}
-          <ModelSelector variant="ghost" />
-
-          <>
-            {modelConfig.supportsSearch && (
-              <button
-                type="button"
-                onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-                disabled={disabled || isStreaming}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-full border px-2 sm:px-3 py-1 text-xs",
-                  webSearchEnabled ? "bg-green-600 text-white border-green-600" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                  "disabled:pointer-events-none disabled:opacity-50"
-                )}
-                title={webSearchEnabled ? "已开启联网搜索" : "点击开启联网搜索"}
-              >
-                <Search className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">联网搜索</span>
-              </button>
-            )}
-
-            {modelConfig.supportsReasoning && (
-              <EffortPopover
-                value={(settings?.reasoning?.effort as any) || 'high'}
-                disabled={disabled || isStreaming}
-                onChange={(v) => setSettings({ reasoning: { ...(settings?.reasoning || {}), effort: v as any } })}
-                open={activePopover === 'effort'}
-                onOpenChange={(o) => setActivePopover(o ? 'effort' : null)}
-              />
-            )}
-
-            {modelConfig.supportsVerbosity && (
-              <VerbosityPopover
-                value={(settings?.text?.verbosity as any) || 'medium'}
-                disabled={disabled || isStreaming}
-                onChange={(v) => setSettings({ text: { ...(settings?.text || {}), verbosity: v as any } })}
-                open={activePopover === 'verbosity'}
-                onOpenChange={(o) => setActivePopover(o ? 'verbosity' : null)}
-              />
-            )}
-
-            {modelConfig.supportsSearch && webSearchEnabled && (
-              <SearchSizePopover
-                value={Number(settings?.web?.size) || 10}
-                disabled={disabled || isStreaming}
-                onChange={(v) => setSettings({ web: { ...(settings?.web || {}), size: v } })}
-                open={activePopover === 'search'}
-                onOpenChange={(o) => setActivePopover(o ? 'search' : null)}
-              />
-            )}
-
-            {/* 完成音效开关（默认开启） */}
-            <label className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground">
-              <input
-                type="checkbox"
-                className="accent-primary"
-                disabled={disabled || isStreaming}
-                checked={(settings?.sound?.onComplete !== false)}
-                onChange={(e) => setSettings({ sound: { ...(settings?.sound || {}), onComplete: e.target.checked } })}
-              />
-              完成音效
-            </label>
-
-            {/* Veo3 Fast 设置（当选择 Veo3 Fast 模型时显示）*/}
-            {currentModel === 'veo3-fast' && (
-              <div className="flex items-center gap-1 sm:gap-2">
-                <select
-                  disabled={disabled || isStreaming}
-                  value={settings.veo3?.aspectRatio || '16:9'}
-                  onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), aspectRatio: e.target.value as any } })}
-                  className="rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
-                  title="画幅比例"
-                >
-                  <option value="16:9">16:9</option>
-                  <option value="9:16">9:16</option>
-                  <option value="1:1">1:1</option>
-                </select>
-                <select
-                  disabled={disabled || isStreaming}
-                  value={settings.veo3?.resolution || '720p'}
-                  onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), resolution: e.target.value as any } })}
-                  className="rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
-                  title="分辨率"
-                >
-                  <option value="720p">720p</option>
-                  <option value="1080p">1080p</option>
-                </select>
-                <label className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground">
-                  <input
-                    type="checkbox"
-                    className="accent-primary"
-                    disabled={disabled || isStreaming}
-                    checked={settings.veo3?.generateAudio === true}
-                    onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), generateAudio: e.target.checked } })}
-                  />
-                  音频
-                </label>
-              </div>
-            )}
-          </>
+                <span className="hidden sm:inline">音频</span>
+                <span className="sm:hidden">音频</span>
+              </label>
+            </div>
+          )}
         </div>
 
         {/* 右侧占位 */}
         <div />
       </div>
+
+      {/* 不再有移动端设置抽屉 */}
+
+      {/* 桌面端单独的顶部栏已与移动端合并 */}
 
       {/* 图片预览 */}
       {images.length > 0 && (

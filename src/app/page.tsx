@@ -69,48 +69,6 @@ export default function HomePage() {
         {/* 主内容区域 */}
         <div className="flex-1 flex flex-col min-w-0">
           <ChatInterface />
-          
-          {/* 移动端底部导航栏 */}
-          <div className="sm:hidden border-t border-border bg-background pb-safe-area-inset-bottom">
-            <div className="flex items-center justify-around py-2 px-2">
-              {/* 新建对话 */}
-              <button
-                onClick={() => {
-                  // 触发新建对话
-                  const sidebar = document.querySelector<HTMLButtonElement>('.sidebar-new-chat');
-                  sidebar?.click();
-                }}
-                className="flex flex-col items-center gap-1 p-2 text-muted-foreground hover:text-foreground touch-manipulation"
-              >
-                <Plus className="h-5 w-5" />
-                <span className="text-[10px]">新建</span>
-              </button>
-              
-              {/* 历史记录 */}
-              <button
-                onClick={() => {
-                  const menuBtn = document.querySelector<HTMLButtonElement>('.fixed.top-2.left-2');
-                  menuBtn?.click();
-                }}
-                className="flex flex-col items-center gap-1 p-2 text-muted-foreground hover:text-foreground touch-manipulation"
-              >
-                <MessageSquare className="h-5 w-5" />
-                <span className="text-[10px]">历史</span>
-              </button>
-              
-              {/* 用户中心 */}
-              <button
-                onClick={() => {
-                  const { setUserPanelOpen } = useChatStore.getState();
-                  setUserPanelOpen(true);
-                }}
-                className="flex flex-col items-center gap-1 p-2 text-muted-foreground hover:text-foreground touch-manipulation"
-              >
-                <User className="h-5 w-5" />
-                <span className="text-[10px]">我的</span>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* 全局提示 */}
