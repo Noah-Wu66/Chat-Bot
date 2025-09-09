@@ -94,7 +94,7 @@ export async function POST(req: Request) {
   const historyText = buildHistoryText(historyWithoutCurrent);
 
   // 构建 Gemini 原生 contents（可包含多模态）
-  type GeminiPart = { text?: string } | { inline_data: { mime_type: string; data: string } };
+  type GeminiPart = { text?: string } | { inlineData: { mimeType: string; data: string } };
   type GeminiContent = { role?: 'user' | 'model'; parts: GeminiPart[] };
   const parseDataUrl = (dataUrl: string): { mime: string; b64: string } | null => {
     try {
@@ -113,11 +113,11 @@ export async function POST(req: Request) {
       // 支持 data URL；远程 URL 退化为文本
       if (typeof item.image_url === 'string') {
         const parsed = parseDataUrl(item.image_url);
-        if (parsed) return { inline_data: { mime_type: parsed.mime, data: parsed.b64 } };
+        if (parsed) return { inlineData: { mimeType: parsed.mime, data: parsed.b64 } };
         return { text: String(item.image_url) };
       }
       if (typeof item.image_data === 'string' && item.mime_type) {
-        return { inline_data: { mime_type: String(item.mime_type), data: item.image_data } };
+        return { inlineData: { mimeType: String(item.mime_type), data: item.image_data } };
       }
     }
     // 音频
@@ -125,8 +125,8 @@ export async function POST(req: Request) {
       const inl = item.inline_data;
       if (inl && typeof inl.data === 'string' && typeof inl.mime_type === 'string') {
         const parsed = parseDataUrl(inl.data);
-        if (parsed) return { inline_data: { mime_type: parsed.mime, data: parsed.b64 } };
-        return { inline_data: { mime_type: inl.mime_type, data: inl.data } };
+        if (parsed) return { inlineData: { mimeType: parsed.mime, data: parsed.b64 } };
+        return { inlineData: { mimeType: inl.mime_type, data: inl.data } };
       }
     }
     // 视频
@@ -134,8 +134,8 @@ export async function POST(req: Request) {
       const inl = item.inline_data;
       if (inl && typeof inl.data === 'string' && typeof inl.mime_type === 'string') {
         const parsed = parseDataUrl(inl.data);
-        if (parsed) return { inline_data: { mime_type: parsed.mime, data: parsed.b64 } };
-        return { inline_data: { mime_type: inl.mime_type, data: inl.data } };
+        if (parsed) return { inlineData: { mimeType: parsed.mime, data: parsed.b64 } };
+        return { inlineData: { mimeType: inl.mime_type, data: inl.data } };
       }
     }
     return null;
@@ -172,7 +172,9 @@ export async function POST(req: Request) {
 
   let content = '';
   try {
-    const resp = await fetch(`${GEMINI_BASE_URL}/models/${modelToUse}:generateContent`, {
+    const url = `${GEMINI_BASE_URL}/models/${modelToUse}:generateContent`;
+    try { console.log('[GeminiPro] POST', url); } catch {}
+    const resp = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
