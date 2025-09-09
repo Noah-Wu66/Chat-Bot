@@ -212,8 +212,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
               title={webSearchEnabled ? "已开启联网搜索" : "点击开启联网搜索"}
             >
               <Search className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">联网搜索</span>
-              <span className="sm:hidden">搜索</span>
+              <span>联网搜索</span>
             </button>
           )}
 
@@ -255,28 +254,34 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
           {/* Veo3 Fast 设置 */}
           {currentModel === 'veo3-fast' && (
             <div className="flex items-center gap-1 sm:gap-2">
-              <select
-                disabled={disabled || isStreaming}
-                value={settings.veo3?.aspectRatio || '16:9'}
-                onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), aspectRatio: e.target.value as any } })}
-                className="rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
-                title="画幅比例"
-              >
-                <option value="16:9">16:9</option>
-                <option value="9:16">9:16</option>
-                <option value="1:1">1:1</option>
-              </select>
-              <select
-                disabled={disabled || isStreaming}
-                value={settings.veo3?.resolution || '720p'}
-                onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), resolution: e.target.value as any } })}
-                className="rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
-                title="分辨率"
-              >
-                <option value="720p">720p</option>
-                <option value="1080p">1080p</option>
-              </select>
-              <label className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground">
+              <div className="relative">
+                <select
+                  disabled={disabled || isStreaming}
+                  value={settings.veo3?.aspectRatio || '16:9'}
+                  onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), aspectRatio: e.target.value as any } })}
+                  className="appearance-none bg-transparent rounded-full border px-2.5 py-1 pr-5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+                  title="画幅比例"
+                >
+                  <option value="16:9">16:9</option>
+                  <option value="9:16">9:16</option>
+                  <option value="1:1">1:1</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+              </div>
+              <div className="relative">
+                <select
+                  disabled={disabled || isStreaming}
+                  value={settings.veo3?.resolution || '720p'}
+                  onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), resolution: e.target.value as any } })}
+                  className="appearance-none bg-transparent rounded-full border px-2.5 py-1 pr-5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+                  title="分辨率"
+                >
+                  <option value="720p">720p</option>
+                  <option value="1080p">1080p</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+              </div>
+              <label className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground">
                 <input
                   type="checkbox"
                   className="accent-primary"
@@ -284,8 +289,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
                   checked={settings.veo3?.generateAudio === true}
                   onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), generateAudio: e.target.checked } })}
                 />
-                <span className="hidden sm:inline">音频</span>
-                <span className="sm:hidden">音频</span>
+                <span>音频</span>
               </label>
             </div>
           )}
