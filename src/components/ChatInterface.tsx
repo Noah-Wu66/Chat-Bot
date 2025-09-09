@@ -134,6 +134,9 @@ export default function ChatInterface() {
       } else if (currentModel === 'veo3-fast') {
         apiEndpoint = '/api/veo3-fast';
       } else if (currentModel === 'gemini-2.5-pro') {
+        // 使用简洁别名路径，避免平台对点号路径的兼容性问题
+        apiEndpoint = '/api/gemini';
+      } else if (currentModel === 'gemini-2.5-pro') {
         apiEndpoint = '/api/gemini-2.5-pro';
       }
 
@@ -602,7 +605,7 @@ export default function ChatInterface() {
                   ? '/api/gemini-2.5-flash-image-preview'
                   : (currentModel === 'veo3-fast'
                     ? '/api/veo3-fast'
-                    : (currentModel === 'gemini-2.5-pro' ? '/api/gemini-2.5-pro' : '/api/gpt-5'));
+                    : (currentModel === 'gemini-2.5-pro' ? '/api/gemini' : '/api/gpt-5'));
 
                 const toImageItem = (img: string) => ({ type: 'input_image', image_url: img } as any);
                 let input: string | any[];
