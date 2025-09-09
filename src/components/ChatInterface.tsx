@@ -238,6 +238,7 @@ export default function ChatInterface() {
         });
       } catch {}
 
+      try { console.log('[Chat][diag] origin', window.location.origin, 'path', window.location.pathname); } catch {}
       let response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -247,8 +248,19 @@ export default function ChatInterface() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || '请求失败');
+        const status = response.status;
+        const statusText = response.statusText;
+        let bodyText = '';
+        try { bodyText = await response.text(); } catch {}
+        try {
+          console.error('[Chat][diag] HTTP error', { status, statusText, url: apiEndpoint, xMatchedPath: response.headers.get('x-nextjs-matched-path'), xVercelId: response.headers.get('x-vercel-id'), contentType: response.headers.get('content-type'), bodyPreview: bodyText?.slice?.(0, 500) });
+        } catch {}
+        try {
+          const errorData = JSON.parse(bodyText);
+          throw new Error(errorData.error || `请求失败 (${status})`);
+        } catch {
+          throw new Error(bodyText || `请求失败 (${status})`);
+        }
       }
 
       const contentType = response.headers.get('Content-Type') || '';
@@ -588,6 +600,7 @@ export default function ChatInterface() {
                   input = userMsg.content;
                 }
 
+                try { console.log('[Chat][diag][regenerate] origin', window.location.origin, 'path', window.location.pathname); } catch {}
                 const response = await fetch(apiEndpoint, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -605,8 +618,19 @@ export default function ChatInterface() {
                 });
 
                 if (!response.ok) {
-                  const err = await response.json();
-                  throw new Error(err?.error || '请求失败');
+                  const status = response.status;
+                  const statusText = response.statusText;
+                  let bodyText = '';
+                  try { bodyText = await response.text(); } catch {}
+                  try {
+                    console.error('[Chat][diag][regenerate] HTTP error', { status, statusText, url: apiEndpoint, xMatchedPath: response.headers.get('x-nextjs-matched-path'), xVercelId: response.headers.get('x-vercel-id'), contentType: response.headers.get('content-type'), bodyPreview: bodyText?.slice?.(0, 500) });
+                  } catch {}
+                  try {
+                    const err = JSON.parse(bodyText);
+                    throw new Error(err?.error || `请求失败 (${status})`);
+                  } catch {
+                    throw new Error(bodyText || `请求失败 (${status})`);
+                  }
                 }
 
                 const contentType = response.headers.get('Content-Type') || '';

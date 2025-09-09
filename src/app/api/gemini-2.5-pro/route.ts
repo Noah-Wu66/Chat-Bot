@@ -26,11 +26,17 @@ async function getCurrentUser() {
 }
 
 export async function POST(req: Request) {
+  try { console.log('[GeminiPro] route hit'); } catch {}
   const user = await getCurrentUser();
   if (!user) return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
   if ((user as any).isBanned) return new Response(JSON.stringify({ error: '账户已被封禁' }), { status: 403 });
 
-  const body = await req.json();
+  let body: any = {};
+  try {
+    body = await req.json();
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: '请求体解析失败' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  }
   const { conversationId, input, model, settings, stream, regenerate } = body as {
     conversationId: string;
     input: string | any[];
@@ -155,6 +161,7 @@ export async function POST(req: Request) {
 
   // 非流式
   const contentsPayload = buildGeminiContents(input);
+  try { console.log('[GeminiPro] payload preview', JSON.stringify({ modelToUse, hasHistory: !!historyText, parts0: contentsPayload?.[0]?.parts?.length || 0 })); } catch {}
   const generationConfig: any = {
     response_mime_type: 'text/plain',
   };
