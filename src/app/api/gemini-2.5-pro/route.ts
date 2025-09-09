@@ -5,6 +5,7 @@ import { verifyJWT } from '@/lib/auth';
 import { getUserModel } from '@/lib/models/User';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 // 获取当前用户的辅助函数
 async function getCurrentUser() {
