@@ -247,6 +247,18 @@ export default function ChatInterface() {
         signal: controller.signal,
       });
 
+      // 404 兼容：平台可能不识别点号路径，回退到 /api/gemini-2_5-pro
+      if (response.status === 404 && apiEndpoint === '/api/gemini-2.5-pro') {
+        try { console.warn('[Chat][diag] 404 fallback -> /api/gemini-2_5-pro'); } catch {}
+        response = await fetch('/api/gemini-2_5-pro', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+          credentials: 'include',
+          signal: controller.signal,
+        });
+      }
+
       if (!response.ok) {
         const status = response.status;
         const statusText = response.statusText;
@@ -601,7 +613,7 @@ export default function ChatInterface() {
                 }
 
                 try { console.log('[Chat][diag][regenerate] origin', window.location.origin, 'path', window.location.pathname); } catch {}
-                const response = await fetch(apiEndpoint, {
+                let response = await fetch(apiEndpoint, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   credentials: 'include',
@@ -616,6 +628,26 @@ export default function ChatInterface() {
                     ...(MODELS[currentModel]?.supportsSearch ? { webSearch: webSearchEnabled } : {}),
                   })
                 });
+
+                if (response.status === 404 && apiEndpoint === '/api/gemini-2.5-flash-image-preview') {
+                  // 保持与上方风格一致的回退逻辑（此分支一般不触达 gemini-2.5-pro，但留作兼容）
+                  try { console.warn('[Chat][diag][regenerate] 404 fallback -> /api/gemini-2_5-pro'); } catch {}
+                  response = await fetch('/api/gemini-2_5-pro', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    signal: controller.signal,
+                    body: JSON.stringify({
+                      conversationId: currentConversation.id,
+                      input,
+                      model: currentModel,
+                      settings,
+                      stream: true,
+                      regenerate: true,
+                      ...(MODELS[currentModel]?.supportsSearch ? { webSearch: webSearchEnabled } : {}),
+                    })
+                  });
+                }
 
                 if (!response.ok) {
                   const status = response.status;
