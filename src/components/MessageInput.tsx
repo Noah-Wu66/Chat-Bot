@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Paperclip, X, Image as ImageIcon, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle, Square } from 'lucide-react';
+import { Send, Paperclip, X, Image as ImageIcon, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle, Square, Video } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS, ModelId } from '@/lib/types';
 import { cn, fileToBase64, compressImage } from '@/utils/helpers';
@@ -33,8 +33,8 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
   const modelConfig = MODELS[currentModel];
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
-  // 互斥弹窗：effort / verbosity / search
-  const [activePopover, setActivePopover] = useState<'effort' | 'verbosity' | 'search' | null>(null);
+  // 互斥弹窗：effort / verbosity / search / veo3
+  const [activePopover, setActivePopover] = useState<'effort' | 'verbosity' | 'search' | 'veo3' | null>(null);
   // 检查登录状态（不阻塞 UI）
   useEffect(() => {
     let cancelled = false;
@@ -251,47 +251,19 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
 
           
 
-          {/* Veo3 Fast 设置 */}
+          {/* Veo3 Fast 设置（与 GPT-5 弹窗风格统一） */}
           {currentModel === 'veo3-fast' && (
-            <div className="flex items-center gap-1 sm:gap-2">
-              <div className="relative">
-                <select
-                  disabled={disabled || isStreaming}
-                  value={settings.veo3?.aspectRatio || '16:9'}
-                  onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), aspectRatio: e.target.value as any } })}
-                  className="appearance-none bg-transparent rounded-full border px-2.5 py-1 pr-5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
-                  title="画幅比例"
-                >
-                  <option value="16:9">16:9</option>
-                  <option value="9:16">9:16</option>
-                  <option value="1:1">1:1</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-              </div>
-              <div className="relative">
-                <select
-                  disabled={disabled || isStreaming}
-                  value={settings.veo3?.resolution || '720p'}
-                  onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), resolution: e.target.value as any } })}
-                  className="appearance-none bg-transparent rounded-full border px-2.5 py-1 pr-5 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
-                  title="分辨率"
-                >
-                  <option value="720p">720p</option>
-                  <option value="1080p">1080p</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-              </div>
-              <label className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-accent-foreground">
-                <input
-                  type="checkbox"
-                  className="accent-primary"
-                  disabled={disabled || isStreaming}
-                  checked={settings.veo3?.generateAudio === true}
-                  onChange={(e) => setSettings({ veo3: { ...(settings.veo3 || {}), generateAudio: e.target.checked } })}
-                />
-                <span>音频</span>
-              </label>
-            </div>
+            <Veo3SettingsPopover
+              value={{
+                aspectRatio: (settings.veo3?.aspectRatio as any) || '16:9',
+                resolution: (settings.veo3?.resolution as any) || '720p',
+                generateAudio: settings.veo3?.generateAudio === true,
+              }}
+              disabled={disabled || isStreaming}
+              onChange={(v) => setSettings({ veo3: { ...(settings.veo3 || {}), ...(v as any) } })}
+              open={activePopover === 'veo3'}
+              onOpenChange={(o) => setActivePopover(o ? 'veo3' : null)}
+            />
           )}
         </div>
 
@@ -617,6 +589,98 @@ function SearchSizePopover({ value, disabled, onChange, open, onOpenChange }: { 
               <span>当前来源过多，会极大的增加模型的幻觉率，仅当您需要搜索极为少见的问题或多来源验证时才建议使用。</span>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Veo3SettingsPopover({
+  value,
+  disabled,
+  onChange,
+  open,
+  onOpenChange,
+}: {
+  value: { aspectRatio: '16:9' | '9:16' | '1:1'; resolution: '720p' | '1080p'; generateAudio: boolean };
+  disabled?: boolean;
+  onChange: (v: Partial<{ aspectRatio: '16:9' | '9:16' | '1:1'; resolution: '720p' | '1080p'; generateAudio: boolean }>) => void;
+  open?: boolean;
+  onOpenChange?: (o: boolean) => void;
+}) {
+  const [innerOpen, setInnerOpen] = useState(false);
+  const isOpen = typeof open === 'boolean' ? open : innerOpen;
+  const toggle = () => (onOpenChange ? onOpenChange(!isOpen) : setInnerOpen((o) => !o));
+  const summary = `${value.aspectRatio} · ${value.resolution}${value.generateAudio ? ' · 音频' : ''}`;
+  const setAspect = (ar: '16:9' | '9:16' | '1:1') => onChange({ aspectRatio: ar });
+  const setRes = (r: '720p' | '1080p') => onChange({ resolution: r });
+  const setAudio = (v: boolean) => onChange({ generateAudio: v });
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={toggle}
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] hover:bg-accent hover:text-accent-foreground",
+          "disabled:pointer-events-none disabled:opacity-50"
+        )}
+        title="Veo3 设置"
+      >
+        <Video className="h-3.5 w-3.5" />
+        <span>{summary}</span>
+        <ChevronDown className="h-3 w-3" />
+      </button>
+      {isOpen && (
+        <div className="absolute bottom-full left-0 mb-2 z-10 w-[260px] rounded-md border bg-background p-2 text-xs shadow">
+          <div className="mb-2">
+            <div className="mb-1 text-[11px] text-muted-foreground">画幅比例</div>
+            <div className="grid grid-cols-3 gap-1">
+              {(['16:9','9:16','1:1'] as const).map((ar) => (
+                <button
+                  key={ar}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setAspect(ar)}
+                  className={cn(
+                    "rounded-md border px-2 py-1",
+                    value.aspectRatio === ar ? "bg-accent text-accent-foreground border-transparent" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  {ar}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mb-2">
+            <div className="mb-1 text-[11px] text-muted-foreground">分辨率</div>
+            <div className="grid grid-cols-2 gap-1">
+              {(['720p','1080p'] as const).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setRes(r)}
+                  className={cn(
+                    "rounded-md border px-2 py-1",
+                    value.resolution === r ? "bg-accent text-accent-foreground border-transparent" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
+          <label className="flex items-center justify-between rounded-md border px-2 py-1">
+            <span>生成音频</span>
+            <input
+              type="checkbox"
+              className="accent-primary"
+              disabled={disabled}
+              checked={value.generateAudio}
+              onChange={(e) => setAudio(e.target.checked)}
+            />
+          </label>
         </div>
       )}
     </div>
