@@ -168,7 +168,10 @@ export async function POST(req: Request) {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
+        'x-goog-api-key': apiKey,
+        'x-api-key': apiKey,
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       body: JSON.stringify({
         model: modelToUse,
@@ -178,7 +181,10 @@ export async function POST(req: Request) {
     });
     if (!resp.ok) {
       const errText = await resp.text();
-      throw new Error(errText || 'Gemini 请求失败');
+      return new Response(
+        JSON.stringify({ error: errText || `Gemini 请求失败 (${resp.status})` }),
+        { status: resp.status, headers: { 'Content-Type': 'application/json' } }
+      );
     }
     const data = await resp.json();
     // 提取文本：优先 text / output_text；兜底 candidates.parts[].text
@@ -194,7 +200,10 @@ export async function POST(req: Request) {
     content = tryExtract();
   } catch (e: any) {
     console.error('[Gemini Pro] 非流式请求失败:', e?.message || String(e));
-    throw e;
+    return new Response(
+      JSON.stringify({ error: e?.message || 'Gemini 请求失败' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   await Conversation.updateOne(
