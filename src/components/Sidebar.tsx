@@ -23,7 +23,6 @@ export default function Sidebar() {
     setCurrentConversation,
     sidebarOpen,
     setSidebarOpen,
-    currentModel,
   } = useChatStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -82,7 +81,9 @@ export default function Sidebar() {
       });
       if (response.ok) {
         const data = await response.json();
-        setConversations(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        // 仅保留包含消息的会话（无消息的不展示）
+        setConversations(list.filter((c: any) => Array.isArray(c?.messages) && c.messages.length > 0));
       } else {
         setConversations([]);
       }
@@ -106,7 +107,8 @@ export default function Sidebar() {
       });
       if (response.ok) {
         const data = await response.json();
-        setConversations(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        setConversations(list.filter((c: any) => Array.isArray(c?.messages) && c.messages.length > 0));
       } else {
         setConversations([]);
       }
@@ -117,22 +119,14 @@ export default function Sidebar() {
   };
 
   // 创建新对话
-  const createNewConversation = async () => {
+  const createNewConversation = () => {
+    // 不创建后端空会话，仅进入空状态，待用户发送首条消息再创建
+    setCurrentConversation(null);
     try {
-      const response = await fetch('/api/conversations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: '新对话', model: currentModel, settings: {} }),
-        credentials: 'include',
-      });
-      if (response.ok) {
-        const newConversation = await response.json();
-        setConversations([newConversation, ...conversations]);
-        setCurrentConversation(newConversation);
+      if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+        setSidebarOpen(false);
       }
-    } catch (error) {
-      // 忽略错误
-    }
+    } catch {}
   };
 
   // 打开删除确认弹窗

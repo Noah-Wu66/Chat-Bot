@@ -432,7 +432,6 @@ export default function ChatInterface() {
         {/* 移动端顶栏（不含模型切换）*/}
         <div className="flex items-center justify-between px-3 py-2 sm:hidden">
           <div className="flex items-center gap-2 ml-10" />
-          <UserPanel />
         </div>
 
         {/* 桌面端顶栏（不含模型切换）*/}
@@ -443,9 +442,7 @@ export default function ChatInterface() {
               <div className="text-xs text-muted-foreground truncate max-w-[200px] md:max-w-none">{currentConversation.title}</div>
             )}
           </div>
-          <div className="flex items-center">
-            <UserPanel />
-          </div>
+          <div className="flex items-center" />
         </div>
       </div>
 
@@ -667,6 +664,8 @@ export default function ChatInterface() {
 
       {/* 登录弹窗 */}
       <LoginModal />
+      {/* 用户管理弹窗（居中模态） */}
+      <UserPanel />
       {/* 顶部来源条及其弹窗已移除 */}
     </div>
   );

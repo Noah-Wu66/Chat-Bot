@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { ChevronDown, Zap, Search, Brain, MessageSquare } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
-import { generateTitleFromMessage } from '@/utils/helpers';
-import { MODELS, ModelId, getModelConfig } from '@/lib/types';
+import { ModelId, getModelConfig } from '@/lib/types';
 import { cn } from '@/utils/helpers';
 
 interface Props {
@@ -13,7 +12,7 @@ interface Props {
 
 export default function ModelSelector({ variant = 'default' }: Props) {
   const [isOpen, setIsOpen] = useState(false);
-  const { currentModel, setCurrentModel, currentConversation, setCurrentConversation, addConversation, settings } = useChatStore();
+  const { currentModel, setCurrentModel, setCurrentConversation } = useChatStore();
 
   const currentModelConfig = getModelConfig(currentModel);
 
@@ -97,23 +96,8 @@ export default function ModelSelector({ variant = 'default' }: Props) {
                           }
                           setCurrentModel(model);
                           setIsOpen(false);
-                          // 每个对话仅允许一种模型：切换模型时开启新对话
-                          try {
-                            const title = generateTitleFromMessage('新对话');
-                            const response = await fetch('/api/conversations', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ title, model, settings }),
-                              credentials: 'include',
-                            });
-                            if (response.ok) {
-                              const newConv = await response.json();
-                              setCurrentConversation({ ...newConv, messages: [] } as any);
-                              addConversation({ ...newConv, messages: [] } as any);
-                            }
-                          } catch (e) {
-                            // 静默失败
-                          }
+                          // 切换模型不新建空会话，仅重置当前会话；待用户首条消息再创建
+                          setCurrentConversation(null);
                         }}
                         className={cn(
                           "flex w-full items-start gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors",
