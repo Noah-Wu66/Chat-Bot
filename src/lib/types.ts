@@ -71,6 +71,7 @@ export interface ConversationSettings {
 
   // Seedream 4.0 专属设置
   seedream?: {
+    aspectRatio?: '1:1' | '4:3' | '3:4' | '16:9' | '9:16' | '3:2' | '2:3' | '21:9';
     size?: string; // 如 '2K'
     sequentialImageGeneration?: 'auto' | 'on' | 'off';
     maxImages?: number; // sequential_image_generation_options.max_images

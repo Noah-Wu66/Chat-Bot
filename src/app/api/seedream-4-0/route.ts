@@ -119,19 +119,36 @@ export async function POST(req: Request) {
   // 组装 Ark 请求体
   const { text: prompt, imageUrls } = extractTextAndImageUrls(input);
   const sd = settings?.seedream || {};
-  const size: string = typeof sd?.size === 'string' && sd.size ? sd.size : '2K';
+  const aspect: '1:1' | '4:3' | '3:4' | '16:9' | '9:16' | '3:2' | '2:3' | '21:9' = (['1:1','4:3','3:4','16:9','9:16','3:2','2:3','21:9'] as const).includes(sd?.aspectRatio)
+    ? sd.aspectRatio
+    : '1:1';
   const seqGen: 'auto' | 'on' | 'off' = 'auto';
   const maxImages: number = typeof sd?.maxImages === 'number' && sd.maxImages > 0 ? sd.maxImages : 1;
   const responseFormat: 'url' | 'b64_json' = 'b64_json';
   const watermark: boolean = false;
 
+  // 宽高比到像素尺寸映射
+  const aspectToSize: Record<typeof aspect, { width: number; height: number }> = {
+    '1:1':   { width: 2048, height: 2048 },
+    '4:3':   { width: 2304, height: 1728 },
+    '3:4':   { width: 1728, height: 2304 },
+    '16:9':  { width: 2560, height: 1440 },
+    '9:16':  { width: 1440, height: 2560 },
+    '3:2':   { width: 2496, height: 1664 },
+    '2:3':   { width: 1664, height: 2496 },
+    '21:9':  { width: 3024, height: 1296 },
+  } as const;
+  const imageSize = aspectToSize[aspect];
+
   const arkPayload: any = {
     model: 'doubao-seedream-4-0-250828',
-    prompt: prompt,
+    prompt: `${prompt || ''}`.trim(),
+    aspect_ratio: aspect,
     sequential_image_generation: seqGen,
     sequential_image_generation_options: { max_images: maxImages },
     response_format: responseFormat,
-    size,
+    // 提交像素尺寸（与文档对齐，使用字符串 WIDTHxHEIGHT 形式）
+    size: `${imageSize.width}x${imageSize.height}`,
     stream: true,
     watermark,
   };

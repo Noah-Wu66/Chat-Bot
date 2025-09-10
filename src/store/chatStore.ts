@@ -96,6 +96,7 @@ const defaultSettings: ConversationSettings = {
     autoFix: true,
   },
   seedream: {
+    aspectRatio: '1:1',
     size: '2K',
     sequentialImageGeneration: 'auto',
     maxImages: 1,
@@ -185,11 +186,12 @@ export const useChatStore = create<ChatState>()(
         // 确保 Seedream 默认值存在（向后兼容旧持久化）
         if (!newSettings.seedream) {
           newSettings.seedream = {
+            aspectRatio: '1:1',
             size: '2K',
             sequentialImageGeneration: 'auto',
             maxImages: 1,
-            responseFormat: 'url',
-            watermark: true,
+            responseFormat: 'b64_json',
+            watermark: false,
           };
         }
         

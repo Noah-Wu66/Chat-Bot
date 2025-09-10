@@ -323,6 +323,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
           {currentModel === 'seedream-4-0' && (
             <SeedreamSettingsPopover
               value={{
+                aspectRatio: ((settings.seedream?.aspectRatio as any) || '1:1') as '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '3:2' | '2:3' | '21:9',
                 size: (settings.seedream?.size as any) || '2K',
                 sequentialImageGeneration: 'auto',
                 maxImages: (typeof settings.seedream?.maxImages === 'number' ? settings.seedream?.maxImages : 1) as number,
@@ -942,9 +943,9 @@ function SeedreamSettingsPopover({
   open,
   onOpenChange,
 }: {
-  value: { size: string; sequentialImageGeneration: 'auto' | 'on' | 'off'; maxImages: number; responseFormat: 'url' | 'b64_json'; watermark: boolean };
+  value: { aspectRatio: '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '3:2' | '2:3' | '21:9'; size: string; sequentialImageGeneration: 'auto' | 'on' | 'off'; maxImages: number; responseFormat: 'url' | 'b64_json'; watermark: boolean };
   disabled?: boolean;
-  onChange: (v: Partial<{ size: string; sequentialImageGeneration: 'auto' | 'on' | 'off'; maxImages: number; responseFormat: 'url' | 'b64_json'; watermark: boolean }>) => void;
+  onChange: (v: Partial<{ aspectRatio: '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '3:2' | '2:3' | '21:9'; size: string; sequentialImageGeneration: 'auto' | 'on' | 'off'; maxImages: number; responseFormat: 'url' | 'b64_json'; watermark: boolean }>) => void;
   open?: boolean;
   onOpenChange?: (o: boolean) => void;
 }) {
@@ -952,13 +953,13 @@ function SeedreamSettingsPopover({
   const isControlled = typeof open === 'boolean';
   const isOpen = isControlled ? (open as boolean) : innerOpen;
   const toggle = () => (onOpenChange ? onOpenChange(!isOpen) : setInnerOpen((o) => !o));
-  const summary = `${value.size} · 连续:auto · Base64`;
+  const summary = `${value.aspectRatio} · 连续:auto · Base64`;
 
-  const sizes = ['1K', '2K', '4K'];
+  const aspectOptions: Array<'16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '3:2' | '2:3' | '21:9'> = ['1:1','4:3','3:4','16:9','9:16','3:2','2:3','21:9'];
   const seqOptions: Array<'auto'|'on'|'off'> = ['auto'];
   const fmtOptions: Array<'url'|'b64_json'> = ['b64_json'];
 
-  const setSize = (s: string) => onChange({ size: s });
+  const setAspect = (ar: '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '3:2' | '2:3' | '21:9') => onChange({ aspectRatio: ar });
   const setSeq = (s: 'auto'|'on'|'off') => onChange({ sequentialImageGeneration: s });
   const setFmt = (f: 'url'|'b64_json') => onChange({ responseFormat: f });
   const setMax = (n: number) => onChange({ maxImages: Math.max(1, Math.min(10, Math.floor(n || 1))) });
@@ -983,20 +984,20 @@ function SeedreamSettingsPopover({
       {isOpen && (
         <div className="absolute bottom-full left-0 mb-2 z-10 w-[280px] rounded-md border bg-background p-2 text-xs shadow">
           <div className="mb-2">
-            <div className="mb-1 text-[11px] text-muted-foreground">分辨率</div>
-            <div className="grid grid-cols-3 gap-1">
-              {sizes.map((s) => (
+            <div className="mb-1 text-[11px] text-muted-foreground">宽高比</div>
+            <div className="grid grid-cols-4 gap-1">
+              {aspectOptions.map((ar) => (
                 <button
-                  key={s}
+                  key={ar}
                   type="button"
                   disabled={disabled}
-                  onClick={() => setSize(s)}
+                  onClick={() => setAspect(ar)}
                   className={cn(
                     "rounded-md border px-2 py-1",
-                    value.size === s ? "bg-accent text-accent-foreground border-transparent" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    value.aspectRatio === ar ? "bg-accent text-accent-foreground border-transparent" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                   )}
                 >
-                  {s}
+                  {ar}
                 </button>
               ))}
             </div>
