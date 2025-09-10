@@ -99,8 +99,8 @@ const defaultSettings: ConversationSettings = {
     size: '2K',
     sequentialImageGeneration: 'auto',
     maxImages: 1,
-    responseFormat: 'url',
-    watermark: true,
+    responseFormat: 'b64_json',
+    watermark: false,
   },
 };
 

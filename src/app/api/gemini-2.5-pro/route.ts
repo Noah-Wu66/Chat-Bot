@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
   const apiKey = process.env.AIHUBMIX_API_KEY as string | undefined;
   if (!apiKey) return new Response(JSON.stringify({ error: 'Missing AIHUBMIX_API_KEY' }), { status: 500 });
-  const GEMINI_BASE_URL = 'https://aihubmix.com/gemini';
+  const GEMINI_BASE_URL = 'https://aihubmix.com/v1beta/gemini';
   const Conversation = await getConversationModel();
   const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
   const modelToUse = 'gemini-2.5-pro' as const;

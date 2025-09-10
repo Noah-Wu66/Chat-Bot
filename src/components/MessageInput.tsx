@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Paperclip, X, Image as ImageIcon, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle, Square, Video, SlidersHorizontal } from 'lucide-react';
+import { Send, Paperclip, X, Image as ImageIcon, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle, Square, Video, SlidersHorizontal, Palette } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS, ModelId } from '@/lib/types';
 import { cn, fileToBase64, compressImageSmart } from '@/utils/helpers';
@@ -314,6 +314,23 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
               }}
               disabled={disabled || isStreaming}
               onChange={(v) => setSettings({ veo3: { ...(settings.veo3 || {}), ...(v as any) } })}
+              open={undefined}
+              onOpenChange={undefined}
+            />
+          )}
+
+          {/* Seedream 4.0 设置 */}
+          {currentModel === 'seedream-4-0' && (
+            <SeedreamSettingsPopover
+              value={{
+                size: (settings.seedream?.size as any) || '2K',
+                sequentialImageGeneration: 'auto',
+                maxImages: (typeof settings.seedream?.maxImages === 'number' ? settings.seedream?.maxImages : 1) as number,
+                responseFormat: 'b64_json',
+                watermark: false,
+              }}
+              disabled={disabled || isStreaming}
+              onChange={(v) => setSettings({ seedream: { ...(settings.seedream || {}), ...(v as any), sequentialImageGeneration: 'auto', responseFormat: 'b64_json', watermark: false } })}
               open={undefined}
               onOpenChange={undefined}
             />
@@ -912,6 +929,96 @@ function Gpt5SettingsPopover({
               className="w-full"
             />
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SeedreamSettingsPopover({
+  value,
+  disabled,
+  onChange,
+  open,
+  onOpenChange,
+}: {
+  value: { size: string; sequentialImageGeneration: 'auto' | 'on' | 'off'; maxImages: number; responseFormat: 'url' | 'b64_json'; watermark: boolean };
+  disabled?: boolean;
+  onChange: (v: Partial<{ size: string; sequentialImageGeneration: 'auto' | 'on' | 'off'; maxImages: number; responseFormat: 'url' | 'b64_json'; watermark: boolean }>) => void;
+  open?: boolean;
+  onOpenChange?: (o: boolean) => void;
+}) {
+  const [innerOpen, setInnerOpen] = useState(false);
+  const isControlled = typeof open === 'boolean';
+  const isOpen = isControlled ? (open as boolean) : innerOpen;
+  const toggle = () => (onOpenChange ? onOpenChange(!isOpen) : setInnerOpen((o) => !o));
+  const summary = `${value.size} · 连续:auto · Base64`;
+
+  const sizes = ['1K', '2K', '4K'];
+  const seqOptions: Array<'auto'|'on'|'off'> = ['auto'];
+  const fmtOptions: Array<'url'|'b64_json'> = ['b64_json'];
+
+  const setSize = (s: string) => onChange({ size: s });
+  const setSeq = (s: 'auto'|'on'|'off') => onChange({ sequentialImageGeneration: s });
+  const setFmt = (f: 'url'|'b64_json') => onChange({ responseFormat: f });
+  const setMax = (n: number) => onChange({ maxImages: Math.max(1, Math.min(10, Math.floor(n || 1))) });
+  const setWatermark = (w: boolean) => onChange({ watermark: w });
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={toggle}
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] hover:bg-accent hover:text-accent-foreground",
+          "disabled:pointer-events-none disabled:opacity-50"
+        )}
+        title="Seedream 设置"
+      >
+        <Palette className="h-3.5 w-3.5" />
+        <span>{summary}</span>
+        <ChevronDown className="h-3 w-3" />
+      </button>
+      {isOpen && (
+        <div className="absolute bottom-full left-0 mb-2 z-10 w-[280px] rounded-md border bg-background p-2 text-xs shadow">
+          <div className="mb-2">
+            <div className="mb-1 text-[11px] text-muted-foreground">分辨率</div>
+            <div className="grid grid-cols-3 gap-1">
+              {sizes.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setSize(s)}
+                  className={cn(
+                    "rounded-md border px-2 py-1",
+                    value.size === s ? "bg-accent text-accent-foreground border-transparent" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* 连续生成固定为 auto，隐藏交互 */}
+          {/* 返回格式固定为 b64_json，隐藏交互 */}
+          <div className="mb-2">
+            <div className="mb-1 text-[11px] text-muted-foreground">最大生成张数</div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={Math.max(1, Math.min(10, Number(value.maxImages || 1)))}
+                onChange={(e) => setMax(parseInt(e.target.value))}
+                disabled={disabled}
+                className="w-16 rounded-md border px-2 py-1 bg-background"
+              />
+              <span className="text-[11px] text-muted-foreground">1-10</span>
+            </div>
+          </div>
+          {/* 水印固定为关闭，隐藏交互 */}
         </div>
       )}
     </div>

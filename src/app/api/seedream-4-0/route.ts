@@ -120,10 +120,10 @@ export async function POST(req: Request) {
   const { text: prompt, imageUrls } = extractTextAndImageUrls(input);
   const sd = settings?.seedream || {};
   const size: string = typeof sd?.size === 'string' && sd.size ? sd.size : '2K';
-  const seqGen: 'auto' | 'on' | 'off' = (['auto', 'on', 'off'] as const).includes(sd?.sequentialImageGeneration) ? sd.sequentialImageGeneration : 'auto';
+  const seqGen: 'auto' | 'on' | 'off' = 'auto';
   const maxImages: number = typeof sd?.maxImages === 'number' && sd.maxImages > 0 ? sd.maxImages : 1;
-  const responseFormat: 'url' | 'b64_json' = sd?.responseFormat === 'b64_json' ? 'b64_json' : 'url';
-  const watermark: boolean = typeof sd?.watermark === 'boolean' ? sd.watermark : true;
+  const responseFormat: 'url' | 'b64_json' = 'b64_json';
+  const watermark: boolean = false;
 
   const arkPayload: any = {
     model: 'doubao-seedream-4-0-250828',
@@ -167,11 +167,7 @@ export async function POST(req: Request) {
           const json = await resp.json();
           const { urls, b64 } = parseArkImages(json);
           const images: string[] = [];
-          if (responseFormat === 'url') {
-            images.push(...urls);
-          } else {
-            for (const b of b64) images.push(`data:image/png;base64,${b}`);
-          }
+          for (const b of b64) images.push(`data:image/png;base64,${b}`);
 
           if (images.length === 0) {
             controller.enqueue(
@@ -241,8 +237,7 @@ export async function POST(req: Request) {
   const json = await resp.json();
   const { urls, b64 } = parseArkImages(json);
   const images: string[] = [];
-  if (responseFormat === 'url') images.push(...urls);
-  else for (const b of b64) images.push(`data:image/png;base64,${b}`);
+  for (const b of b64) images.push(`data:image/png;base64,${b}`);
 
   if (images.length === 0) {
     return new Response(
