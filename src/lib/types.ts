@@ -68,6 +68,15 @@ export interface ConversationSettings {
   sound?: {
     onComplete?: boolean;
   };
+
+  // Seedream 4.0 专属设置
+  seedream?: {
+    size?: string; // 如 '2K'
+    sequentialImageGeneration?: 'auto' | 'on' | 'off';
+    maxImages?: number; // sequential_image_generation_options.max_images
+    responseFormat?: 'url' | 'b64_json';
+    watermark?: boolean;
+  };
 }
 
 // 支持的模型列表（仅保留 Gemini 2.5 Flash 图像生成）
@@ -115,6 +124,19 @@ export const MODELS: Record<string, ModelConfig> = {
   'veo3-fast': {
     name: 'Veo3 Fast',
     description: '视频生成（无上下文）：文本或图生视频',
+    type: 'chat',
+    supportsVision: true,
+    supportsSearch: false,
+    supportsTools: false,
+    supportsReasoning: false,
+    supportsVerbosity: false,
+    supportsTemperature: false,
+    maxTokens: 1,
+  },
+  // Seedream 4.0（图像生成，支持文生图与图生图）
+  'seedream-4-0': {
+    name: 'Seedream 4.0',
+    description: '图像生成：文本或图生图（Ark Images Generations）',
     type: 'chat',
     supportsVision: true,
     supportsSearch: false,

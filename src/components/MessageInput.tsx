@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Send, Paperclip, X, Image as ImageIcon, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle, Square, Video, SlidersHorizontal } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS, ModelId } from '@/lib/types';
-import { cn, fileToBase64, compressImage } from '@/utils/helpers';
+import { cn, fileToBase64, compressImageSmart } from '@/utils/helpers';
 import ModelSelector from './ModelSelector';
 
 interface MessageInputProps {
@@ -172,17 +172,13 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
       }
     }
 
-    // 处理图片（必要时压缩 -> base64）
+    // 处理图片（始终进行有损压缩 -> base64，控制请求体大小）
     if (imageFiles.length > 0) {
-      let totalBytes = 0;
-      for (const f of imageFiles) totalBytes += f.size;
-      const MAX_TOTAL_BYTES = 20 * 1024 * 1024; // 20MB
-      const shouldCompress = totalBytes > MAX_TOTAL_BYTES;
       const newImages: string[] = [];
       for (const file of imageFiles) {
         try {
-          const processed = shouldCompress ? await compressImage(file) : file;
-          const base64 = await fileToBase64(processed);
+          const processed = await compressImageSmart(file, { maxWidth: 1280, maxHeight: 1280, maxBytes: 1024 * 1024, initialQuality: 0.75, mimeType: 'image/webp' });
+          const base64 = await fileToBase64(processed); // data:image/webp;base64,...
           newImages.push(base64);
         } catch {}
       }

@@ -94,7 +94,11 @@ export async function POST(req: Request) {
         const msg = historyWithoutCurrent[i];
         if (msg && msg.role === 'assistant' && Array.isArray(msg.images) && msg.images.length > 0) {
           const last = msg.images[msg.images.length - 1];
-          if (typeof last === 'string' && last) return last;
+          if (typeof last === 'string' && last) {
+            // 避免将 data:URL 的大图再次注入，导致请求体过大
+            if (/^data:/i.test(last)) continue;
+            return last;
+          }
         }
       }
     } catch {}
@@ -104,6 +108,8 @@ export async function POST(req: Request) {
   // 将上一张助手图片注入到本次 input 中（与用户上传图片一并作为输入）
   const augmentInputWithPrevImage = (src: string | any[], prevImageUrl: string | null): string | any[] => {
     if (!prevImageUrl) return src;
+    // 仅注入远程 http(s) 图片，跳过 data:URL
+    if (!/^https?:\/\//i.test(prevImageUrl)) return src;
 
     const makeImageItem = (url: string) => ({ type: 'input_image', image_url: url });
 

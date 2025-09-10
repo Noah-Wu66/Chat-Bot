@@ -133,6 +133,8 @@ export default function ChatInterface() {
         apiEndpoint = '/api/gemini-2.5-flash-image-preview';
       } else if (currentModel === 'veo3-fast') {
         apiEndpoint = '/api/veo3-fast';
+      } else if (currentModel === 'seedream-4-0') {
+        apiEndpoint = '/api/seedream-4-0';
       } else if (currentModel === 'gemini-2.5-pro') {
         apiEndpoint = '/api/gemini';
       }
@@ -592,7 +594,9 @@ export default function ChatInterface() {
                   ? '/api/gemini-2.5-flash-image-preview'
                   : (currentModel === 'veo3-fast'
                     ? '/api/veo3-fast'
-                    : (currentModel === 'gemini-2.5-pro' ? '/api/gemini' : '/api/gpt-5'));
+                    : (currentModel === 'seedream-4-0'
+                      ? '/api/seedream-4-0'
+                      : (currentModel === 'gemini-2.5-pro' ? '/api/gemini' : '/api/gpt-5')));
 
                 const toImageItem = (img: string) => ({ type: 'input_image', image_url: img } as any);
                 let input: string | any[];

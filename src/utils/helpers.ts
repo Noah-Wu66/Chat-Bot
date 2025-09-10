@@ -146,6 +146,85 @@ export function compressImage(file: File, maxWidth = 1024, quality = 0.8): Promi
   });
 }
 
+// 更智能的图片压缩：控制尺寸与体积，优先保证请求体不过大
+export async function compressImageSmart(
+  file: File,
+  options?: {
+    maxWidth?: number;
+    maxHeight?: number;
+    maxBytes?: number;
+    initialQuality?: number;
+    mimeType?: 'image/jpeg' | 'image/webp';
+  }
+): Promise<File> {
+  const maxWidth = typeof options?.maxWidth === 'number' ? options!.maxWidth! : 1280;
+  const maxHeight = typeof options?.maxHeight === 'number' ? options!.maxHeight! : 1280;
+  const maxBytes = typeof options?.maxBytes === 'number' ? options!.maxBytes! : 1024 * 1024; // 1MB 默认
+  let quality = typeof options?.initialQuality === 'number' ? options!.initialQuality! : 0.75;
+  const mimeType: 'image/jpeg' | 'image/webp' = options?.mimeType || 'image/jpeg';
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = (e) => reject(e);
+    i.src = URL.createObjectURL(file);
+  });
+
+  const drawAndExport = (w: number, h: number, q: number): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d')!;
+      // 背景填充，避免 PNG 透明转 JPEG 出现黑底
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob((blob) => resolve(blob || new Blob()), mimeType, Math.min(Math.max(q, 0.3), 0.95));
+    });
+  };
+
+  const scaleToFit = (w: number, h: number) => {
+    const wr = maxWidth / w;
+    const hr = maxHeight / h;
+    const r = Math.min(1, wr, hr);
+    return { w: Math.round(w * r), h: Math.round(h * r) };
+  };
+
+  let { w, h } = (() => {
+    const s = scaleToFit(img.naturalWidth || img.width, img.naturalHeight || img.height);
+    return { w: s.w, h: s.h };
+  })();
+
+  // 迭代压缩，优先降低质量，再按需缩小分辨率
+  let attempt = 0;
+  let blob = await drawAndExport(w, h, quality);
+  while (blob.size > maxBytes && attempt < 8) {
+    attempt += 1;
+    if (quality > 0.5) {
+      quality = Math.max(0.5, quality - 0.12);
+    } else {
+      w = Math.max(480, Math.floor(w * 0.85));
+      h = Math.max(480, Math.floor(h * 0.85));
+    }
+    blob = await drawAndExport(w, h, quality);
+  }
+
+  // 若仍超过，做最后一次强力压缩
+  if (blob.size > maxBytes) {
+    const forceQ = Math.max(0.4, quality - 0.15);
+    const fw = Math.max(400, Math.floor(w * 0.85));
+    const fh = Math.max(400, Math.floor(h * 0.85));
+    blob = await drawAndExport(fw, fh, forceQ);
+  }
+
+  const nameBase = file.name.replace(/\.[^.]+$/, '') || 'image';
+  const ext = mimeType === 'image/webp' ? 'webp' : 'jpg';
+  const out = new File([blob], `${nameBase}.${ext}`, { type: mimeType, lastModified: Date.now() });
+  try { URL.revokeObjectURL(img.src); } catch {}
+  return out;
+}
+
 // 检查是否为移动设备
 export function isMobile(): boolean {
   if (typeof window === 'undefined') return false;

@@ -95,6 +95,13 @@ const defaultSettings: ConversationSettings = {
     enhancePrompt: true,
     autoFix: true,
   },
+  seedream: {
+    size: '2K',
+    sequentialImageGeneration: 'auto',
+    maxImages: 1,
+    responseFormat: 'url',
+    watermark: true,
+  },
 };
 
 export const useChatStore = create<ChatState>()(
@@ -173,6 +180,16 @@ export const useChatStore = create<ChatState>()(
             generateAudio: false,
             enhancePrompt: true,
             autoFix: true,
+          };
+        }
+        // 确保 Seedream 默认值存在（向后兼容旧持久化）
+        if (!newSettings.seedream) {
+          newSettings.seedream = {
+            size: '2K',
+            sequentialImageGeneration: 'auto',
+            maxImages: 1,
+            responseFormat: 'url',
+            watermark: true,
           };
         }
         
