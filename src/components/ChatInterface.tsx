@@ -127,17 +127,14 @@ export default function ChatInterface() {
         addMessage(userMessage);
       }
 
-      // 按模型选择 API 路由
+      // 按模型选择 API 路由（Gemini 统一到 /api/gemini）
       let apiEndpoint = '/api/gpt-5';
       if (currentModel === 'gemini-2.5-flash-image-preview') {
         apiEndpoint = '/api/gemini-2.5-flash-image-preview';
       } else if (currentModel === 'veo3-fast') {
         apiEndpoint = '/api/veo3-fast';
       } else if (currentModel === 'gemini-2.5-pro') {
-        // 使用简洁别名路径，避免平台对点号路径的兼容性问题
         apiEndpoint = '/api/gemini';
-      } else if (currentModel === 'gemini-2.5-pro') {
-        apiEndpoint = '/api/gemini-2.5-pro';
       }
 
       // Responses API 入参：文本或图文
@@ -250,17 +247,7 @@ export default function ChatInterface() {
         signal: controller.signal,
       });
 
-      // 404 兼容：平台可能不识别点号路径，回退到 /api/gemini-2_5-pro
-      if (response.status === 404 && apiEndpoint === '/api/gemini-2.5-pro') {
-        try { console.warn('[Chat][diag] 404 fallback -> /api/gemini-2_5-pro'); } catch {}
-        response = await fetch('/api/gemini-2_5-pro', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-          credentials: 'include',
-          signal: controller.signal,
-        });
-      }
+      // 统一接口后不再需要 /api/gemini-2.5-pro 或下划线回退
 
       if (!response.ok) {
         const status = response.status;
@@ -632,25 +619,7 @@ export default function ChatInterface() {
                   })
                 });
 
-                if (response.status === 404 && apiEndpoint === '/api/gemini-2.5-flash-image-preview') {
-                  // 保持与上方风格一致的回退逻辑（此分支一般不触达 gemini-2.5-pro，但留作兼容）
-                  try { console.warn('[Chat][diag][regenerate] 404 fallback -> /api/gemini-2_5-pro'); } catch {}
-                  response = await fetch('/api/gemini-2_5-pro', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    signal: controller.signal,
-                    body: JSON.stringify({
-                      conversationId: currentConversation.id,
-                      input,
-                      model: currentModel,
-                      settings,
-                      stream: true,
-                      regenerate: true,
-                      ...(MODELS[currentModel]?.supportsSearch ? { webSearch: webSearchEnabled } : {}),
-                    })
-                  });
-                }
+                // 统一接口后不再需要 /api/gemini-2_5-pro 回退
 
                 if (!response.ok) {
                   const status = response.status;

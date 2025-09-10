@@ -91,7 +91,7 @@ export const MODELS: Record<string, ModelConfig> = {
     description: '原生联网搜索，文本/图像多模态对话',
     type: 'chat',
     supportsVision: true,
-    supportsSearch: false,
+    supportsSearch: true,
     supportsTools: false,
     supportsReasoning: false,
     supportsVerbosity: false,

@@ -165,10 +165,24 @@ export async function POST(req: Request) {
   const generationConfig: any = {
     response_mime_type: 'text/plain',
   };
+  // 思考过程输出：与前端设置松耦合，默认关闭；当用户提高推理努力时开启
+  try {
+    const includeThoughts = String(settings?.reasoning?.effort || '').toLowerCase() === 'high';
+    if (includeThoughts) {
+      generationConfig.thinking_config = { include_thoughts: true };
+    }
+  } catch {}
   if (typeof settings?.maxTokens === 'number') generationConfig.max_output_tokens = settings.maxTokens;
   if (typeof settings?.temperature === 'number') generationConfig.temperature = settings.temperature;
   // 系统指令：中文回复
   generationConfig.system_instruction = '总是用中文回复';
+  // 如果包含多媒体，设置中等分辨率以控制 token 开销
+  try {
+    const hasInlineData = Array.isArray(contentsPayload) && contentsPayload.some((c: any) => Array.isArray(c?.parts) && c.parts.some((p: any) => p && (p.inlineData || p.inline_data)));
+    if (hasInlineData) {
+      generationConfig.media_resolution = 'MEDIA_RESOLUTION_MEDIUM';
+    }
+  } catch {}
 
   let content = '';
   try {
