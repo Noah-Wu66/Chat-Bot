@@ -95,6 +95,9 @@ export async function POST(req: Request) {
   const Conversation = await getConversationModel();
   const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
   const modelToUse = 'seedream-4-0' as const;
+  try {
+    console.log('[Seedream][route] start', { requestId, stream: !!stream, model: modelToUse });
+  } catch {}
 
   // 记录用户消息（仅文本）
   const { text: userText } = extractTextAndImageUrls(input);
@@ -166,6 +169,19 @@ export async function POST(req: Request) {
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: 'start', requestId, route: 'ark.images', model: modelToUse })}\n\n`)
           );
+          try {
+            console.log('[Seedream][route] fetch ark (stream)', {
+              requestId,
+              endpoint: arkEndpoint,
+              aspect,
+              size: `${imageSize.width}x${imageSize.height}`,
+              responseFormat,
+              seqGen,
+              maxImages,
+              promptLen: (prompt || '').length,
+              inputImages: Array.isArray(imageUrls) ? imageUrls.length : 0,
+            });
+          } catch {}
 
           const resp = await fetch(arkEndpoint, {
             method: 'POST',
@@ -178,10 +194,13 @@ export async function POST(req: Request) {
 
           if (!resp.ok) {
             const errText = await resp.text().catch(() => '');
+            try { console.error('[Seedream][route] ark http error', { requestId, status: resp.status, contentType: resp.headers.get('content-type'), bodyPreview: errText?.slice?.(0, 400) }); } catch {}
             throw new Error(errText || 'Ark 请求失败');
           }
 
+          try { console.log('[Seedream][route] ark http ok', { requestId, status: resp.status, contentType: resp.headers.get('content-type') }); } catch {}
           const json = await resp.json();
+          try { console.log('[Seedream][route] ark json received', { requestId, hasData: !!json, keys: json ? Object.keys(json).slice(0, 8) : [] }); } catch {}
           const { urls, b64 } = parseArkImages(json);
           // 将 URL 与 base64 一并下发为 images，前端统一展示
           const images: string[] = [];
@@ -195,6 +214,7 @@ export async function POST(req: Request) {
               if (typeof b === 'string' && b) images.push(`data:image/png;base64,${b}`);
             }
           }
+          try { console.log('[Seedream][route] parsed images', { requestId, urls: (urls || []).length, b64: (b64 || []).length, images: images.length }); } catch {}
 
           if (images.length === 0) {
             controller.enqueue(
@@ -204,6 +224,7 @@ export async function POST(req: Request) {
             return;
           }
 
+          try { console.log('[Seedream][route] send images event', { requestId, count: images.length }); } catch {}
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'images', images })}\n\n`));
 
           try {
@@ -226,8 +247,10 @@ export async function POST(req: Request) {
           } catch {}
 
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+          try { console.log('[Seedream][route] send done event', { requestId }); } catch {}
           controller.close();
         } catch (e: any) {
+          try { console.error('[Seedream][route] stream error', { requestId, message: e?.message || String(e) }); } catch {}
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e?.message || String(e) })}\n\n`)
           );
@@ -249,6 +272,19 @@ export async function POST(req: Request) {
   }
 
   // 非流式
+  try {
+    console.log('[Seedream][route] fetch ark (non-stream)', {
+      requestId,
+      endpoint: arkEndpoint,
+      aspect,
+      size: `${imageSize.width}x${imageSize.height}`,
+      responseFormat,
+      seqGen,
+      maxImages,
+      promptLen: (prompt || '').length,
+      inputImages: Array.isArray(imageUrls) ? imageUrls.length : 0,
+    });
+  } catch {}
   const resp = await fetch(arkEndpoint, {
     method: 'POST',
     headers: {
@@ -259,9 +295,12 @@ export async function POST(req: Request) {
   });
   if (!resp.ok) {
     const errText = await resp.text().catch(() => '');
+    try { console.error('[Seedream][route] ark http error (non-stream)', { requestId, status: resp.status, contentType: resp.headers.get('content-type'), bodyPreview: errText?.slice?.(0, 400) }); } catch {}
     return new Response(JSON.stringify({ error: errText || 'Ark 请求失败' }), { status: 500 });
   }
+  try { console.log('[Seedream][route] ark http ok (non-stream)', { requestId, status: resp.status, contentType: resp.headers.get('content-type') }); } catch {}
   const json = await resp.json();
+  try { console.log('[Seedream][route] ark json received (non-stream)', { requestId, hasData: !!json, keys: json ? Object.keys(json).slice(0, 8) : [] }); } catch {}
   const { urls, b64 } = parseArkImages(json);
   const images: string[] = [];
   if (Array.isArray(urls)) {
@@ -274,6 +313,7 @@ export async function POST(req: Request) {
       if (typeof b === 'string' && b) images.push(`data:image/png;base64,${b}`);
     }
   }
+  try { console.log('[Seedream][route] parsed images (non-stream)', { requestId, urls: (urls || []).length, b64: (b64 || []).length, images: images.length }); } catch {}
 
   if (images.length === 0) {
     return new Response(

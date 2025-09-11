@@ -331,6 +331,14 @@ export default function ChatInterface() {
               if (dataLines.length === 0) continue;
               const payload = dataLines.join('\n');
               const data = JSON.parse(payload);
+              // 记录事件类型以便排障
+              try {
+                console.log('[SSE][seedream] event', {
+                  type: data?.type,
+                  hasImages: Array.isArray(data?.images) ? data.images.length : undefined,
+                  contentLen: typeof data?.content === 'string' ? data.content.length : undefined,
+                });
+              } catch {}
 
               switch (data.type) {
                 case 'content':
