@@ -345,7 +345,6 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
                 resolution: (settings.seedance?.resolution as any) || '720p',
                 duration: (typeof settings.seedance?.duration === 'number' ? settings.seedance?.duration : 5) as number,
                 fps: 24,
-                watermark: false,
                 cameraFixed: settings.seedance?.cameraFixed === true,
                 seed: (typeof settings.seedance?.seed === 'number' ? settings.seedance?.seed : undefined) as number | undefined,
               }}
