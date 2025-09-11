@@ -213,7 +213,7 @@ export async function POST(req: Request) {
       async start(controller) {
         try {
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ type: 'start', requestId, route: 'gemini.generate_content', model: modelToUse })}\n\n`)
+            encoder.encode(`data: ${JSON.stringify({ type: 'start', requestId, route: 'gemini.generate_content', model: displayModel })}\n\n`)
           );
 
           const primaryUrl = `${GEMINI_BASE_URL}/models/${upstreamModel}:streamGenerateContent?alt=sse`;
