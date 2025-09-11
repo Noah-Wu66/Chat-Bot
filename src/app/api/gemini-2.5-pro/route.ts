@@ -216,7 +216,7 @@ export async function POST(req: Request) {
             encoder.encode(`data: ${JSON.stringify({ type: 'start', requestId, route: 'gemini.generate_content', model: displayModel })}\n\n`)
           );
 
-          const primaryUrl = `${GEMINI_BASE_URL}/models/${upstreamModel}:streamGenerateContent?alt=sse`;
+          const primaryUrl = `${GEMINI_BASE_URL}/models/${upstreamModel}:generateContent?alt=sse`;
           try { console.log('[GeminiPro][stream] POST', JSON.stringify({ requestId, url: primaryUrl })); } catch {}
           const makeHeaders = (variant: 'std' | 'xonly' | 'googonly') => ({
             ...(variant === 'std' || variant === 'googonly' ? { 'x-goog-api-key': apiKey } : {}),
@@ -249,8 +249,8 @@ export async function POST(req: Request) {
             if (!resp2.ok) {
               const errText2 = await resp2.text();
               try { console.error('[GeminiPro][stream] http error#2', JSON.stringify({ requestId, status: resp2.status, bodyPreview: (errText2 || '').slice(0, 300) })); } catch {}
-              // Fallback 2: 改用 /v1 路径
-              const altUrl = `${GEMINI_BASE_URL.replace('/v1beta', '/v1')}/models/${upstreamModel}:streamGenerateContent?alt=sse`;
+              // Fallback 2: 改用 /v1 路径（generateContent?alt=sse）
+              const altUrl = `${GEMINI_BASE_URL.replace('/v1beta', '/v1')}/models/${upstreamModel}:generateContent?alt=sse`;
               try { console.log('[GeminiPro][stream] fallback url', JSON.stringify({ requestId, altUrl })); } catch {}
               const resp3 = await fetch(altUrl, { method: 'POST', headers: makeHeaders('xonly'), body: commonBody });
               if (!resp3.ok) {
