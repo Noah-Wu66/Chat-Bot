@@ -268,6 +268,8 @@ export default function ChatInterface() {
       }
 
       const contentType = response.headers.get('Content-Type') || '';
+      // 记录后端声明的路由模型（用于消息落库展示）
+      const headerModel = response.headers.get('X-Model');
       const canStream = contentType.includes('text/event-stream');
 
       // 调试：响应头
@@ -293,7 +295,7 @@ export default function ChatInterface() {
         let assistantVideos: string[] = [];
         let reasoning = '';
         let chunkCount = 0;
-        let routedModel: string | null = null;
+        let routedModel: string | null = headerModel || null;
         let assistantAdded = false;
         let searchUsed = false;
         let latestSources: any[] = [];
@@ -406,14 +408,16 @@ export default function ChatInterface() {
             }
           }
         }
-        // 循环结束：如果没有收到 done 事件，但流已结束且有内容，则补写一条
-        if (!assistantAdded && assistantContent && !controller.signal.aborted) {
+        // 循环结束：若未收到 done，但已积累文本或媒体，则补写一条完整消息
+        if (!assistantAdded && !controller.signal.aborted && (assistantContent || (assistantImages?.length ?? 0) > 0 || (assistantVideos?.length ?? 0) > 0)) {
           addMessage({
             id: generateId(),
             role: 'assistant',
-            content: assistantContent,
+            content: assistantContent || '',
             timestamp: new Date(),
             model: routedModel || currentModel,
+            images: (assistantImages && assistantImages.length > 0) ? assistantImages : undefined,
+            videos: (assistantVideos && assistantVideos.length > 0) ? assistantVideos : undefined,
             metadata: reasoning ? { reasoning, verbosity: settings.text?.verbosity } : undefined,
           } as any);
           try { if (settings?.sound?.onComplete !== false) { playCompletionChime(); } } catch {}
@@ -723,8 +727,15 @@ export default function ChatInterface() {
                     } catch {}
                   }
                 }
-                if (!assistantAdded && assistantContent && !controller.signal.aborted) {
-                  addMessage({ id: generateId(), role: 'assistant', content: assistantContent, timestamp: new Date(), model: currentModel } as any);
+                if (!assistantAdded && !controller.signal.aborted && (assistantContent || (assistantImages?.length ?? 0) > 0)) {
+                  addMessage({
+                    id: generateId(),
+                    role: 'assistant',
+                    content: assistantContent || '',
+                    timestamp: new Date(),
+                    model: currentModel,
+                    images: (assistantImages && assistantImages.length > 0) ? assistantImages : undefined,
+                  } as any);
                   try { if (settings?.sound?.onComplete !== false) { playCompletionChime(); } } catch {}
                 }
               } catch (e: any) {

@@ -183,8 +183,18 @@ export async function POST(req: Request) {
 
           const json = await resp.json();
           const { urls, b64 } = parseArkImages(json);
+          // 将 URL 与 base64 一并下发为 images，前端统一展示
           const images: string[] = [];
-          for (const b of b64) images.push(`data:image/png;base64,${b}`);
+          if (Array.isArray(urls)) {
+            for (const u of urls) {
+              if (typeof u === 'string' && u) images.push(u);
+            }
+          }
+          if (Array.isArray(b64)) {
+            for (const b of b64) {
+              if (typeof b === 'string' && b) images.push(`data:image/png;base64,${b}`);
+            }
+          }
 
           if (images.length === 0) {
             controller.enqueue(
@@ -254,7 +264,16 @@ export async function POST(req: Request) {
   const json = await resp.json();
   const { urls, b64 } = parseArkImages(json);
   const images: string[] = [];
-  for (const b of b64) images.push(`data:image/png;base64,${b}`);
+  if (Array.isArray(urls)) {
+    for (const u of urls) {
+      if (typeof u === 'string' && u) images.push(u);
+    }
+  }
+  if (Array.isArray(b64)) {
+    for (const b of b64) {
+      if (typeof b === 'string' && b) images.push(`data:image/png;base64,${b}`);
+    }
+  }
 
   if (images.length === 0) {
     return new Response(
