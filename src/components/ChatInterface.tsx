@@ -309,7 +309,9 @@ export default function ChatInterface() {
 
           chunkCount++;
           const chunk = decoder.decode(value, { stream: true });
-          sseBuffer += chunk;
+          // 兼容 CRLF：统一归一化为 \n，避免无法按空行切块
+          const normalized = chunk.replace(/\r\n/g, '\n');
+          sseBuffer += normalized;
 
           // 使用空行分隔的事件块解析（兼容大数据量，例如 base64 图片）
           while (true) {
@@ -321,8 +323,11 @@ export default function ChatInterface() {
             try {
               const dataLines = block
                 .split('\n')
-                .filter((l) => l.startsWith('data: '))
-                .map((l) => l.slice(6));
+                .filter((l) => l.startsWith('data:'))
+                .map((l) => {
+                  const after = l.slice(5);
+                  return after.startsWith(' ') ? after.slice(1) : after;
+                });
               if (dataLines.length === 0) continue;
               const payload = dataLines.join('\n');
               const data = JSON.parse(payload);
