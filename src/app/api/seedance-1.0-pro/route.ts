@@ -1,0 +1,239 @@
+import { cookies } from 'next/headers';
+import { verifyJWT } from '@/lib/auth';
+import { getUserModel } from '@/lib/models/User';
+import { getConversationModel } from '@/lib/models/Conversation';
+
+export const runtime = 'nodejs';
+
+function getArkKey(): string | null {
+  try {
+    return process.env.ARK_API_KEY || null;
+  } catch {
+    return null;
+  }
+}
+
+async function getCurrentUser() {
+  const cookieStore = cookies();
+  const token = cookieStore.get('auth_token')?.value;
+  if (!token) return null;
+  const payload = verifyJWT(token);
+  if (!payload) return null;
+  try {
+    const User = await getUserModel();
+    const u = await User.findOne({ id: payload.sub }).lean();
+    if (!u) return null;
+    if ((u as any).isBanned) return { ...payload, isBanned: true } as any;
+    return { ...payload, isBanned: Boolean((u as any).isBanned) } as any;
+  } catch {
+    return payload as any;
+  }
+}
+
+function extractTextAndFirstHttpImage(input: string | any[]): { text: string; imageUrl: string | null } {
+  if (Array.isArray(input)) {
+    const first = input.find((i: any) => Array.isArray(i?.content));
+    const contentArr = Array.isArray(first?.content) ? first.content : [];
+    const textItem = contentArr.find((c: any) => c?.type === 'input_text');
+    const text = textItem?.text || '';
+    let imageUrl: string | null = null;
+    for (const it of contentArr) {
+      if (it && it.type === 'input_image') {
+        const maybe = typeof it.image_url === 'string' ? it.image_url : (it?.image_url?.url || '');
+        if (typeof maybe === 'string' && /^https?:\/\//i.test(maybe)) { imageUrl = maybe; break; }
+      }
+    }
+    return { text, imageUrl };
+  }
+  return { text: String(input ?? ''), imageUrl: null };
+}
+
+export async function POST(req: Request) {
+  const user = await getCurrentUser();
+  if (!user) return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
+  if ((user as any).isBanned) return new Response(JSON.stringify({ error: '账户已被封禁' }), { status: 403 });
+
+  const arkKey = getArkKey();
+  if (!arkKey) return new Response(JSON.stringify({ error: '缺少 ARK_API_KEY' }), { status: 500 });
+
+  const body = await req.json();
+  const { conversationId, input, model, stream = true, regenerate } = body as {
+    conversationId: string;
+    input: string | any[];
+    model: string;
+    stream?: boolean;
+    regenerate?: boolean;
+  };
+
+  const Conversation = await getConversationModel();
+  const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  const modelToUse = 'seedance-1.0-pro' as const;
+
+  // 记录用户消息（仅文本内容）
+  const { text: userText } = extractTextAndFirstHttpImage(input);
+  if (!regenerate) {
+    try {
+      await Conversation.updateOne(
+        { id: conversationId, userId: (user as any).sub },
+        {
+          $push: {
+            messages: {
+              id: Date.now().toString(36),
+              role: 'user',
+              content: userText,
+              timestamp: new Date(),
+              model,
+            },
+          },
+          $set: { updatedAt: new Date() },
+        }
+      );
+    } catch {}
+  }
+
+  // Ark Content Generation API
+  const BASE = 'https://ark.cn-beijing.volces.com/api/v3';
+  const createEndpoint = `${BASE}/content-generation/tasks`;
+
+  const { text: prompt, imageUrl } = extractTextAndFirstHttpImage(input);
+  const content: any[] = [];
+  content.push({ type: 'text', text: `${prompt || ''}`.trim() });
+  if (imageUrl) {
+    content.push({ type: 'image_url', image_url: { url: imageUrl } });
+  }
+
+  const createPayload = {
+    model: 'doubao-seedance-1-0-pro-250528',
+    content,
+  } as const;
+
+  if (!stream) {
+    // 简化：非流式仅返回任务创建结果（前端目前仅走流式）
+    const resp = await fetch(createEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${arkKey}`,
+      },
+      body: JSON.stringify(createPayload),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      return new Response(JSON.stringify({ error: errText || 'Ark 请求失败' }), { status: 500 });
+    }
+    const json = await resp.json();
+    return Response.json({ task: json, requestId }, { headers: { 'X-Request-Id': requestId, 'X-Model': modelToUse } });
+  }
+
+  const encoder = new TextEncoder();
+  const streamBody = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (obj: any) => {
+        try { controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`)); } catch {}
+      };
+      try {
+        send({ type: 'start', requestId, route: 'ark.content_generation', model: modelToUse });
+
+        // 1) 创建任务
+        const resp = await fetch(createEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${arkKey}`,
+          },
+          body: JSON.stringify(createPayload),
+        });
+        if (!resp.ok) {
+          const errText = await resp.text().catch(() => '');
+          throw new Error(errText || 'Ark 创建任务失败');
+        }
+        const createJson = await resp.json();
+        const taskId: string | undefined = createJson?.id || createJson?.data?.id || createJson?.task_id;
+        if (!taskId) throw new Error('未获取到任务 ID');
+
+        // 2) 轮询任务状态
+        const getEndpoint = `${BASE}/content-generation/tasks/${encodeURIComponent(taskId)}`;
+        let loops = 0;
+        let sentVideo = false;
+        while (true) {
+          loops++;
+          const gr = await fetch(getEndpoint, {
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': `Bearer ${arkKey}`,
+            },
+          });
+          if (!gr.ok) {
+            const errText = await gr.text().catch(() => '');
+            throw new Error(errText || 'Ark 查询任务失败');
+          }
+          const getJson: any = await gr.json();
+          const status: string = getJson?.status || getJson?.data?.status || '';
+          if (!status) {
+            throw new Error('返回状态为空');
+          }
+          if (status === 'succeeded') {
+            const content = getJson?.content || getJson?.data?.content || {};
+            const videoUrl: string | undefined = content?.video_url || content?.video?.url || getJson?.video_url;
+            if (!videoUrl) {
+              throw new Error('生成成功但未返回视频 URL');
+            }
+            if (!sentVideo) {
+              send({ type: 'video', url: videoUrl });
+              try {
+                await Conversation.updateOne(
+                  { id: conversationId, userId: (user as any).sub },
+                  {
+                    $push: {
+                      messages: {
+                        id: Date.now().toString(36),
+                        role: 'assistant',
+                        content: '',
+                        videos: [videoUrl],
+                        timestamp: new Date(),
+                        model: modelToUse,
+                      },
+                    },
+                    $set: { updatedAt: new Date() },
+                  }
+                );
+              } catch {}
+              sentVideo = true;
+            }
+            send({ type: 'done' });
+            controller.close();
+            return;
+          } else if (status === 'failed' || status === 'cancelled') {
+            const err = getJson?.error || getJson?.data?.error || '生成失败';
+            send({ type: 'error', error: typeof err === 'string' ? err : (err?.message || '生成失败') });
+            controller.close();
+            return;
+          } else {
+            // 透出状态心跳，避免连接超时（前端忽略未知类型即可）
+            send({ type: 'debug', status, loops });
+          }
+          // 官方示例建议 10s
+          await new Promise((r) => setTimeout(r, 10000));
+        }
+      } catch (e: any) {
+        send({ type: 'error', error: e?.message || String(e) });
+        try { controller.close(); } catch {}
+      }
+    },
+  });
+
+  return new Response(streamBody, {
+    headers: {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+      'X-Request-Id': requestId,
+      'X-Model': modelToUse,
+    },
+  });
+}
+
+

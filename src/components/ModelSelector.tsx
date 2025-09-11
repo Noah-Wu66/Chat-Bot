@@ -28,6 +28,7 @@ export default function ModelSelector({ variant = 'default' }: Props) {
     if (model === 'gpt-5') return ((props: any) => <EmojiIcon {...props} emoji="🤖" />) as any;
     if (model === 'veo3-fast') return ((props: any) => <EmojiIcon {...props} emoji="🎬" />) as any;
     if (model === 'seedream-4-0') return ((props: any) => <EmojiIcon {...props} emoji="🎨" />) as any;
+    if (model === 'seedance-1.0-pro') return ((props: any) => <EmojiIcon {...props} emoji="🎞️" />) as any;
     const config = getModelConfig(model);
     if (config.supportsSearch) return Search;
     if (config.supportsReasoning) return Brain;
@@ -38,7 +39,7 @@ export default function ModelSelector({ variant = 'default' }: Props) {
   // 取消类型/功能标签展示，仅保留标题与简介
 
   const modelGroups = {
-    '可用模型': ['gpt-5', 'gemini-2.5-pro', 'gemini-2.5-flash-image-preview', 'veo3-fast', 'seedream-4-0'],
+    '可用模型': ['gpt-5', 'gemini-2.5-pro', 'gemini-2.5-flash-image-preview', 'veo3-fast', 'seedream-4-0', 'seedance-1.0-pro'],
   } as const;
 
   return (

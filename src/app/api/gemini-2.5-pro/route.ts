@@ -51,6 +51,13 @@ export async function POST(req: Request) {
   const GEMINI_BASE_URL = 'https://aihubmix.com/gemini/v1beta';
   const Conversation = await getConversationModel();
   const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  try {
+    const inputType = Array.isArray(input) ? 'array' : typeof input;
+    const inputInfo = Array.isArray(input)
+      ? { turns: input.length, firstTurnParts: (Array.isArray(input?.[0]?.content) ? input[0].content.length : 0) }
+      : { textLen: String(input ?? '').length };
+    console.log('[GeminiPro][diag] request', JSON.stringify({ requestId, stream: !!stream, regenerate: !!regenerate, model, inputType, inputInfo }));
+  } catch {}
   const modelToUse = 'gemini-2.5-pro' as const;
 
   // 记录用户消息（仅文本摘要记录）
@@ -159,7 +166,10 @@ export async function POST(req: Request) {
 
   // 构建 payload 与配置
   const contentsPayload = buildGeminiContents(input);
-  try { console.log('[GeminiPro] payload preview', JSON.stringify({ modelToUse, hasHistory: !!historyText, parts0: contentsPayload?.[0]?.parts?.length || 0 })); } catch {}
+  try {
+    const firstParts = contentsPayload?.[0]?.parts || [];
+    console.log('[GeminiPro][diag] payload', JSON.stringify({ requestId, hasHistory: !!historyText, turns: contentsPayload.length, parts0: firstParts.length }));
+  } catch {}
   const generationConfig: any = {
     response_mime_type: 'text/plain',
   };
@@ -182,6 +192,11 @@ export async function POST(req: Request) {
       generationConfig.media_resolution = 'MEDIA_RESOLUTION_MEDIUM';
     }
   } catch {}
+  try {
+    const cfg = { ...generationConfig } as any;
+    if (cfg.system_instruction) cfg.system_instruction = '[hidden]';
+    console.log('[GeminiPro][diag] generationConfig', JSON.stringify({ requestId, cfg }));
+  } catch {}
 
   // 流式：SSE 转发
   if (stream) {
@@ -194,7 +209,7 @@ export async function POST(req: Request) {
           );
 
           const url = `${GEMINI_BASE_URL}/models/${modelToUse}:streamGenerateContent?alt=sse`;
-          try { console.log('[GeminiPro][stream] POST', url); } catch {}
+          try { console.log('[GeminiPro][stream] POST', JSON.stringify({ requestId, url })); } catch {}
           const resp = await fetch(url, {
             method: 'POST',
             headers: {
@@ -221,12 +236,16 @@ export async function POST(req: Request) {
 
           if (!resp.ok) {
             const errText = await resp.text();
+            try { console.error('[GeminiPro][stream] http error', JSON.stringify({ requestId, status: resp.status, bodyPreview: (errText || '').slice(0, 400) })); } catch {}
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ type: 'error', error: errText || `Gemini 流式请求失败 (${resp.status})` })}\n\n`)
             );
             controller.close();
             return;
           }
+          try {
+            console.log('[GeminiPro][stream] headers', JSON.stringify({ requestId, contentType: resp.headers.get('content-type'), cacheControl: resp.headers.get('cache-control') }));
+          } catch {}
 
           const reader = resp.body?.getReader();
           const decoder = new TextDecoder();
@@ -239,6 +258,7 @@ export async function POST(req: Request) {
           let sseBuffer = '';
           let answerAccum = '';
           let thoughtAccum = '';
+          let eventCount = 0;
 
           while (true) {
             const { done, value } = await reader.read();
@@ -246,6 +266,7 @@ export async function POST(req: Request) {
             const chunk = decoder.decode(value, { stream: true });
             // 统一换行
             sseBuffer += chunk.replace(/\r\n/g, '\n');
+            try { console.log('[GeminiPro][stream] chunk', JSON.stringify({ requestId, size: chunk.length })); } catch {}
 
             while (true) {
               const sepIndex = sseBuffer.indexOf('\n\n');
@@ -265,6 +286,11 @@ export async function POST(req: Request) {
                 const payload = dataLines.join('\n');
                 if (payload === '[DONE]' || payload === 'DONE') continue;
                 const data = JSON.parse(payload);
+                eventCount++;
+                try {
+                  const keys = Object.keys(data || {});
+                  console.log('[GeminiPro][stream] event', JSON.stringify({ requestId, n: eventCount, keys, hasCandidates: !!data?.candidates }));
+                } catch {}
 
                 const parts = (data?.candidates?.[0]?.content?.parts || []) as any[];
                 if (Array.isArray(parts) && parts.length > 0) {
@@ -280,6 +306,7 @@ export async function POST(req: Request) {
                     const delta = currThought.startsWith(thoughtAccum) ? currThought.slice(thoughtAccum.length) : currThought;
                     if (delta) {
                       controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'reasoning', content: delta })}\n\n`));
+                      try { console.log('[GeminiPro][stream] reasoning delta', JSON.stringify({ requestId, len: delta.length, preview: delta.slice(0, 80) })); } catch {}
                     }
                     thoughtAccum = currThought;
                   }
@@ -288,6 +315,7 @@ export async function POST(req: Request) {
                     const delta = currAnswer.startsWith(answerAccum) ? currAnswer.slice(answerAccum.length) : currAnswer;
                     if (delta) {
                       controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'content', content: delta })}\n\n`));
+                      try { console.log('[GeminiPro][stream] content delta', JSON.stringify({ requestId, len: delta.length, preview: delta.slice(0, 80) })); } catch {}
                     }
                     answerAccum = currAnswer;
                   }
@@ -296,9 +324,8 @@ export async function POST(req: Request) {
                 // usage 元数据（最后一个 chunk 才完整）
                 if (data?.usageMetadata) {
                   try {
-                    controller.enqueue(
-                      encoder.encode(`data: ${JSON.stringify({ type: 'debug', usage: data.usageMetadata })}\n\n`)
-                    );
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'debug', usage: data.usageMetadata })}\n\n`));
+                    console.log('[GeminiPro][stream] usage', JSON.stringify({ requestId, usage: data.usageMetadata }));
                   } catch {}
                 }
               } catch (parseErr) {
@@ -325,9 +352,11 @@ export async function POST(req: Request) {
                 $set: { updatedAt: new Date() },
               }
             );
+            try { console.log('[GeminiPro][stream] db.write', JSON.stringify({ requestId, contentLen: answerAccum.length, reasoningLen: thoughtAccum.length })); } catch {}
           } catch {}
 
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+          try { console.log('[GeminiPro][stream] done', JSON.stringify({ requestId, totalContentLen: answerAccum.length, totalReasoningLen: thoughtAccum.length, events: eventCount })); } catch {}
           controller.close();
         } catch (e: any) {
           try { console.error('[GeminiPro][stream] failed', e?.message || String(e)); } catch {}
@@ -355,7 +384,7 @@ export async function POST(req: Request) {
   let content = '';
   try {
     const url = `${GEMINI_BASE_URL}/models/${modelToUse}:generateContent`;
-    try { console.log('[GeminiPro] POST', url); } catch {}
+    try { console.log('[GeminiPro] POST', JSON.stringify({ requestId, url })); } catch {}
     const resp = await fetch(url, {
       method: 'POST',
       headers: {
@@ -377,12 +406,19 @@ export async function POST(req: Request) {
     });
     if (!resp.ok) {
       const errText = await resp.text();
+      try { console.error('[GeminiPro][nonstream] http error', JSON.stringify({ requestId, status: resp.status, bodyPreview: (errText || '').slice(0, 400) })); } catch {}
       return new Response(
         JSON.stringify({ error: errText || `Gemini 请求失败 (${resp.status})` }),
         { status: resp.status, headers: { 'Content-Type': 'application/json' } }
       );
     }
+    try {
+      console.log('[GeminiPro][nonstream] headers', JSON.stringify({ requestId, contentType: resp.headers.get('content-type') }));
+    } catch {}
     const data = await resp.json();
+    try {
+      console.log('[GeminiPro][nonstream] json keys', JSON.stringify({ requestId, keys: Object.keys(data || {}), hasCandidates: !!data?.candidates }));
+    } catch {}
     // 提取文本：优先 text / output_text；兜底 candidates.parts[].text
     const tryExtract = (): string => {
       const t = (data?.text || data?.output_text || '') as string;
@@ -394,6 +430,7 @@ export async function POST(req: Request) {
       } catch { return ''; }
     };
     content = tryExtract();
+    try { console.log('[GeminiPro][nonstream] extracted', JSON.stringify({ requestId, contentLen: content.length, preview: content.slice(0, 120) })); } catch {}
   } catch (e: any) {
     console.error('[Gemini Pro] 非流式请求失败:', e?.message || String(e));
     return new Response(

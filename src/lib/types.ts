@@ -147,6 +147,19 @@ export const MODELS: Record<string, ModelConfig> = {
     supportsTemperature: false,
     maxTokens: 1,
   },
+  // Seedance 1.0 Pro（文生/图生视频，Ark Content Generation）
+  'seedance-1.0-pro': {
+    name: 'Seedance 1.0 Pro',
+    description: '视频生成：文生或基于首帧图生（Ark Content Generation）',
+    type: 'chat',
+    supportsVision: true,
+    supportsSearch: false,
+    supportsTools: false,
+    supportsReasoning: false,
+    supportsVerbosity: false,
+    supportsTemperature: false,
+    maxTokens: 1,
+  },
 };
 
 export type ModelId = keyof typeof MODELS;
