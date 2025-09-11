@@ -119,16 +119,23 @@ export async function POST(req: Request) {
   const parts: string[] = [];
   if (sd && typeof sd === 'object') {
     const rt = sd.ratio as string | undefined;
-    if (rt && ['16:9','4:3','1:1','3:4','9:16','21:9'].indexOf(rt) !== -1) parts.push(`--ratio ${rt}`);
+    if (rt) {
+      const allowed = ['16:9','4:3','1:1','3:4','9:16','21:9'];
+      const isAdaptive = rt === 'adaptive';
+      if (allowed.indexOf(rt) !== -1 || (isAdaptive && !!imageUrl)) {
+        parts.push(`--ratio ${rt}`);
+      }
+    }
     const dur = typeof sd.duration === 'number' ? sd.duration : undefined;
     if (typeof dur === 'number' && dur >= 3 && dur <= 12) parts.push(`--duration ${dur}`);
     // 不展示/不修改 FPS，遵循模型默认 24
     const rs = sd.resolution as string | undefined;
     if (rs && ['480p','720p','1080p'].indexOf(rs) !== -1) parts.push(`--resolution ${rs}`);
-    // 固定关闭水印
-    parts.push(`--watermark false`);
+    // 水印：跟随设置（未设置则不传，沿用模型默认）
+    if (typeof sd.watermark === 'boolean') parts.push(`--watermark ${sd.watermark ? 'true' : 'false'}`);
     const cf = sd.cameraFixed;
-    if (typeof cf === 'boolean') parts.push(`--camerafixed ${cf ? 'true' : 'false'}`);
+    // 仅文生视频支持 camerafixed；图生视频（提供参考图/首帧）时不传
+    if (!imageUrl && typeof cf === 'boolean') parts.push(`--camerafixed ${cf ? 'true' : 'false'}`);
     const seed = typeof sd.seed === 'number' ? sd.seed : undefined;
     if (typeof seed === 'number') parts.push(`--seed ${seed}`);
   }

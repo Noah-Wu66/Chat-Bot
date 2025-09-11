@@ -81,7 +81,7 @@ export interface ConversationSettings {
 
   // Seedance 1.0 Pro 专属设置（通过文本命令 --rt/--dur/--fps/--rs/--wm/--cf/--seed）
   seedance?: {
-    ratio?: '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9';
+    ratio?: '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9' | 'adaptive';
     resolution?: '480p' | '720p' | '1080p';
     duration?: number; // 3 ~ 12 秒
     fps?: 24; // 固定 24（可留空按模型默认）

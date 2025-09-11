@@ -347,6 +347,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
                 fps: 24,
                 cameraFixed: settings.seedance?.cameraFixed === true,
                 seed: (typeof settings.seedance?.seed === 'number' ? settings.seedance?.seed : undefined) as number | undefined,
+                watermark: settings.seedance?.watermark === true,
               }}
               disabled={disabled || isStreaming}
               onChange={(v) => setSettings({ seedance: { ...(settings.seedance || {}), ...(v as any) } })}
@@ -1051,9 +1052,9 @@ function SeedanceSettingsPopover({
   open,
   onOpenChange,
 }: {
-  value: { ratio: '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9'; resolution: '480p' | '720p' | '1080p'; duration: number; fps: 24; cameraFixed: boolean; seed?: number };
+  value: { ratio: '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9' | 'adaptive'; resolution: '480p' | '720p' | '1080p'; duration: number; fps: 24; cameraFixed: boolean; seed?: number; watermark?: boolean };
   disabled?: boolean;
-  onChange: (v: Partial<{ ratio: '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9'; resolution: '480p' | '720p' | '1080p'; duration: number; fps: 24; cameraFixed: boolean; seed?: number }>) => void;
+  onChange: (v: Partial<{ ratio: '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9' | 'adaptive'; resolution: '480p' | '720p' | '1080p'; duration: number; fps: 24; cameraFixed: boolean; seed?: number; watermark?: boolean }>) => void;
   open?: boolean;
   onOpenChange?: (o: boolean) => void;
 }) {
@@ -1062,14 +1063,14 @@ function SeedanceSettingsPopover({
   const isOpen = isControlled ? (open as boolean) : innerOpen;
   const toggle = () => (onOpenChange ? onOpenChange(!isOpen) : setInnerOpen((o) => !o));
   const summary = `${value.ratio} · ${value.resolution} · ${value.duration}s`;
-  const setRatio = (r: '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9') => onChange({ ratio: r });
+  const setRatio = (r: '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9' | 'adaptive') => onChange({ ratio: r });
   const setRes = (r: '480p' | '720p' | '1080p') => onChange({ resolution: r });
   const setDur = (d: number) => onChange({ duration: d });
   const setFps = (f: 24) => onChange({ fps: f });
   const setCf = (c: boolean) => onChange({ cameraFixed: c });
   const setSeed = (s?: number) => onChange({ seed: s });
   const durationOptions = [3,4,5,6,7,8,9,10,11,12] as const;
-  const ratioOptions = ['16:9','4:3','1:1','3:4','9:16','21:9'] as const;
+  const ratioOptions = ['16:9','4:3','1:1','3:4','9:16','21:9','adaptive'] as const;
   const resOptions = ['480p','720p','1080p'] as const;
   return (
     <div className="relative">
@@ -1150,6 +1151,10 @@ function SeedanceSettingsPopover({
             <label className="flex items-center justify-between rounded-md border px-2 py-1">
               <span>固定镜头</span>
               <input type="checkbox" className="accent-primary" disabled={disabled} checked={value.cameraFixed} onChange={(e) => setCf(e.target.checked)} />
+            </label>
+            <label className="flex items-center justify-between rounded-md border px-2 py-1">
+              <span>水印</span>
+              <input type="checkbox" className="accent-primary" disabled={disabled} checked={!!value.watermark} onChange={(e) => onChange({ watermark: e.target.checked })} />
             </label>
           </div>
           <div className="mb-1 text-[11px] text-muted-foreground">随机种子（可选）</div>
