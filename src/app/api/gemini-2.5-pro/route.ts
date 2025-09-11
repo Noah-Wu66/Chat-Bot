@@ -216,7 +216,7 @@ export async function POST(req: Request) {
             encoder.encode(`data: ${JSON.stringify({ type: 'start', requestId, route: 'gemini.generate_content', model: displayModel })}\n\n`)
           );
 
-          const primaryUrl = `${GEMINI_BASE_URL}/models/${upstreamModel}:generateContent?alt=sse`;
+          const primaryUrl = `${GEMINI_BASE_URL}/models/${upstreamModel}:streamGenerateContent?alt=sse`;
           try { console.log('[GeminiPro][stream] POST', JSON.stringify({ requestId, url: primaryUrl })); } catch {}
           const makeHeaders = (variant: 'std' | 'xonly' | 'googonly') => ({
             ...(variant === 'std' || variant === 'googonly' ? { 'x-goog-api-key': apiKey } : {}),
@@ -249,8 +249,8 @@ export async function POST(req: Request) {
             if (!resp2.ok) {
               const errText2 = await resp2.text();
               try { console.error('[GeminiPro][stream] http error#2', JSON.stringify({ requestId, status: resp2.status, bodyPreview: (errText2 || '').slice(0, 300) })); } catch {}
-              // Fallback 2: 改用 /v1 路径（generateContent?alt=sse）
-              const altUrl = `${GEMINI_BASE_URL.replace('/v1beta', '/v1')}/models/${upstreamModel}:generateContent?alt=sse`;
+              // Fallback 2: 改用 /v1 路径（streamGenerateContent?alt=sse）
+              const altUrl = `${GEMINI_BASE_URL.replace('/v1beta', '/v1')}/models/${upstreamModel}:streamGenerateContent?alt=sse`;
               try { console.log('[GeminiPro][stream] fallback url', JSON.stringify({ requestId, altUrl })); } catch {}
               const resp3 = await fetch(altUrl, { method: 'POST', headers: makeHeaders('xonly'), body: commonBody });
               if (!resp3.ok) {
@@ -266,11 +266,87 @@ export async function POST(req: Request) {
                 if (!resp4.ok) {
                   const errText4 = await resp4.text();
                   try { console.error('[GeminiPro][stream] http error#4', JSON.stringify({ requestId, status: resp4.status, bodyPreview: (errText4 || '').slice(0, 300) })); } catch {}
-                  controller.enqueue(
-                    encoder.encode(`data: ${JSON.stringify({ type: 'error', error: errText4 || errText3 || errText2 || errText1 || `Gemini 流式请求失败 (${resp4.status})`, status: resp4.status, upstreamUrl: altUrl })}\n\n`)
-                  );
-                  controller.close();
-                  return;
+                  // Fallback 4: 非流式 generateContent，改为一次性返回完整文本
+                  try {
+                    const nonStreamHeaders: Record<string, string> = {
+                      'x-goog-api-key': apiKey,
+                      'x-api-key': apiKey,
+                      'Authorization': `Bearer ${apiKey}`,
+                      'Content-Type': 'application/json',
+                      'Accept': 'application/json',
+                    };
+                    const nonStreamBody = JSON.stringify({
+                      model: upstreamModel,
+                      contents: contentsPayload,
+                      config: generationConfig,
+                      generationConfig,
+                      ...(includeThoughts ? { thinking_config: { include_thoughts: true }, thinkingConfig: { includeThoughts: true } } : {}),
+                      system_instruction: generationConfig.system_instruction,
+                      systemInstruction: generationConfig.system_instruction,
+                    });
+                    const nsUrl1 = `${GEMINI_BASE_URL}/models/${upstreamModel}:generateContent`;
+                    let nsResp = await fetch(nsUrl1, { method: 'POST', headers: nonStreamHeaders, body: nonStreamBody });
+                    if (!nsResp.ok) {
+                      const nsUrl2 = `${GEMINI_BASE_URL.replace('/v1beta', '/v1')}/models/${upstreamModel}:generateContent`;
+                      nsResp = await fetch(nsUrl2, { method: 'POST', headers: nonStreamHeaders, body: nonStreamBody });
+                      if (!nsResp.ok) {
+                        const nsUrl3 = `${GEMINI_BASE_URL.replace('/v1beta', '/v1')}/models/gemini-2.5-pro:generateContent`;
+                        nsResp = await fetch(nsUrl3, { method: 'POST', headers: nonStreamHeaders, body: nonStreamBody });
+                      }
+                    }
+                    if (!nsResp.ok) {
+                      const errJsonText = await nsResp.text();
+                      controller.enqueue(
+                        encoder.encode(`data: ${JSON.stringify({ type: 'error', error: errJsonText || errText4 || errText3 || errText2 || errText1 || `Gemini 请求失败 (${nsResp.status})`, status: nsResp.status })}\n\n`)
+                      );
+                      controller.close();
+                      return;
+                    }
+                    const nsData = await nsResp.json();
+                    const extractText = (): string => {
+                      const t = (nsData?.text || nsData?.output_text || '') as string;
+                      if (t) return t;
+                      try {
+                        const c = nsData?.candidates?.[0]?.content?.parts || [];
+                        const out = c.map((p: any) => (typeof p?.text === 'string' ? p.text : '')).filter(Boolean).join('\n');
+                        return out || '';
+                      } catch { return ''; }
+                    };
+                    const nsText = extractText();
+                    if (!nsText) {
+                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', error: 'Gemini 返回空内容' })}\n\n`));
+                      controller.close();
+                      return;
+                    }
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'content', content: nsText })}\n\n`));
+                    answerAccum = nsText;
+                    try {
+                      await Conversation.updateOne(
+                        { id: conversationId, userId: user.sub },
+                        {
+                          $push: {
+                            messages: {
+                              id: Date.now().toString(36),
+                              role: 'assistant',
+                              content: answerAccum,
+                              timestamp: new Date(),
+                              model: displayModel,
+                            },
+                          },
+                          $set: { updatedAt: new Date() },
+                        }
+                      );
+                    } catch {}
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+                    controller.close();
+                    return;
+                  } catch (nsErr) {
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify({ type: 'error', error: (nsErr as any)?.message || 'Gemini 流式与非流式均失败' })}\n\n`)
+                    );
+                    controller.close();
+                    return;
+                  }
                 }
                 resp = resp4;
               } else {
