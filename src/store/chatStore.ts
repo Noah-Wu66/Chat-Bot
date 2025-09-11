@@ -103,6 +103,14 @@ const defaultSettings: ConversationSettings = {
     responseFormat: 'b64_json',
     watermark: false,
   },
+  seedance: {
+    ratio: '16:9',
+    resolution: '720p',
+    duration: 5,
+    fps: 24,
+    watermark: false,
+    cameraFixed: false,
+  },
 };
 
 export const useChatStore = create<ChatState>()(
@@ -192,6 +200,17 @@ export const useChatStore = create<ChatState>()(
             maxImages: 1,
             responseFormat: 'b64_json',
             watermark: false,
+          };
+        }
+        // 确保 Seedance 默认值存在（向后兼容旧持久化）
+        if (!newSettings.seedance) {
+          newSettings.seedance = {
+            ratio: '16:9',
+            resolution: '720p',
+            duration: 5,
+            fps: 24,
+            watermark: true,
+            cameraFixed: false,
           };
         }
         

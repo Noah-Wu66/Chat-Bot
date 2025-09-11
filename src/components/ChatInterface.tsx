@@ -380,6 +380,16 @@ export default function ChatInterface() {
                   reasoning += data.content;
                   setReasoningContent(reasoning);
                   break;
+                case 'error': {
+                  try { console.error('[Chat][SSE][gemini-2.5-pro] error', { error: data?.error, status: data?.status }); } catch {}
+                  setError(typeof data?.error === 'string' ? data.error : 'Gemini 返回错误');
+                  try {
+                    const ctl = abortRef.current;
+                    if (ctl && !ctl.signal.aborted) ctl.abort();
+                  } catch {}
+                  // 直接结束处理，避免追加空消息
+                  return;
+                }
                 case 'start':
                 case 'tool_call_start':
                   break;

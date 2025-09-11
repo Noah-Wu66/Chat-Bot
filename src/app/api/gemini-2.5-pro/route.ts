@@ -58,7 +58,15 @@ export async function POST(req: Request) {
       : { textLen: String(input ?? '').length };
     console.log('[GeminiPro][diag] request', JSON.stringify({ requestId, stream: !!stream, regenerate: !!regenerate, model, inputType, inputInfo }));
   } catch {}
-  const modelToUse = 'gemini-2.5-pro' as const;
+  // 展示模型（对前端与落库保持简洁名称）
+  const displayModel = 'gemini-2.5-pro' as const;
+  // 上游真实模型映射（AiHubMix 当前常用预览编号）
+  const resolveUpstreamModel = (id: string): string => {
+    if (id === 'gemini-2.5-pro') return 'gemini-2.5-pro-preview-05-06';
+    return id;
+  };
+  const upstreamModel = resolveUpstreamModel(typeof model === 'string' && model ? model : displayModel);
+  try { console.log('[GeminiPro][diag] model', JSON.stringify({ requestId, displayModel, upstreamModel })); } catch {}
 
   // 记录用户消息（仅文本摘要记录）
   let userContent = '';
@@ -208,40 +216,69 @@ export async function POST(req: Request) {
             encoder.encode(`data: ${JSON.stringify({ type: 'start', requestId, route: 'gemini.generate_content', model: modelToUse })}\n\n`)
           );
 
-          const url = `${GEMINI_BASE_URL}/models/${modelToUse}:streamGenerateContent?alt=sse`;
-          try { console.log('[GeminiPro][stream] POST', JSON.stringify({ requestId, url })); } catch {}
-          const resp = await fetch(url, {
+          const primaryUrl = `${GEMINI_BASE_URL}/models/${upstreamModel}:streamGenerateContent?alt=sse`;
+          try { console.log('[GeminiPro][stream] POST', JSON.stringify({ requestId, url: primaryUrl })); } catch {}
+          const makeHeaders = (variant: 'std' | 'xonly' | 'googonly') => ({
+            ...(variant === 'std' || variant === 'googonly' ? { 'x-goog-api-key': apiKey } : {}),
+            ...(variant === 'std' || variant === 'xonly' ? { 'x-api-key': apiKey } : {}),
+            ...(variant === 'std' ? { 'Authorization': `Bearer ${apiKey}` } : {}),
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+          } as Record<string, string>);
+          const commonBody = JSON.stringify({
+            model: upstreamModel,
+            contents: contentsPayload,
+            config: generationConfig,
+            generationConfig,
+            ...(includeThoughts ? { thinking_config: { include_thoughts: true }, thinkingConfig: { includeThoughts: true } } : {}),
+            system_instruction: generationConfig.system_instruction,
+            systemInstruction: generationConfig.system_instruction,
+          });
+
+          let resp = await fetch(primaryUrl, {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'x-api-key': apiKey,
-              'x-goog-api-key': apiKey,
-              'Content-Type': 'application/json',
-              'Accept': 'text/event-stream',
-            },
-            body: JSON.stringify({
-              model: modelToUse,
-              contents: contentsPayload,
-              // 与 google-genai 的 config 对齐（AiHubMix 兼容）
-              config: generationConfig,
-              // 兼容部分实现使用的 generationConfig 命名
-              generationConfig,
-              // 兼容顶层 thinking 配置
-              ...(includeThoughts ? { thinking_config: { include_thoughts: true }, thinkingConfig: { includeThoughts: true } } : {}),
-              // 兼容顶层系统指令
-              system_instruction: generationConfig.system_instruction,
-              systemInstruction: generationConfig.system_instruction,
-            }),
+            headers: makeHeaders('std'),
+            body: commonBody,
           });
 
           if (!resp.ok) {
-            const errText = await resp.text();
-            try { console.error('[GeminiPro][stream] http error', JSON.stringify({ requestId, status: resp.status, bodyPreview: (errText || '').slice(0, 400) })); } catch {}
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: 'error', error: errText || `Gemini 流式请求失败 (${resp.status})` })}\n\n`)
-            );
-            controller.close();
-            return;
+            const errText1 = await resp.text();
+            try { console.error('[GeminiPro][stream] http error#1', JSON.stringify({ requestId, status: resp.status, bodyPreview: (errText1 || '').slice(0, 300) })); } catch {}
+            // Fallback 1: 仅 x-api-key 头
+            const resp2 = await fetch(primaryUrl, { method: 'POST', headers: makeHeaders('xonly'), body: commonBody });
+            if (!resp2.ok) {
+              const errText2 = await resp2.text();
+              try { console.error('[GeminiPro][stream] http error#2', JSON.stringify({ requestId, status: resp2.status, bodyPreview: (errText2 || '').slice(0, 300) })); } catch {}
+              // Fallback 2: 改用 /v1 路径
+              const altUrl = `${GEMINI_BASE_URL.replace('/v1beta', '/v1')}/models/${upstreamModel}:streamGenerateContent?alt=sse`;
+              try { console.log('[GeminiPro][stream] fallback url', JSON.stringify({ requestId, altUrl })); } catch {}
+              const resp3 = await fetch(altUrl, { method: 'POST', headers: makeHeaders('xonly'), body: commonBody });
+              if (!resp3.ok) {
+                const errText3 = await resp3.text();
+                try { console.error('[GeminiPro][stream] http error#3', JSON.stringify({ requestId, status: resp3.status, bodyPreview: (errText3 || '').slice(0, 300) })); } catch {}
+                // Fallback 3: 改用非预览模型名
+                const plainModel = 'gemini-2.5-pro';
+                const altBody = JSON.stringify({
+                  ...JSON.parse(commonBody),
+                  model: plainModel,
+                });
+                const resp4 = await fetch(altUrl, { method: 'POST', headers: makeHeaders('xonly'), body: altBody });
+                if (!resp4.ok) {
+                  const errText4 = await resp4.text();
+                  try { console.error('[GeminiPro][stream] http error#4', JSON.stringify({ requestId, status: resp4.status, bodyPreview: (errText4 || '').slice(0, 300) })); } catch {}
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ type: 'error', error: errText4 || errText3 || errText2 || errText1 || `Gemini 流式请求失败 (${resp4.status})`, status: resp4.status, upstreamUrl: altUrl })}\n\n`)
+                  );
+                  controller.close();
+                  return;
+                }
+                resp = resp4;
+              } else {
+                resp = resp3;
+              }
+            } else {
+              resp = resp2;
+            }
           }
           try {
             console.log('[GeminiPro][stream] headers', JSON.stringify({ requestId, contentType: resp.headers.get('content-type'), cacheControl: resp.headers.get('cache-control') }));
@@ -345,7 +382,7 @@ export async function POST(req: Request) {
                     role: 'assistant',
                     content: answerAccum,
                     timestamp: new Date(),
-                    model: modelToUse,
+                    model: displayModel,
                     metadata: thoughtAccum ? { reasoning: thoughtAccum } : undefined,
                   },
                 },
@@ -375,7 +412,7 @@ export async function POST(req: Request) {
         Connection: 'keep-alive',
         'X-Accel-Buffering': 'no',
         'X-Request-Id': requestId,
-        'X-Model': modelToUse,
+        'X-Model': displayModel,
       },
     });
   }
@@ -383,7 +420,7 @@ export async function POST(req: Request) {
   // 非流式
   let content = '';
   try {
-    const url = `${GEMINI_BASE_URL}/models/${modelToUse}:generateContent`;
+    const url = `${GEMINI_BASE_URL}/models/${upstreamModel}:generateContent`;
     try { console.log('[GeminiPro] POST', JSON.stringify({ requestId, url })); } catch {}
     const resp = await fetch(url, {
       method: 'POST',
@@ -395,7 +432,7 @@ export async function POST(req: Request) {
         'Accept': 'application/json',
       },
       body: JSON.stringify({
-        model: modelToUse,
+        model: upstreamModel,
         contents: contentsPayload,
         config: generationConfig,
         generationConfig,
@@ -448,7 +485,7 @@ export async function POST(req: Request) {
           role: 'assistant',
           content,
           timestamp: new Date(),
-          model: modelToUse,
+          model: displayModel,
         },
       },
       $set: { updatedAt: new Date() },
@@ -457,10 +494,10 @@ export async function POST(req: Request) {
 
   return Response.json(
     {
-      message: { role: 'assistant', content, model: modelToUse },
+      message: { role: 'assistant', content, model: displayModel },
       requestId,
     },
-    { headers: { 'X-Request-Id': requestId, 'X-Model': modelToUse } }
+    { headers: { 'X-Request-Id': requestId, 'X-Model': displayModel } }
   );
 }
 

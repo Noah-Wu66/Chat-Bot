@@ -78,6 +78,17 @@ export interface ConversationSettings {
     responseFormat?: 'url' | 'b64_json';
     watermark?: boolean;
   };
+
+  // Seedance 1.0 Pro 专属设置（通过文本命令 --rt/--dur/--fps/--rs/--wm/--cf/--seed）
+  seedance?: {
+    ratio?: '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9';
+    resolution?: '480p' | '720p' | '1080p';
+    duration?: number; // 3 ~ 12 秒
+    fps?: 24; // 固定 24（可留空按模型默认）
+    watermark?: boolean; // --wm
+    cameraFixed?: boolean; // --cf
+    seed?: number; // --seed
+  };
 }
 
 // 支持的模型列表（仅保留 Gemini 2.5 Flash 图像生成）

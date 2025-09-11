@@ -57,10 +57,11 @@ export async function POST(req: Request) {
   if (!arkKey) return new Response(JSON.stringify({ error: '缺少 ARK_API_KEY' }), { status: 500 });
 
   const body = await req.json();
-  const { conversationId, input, model, stream = true, regenerate } = body as {
+  const { conversationId, input, model, settings, stream = true, regenerate } = body as {
     conversationId: string;
     input: string | any[];
     model: string;
+    settings?: any;
     stream?: boolean;
     regenerate?: boolean;
   };
@@ -96,8 +97,28 @@ export async function POST(req: Request) {
   const createEndpoint = `${BASE}/content-generation/tasks`;
 
   const { text: prompt, imageUrl } = extractTextAndFirstHttpImage(input);
+  // 从设置组装文本后缀命令（--rt/--dur/--fps/--rs/--wm/--cf/--seed）
+  const sd = (settings && settings.seedance) ? settings.seedance : {};
+  const parts: string[] = [];
+  if (sd && typeof sd === 'object') {
+    const rt = sd.ratio as string | undefined;
+    if (rt && ['16:9','4:3','1:1','3:4','9:16','21:9'].includes(rt)) parts.push(`--rt ${rt}`);
+    const dur = typeof sd.duration === 'number' ? sd.duration : undefined;
+    if (typeof dur === 'number' && dur >= 3 && dur <= 12) parts.push(`--dur ${dur}`);
+    const fps = sd.fps === 24 ? 24 : undefined;
+    if (fps) parts.push(`--fps ${fps}`);
+    const rs = sd.resolution as string | undefined;
+    if (rs && ['480p','720p','1080p'].includes(rs)) parts.push(`--rs ${rs}`);
+    // 固定关闭水印
+    parts.push(`--wm false`);
+    const cf = sd.cameraFixed;
+    if (typeof cf === 'boolean') parts.push(`--cf ${cf ? 'true' : 'false'}`);
+    const seed = typeof sd.seed === 'number' ? sd.seed : undefined;
+    if (typeof seed === 'number') parts.push(`--seed ${seed}`);
+  }
+  const promptWithParams = `${(prompt || '').trim()}${parts.length > 0 ? ' ' + parts.join(' ') : ''}`.trim();
   const content: any[] = [];
-  content.push({ type: 'text', text: `${prompt || ''}`.trim() });
+  content.push({ type: 'text', text: promptWithParams });
   if (imageUrl) {
     content.push({ type: 'image_url', image_url: { url: imageUrl } });
   }

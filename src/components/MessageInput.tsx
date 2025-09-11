@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Paperclip, X, Image as ImageIcon, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle, Square, Video, SlidersHorizontal, Palette } from 'lucide-react';
+import { Send, Paperclip, X, Image as ImageIcon, Search, Brain, AlignLeft, ListFilter, ChevronDown, AlertTriangle, Square, Video, SlidersHorizontal, Palette, Film } from 'lucide-react';
 import { useChatStore } from '@/store/chatStore';
 import { MODELS, ModelId } from '@/lib/types';
 import { cn, fileToBase64, compressImageSmart } from '@/utils/helpers';
@@ -332,6 +332,25 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
               }}
               disabled={disabled || isStreaming}
               onChange={(v) => setSettings({ seedream: { ...(settings.seedream || {}), ...(v as any), sequentialImageGeneration: 'auto', responseFormat: 'b64_json', watermark: false } })}
+              open={undefined}
+              onOpenChange={undefined}
+            />
+          )}
+
+          {/* Seedance 1.0 Pro 设置 */}
+          {currentModel === 'seedance-1.0-pro' && (
+            <SeedanceSettingsPopover
+              value={{
+                ratio: (settings.seedance?.ratio as any) || '16:9',
+                resolution: (settings.seedance?.resolution as any) || '720p',
+                duration: (typeof settings.seedance?.duration === 'number' ? settings.seedance?.duration : 5) as number,
+                fps: 24,
+                watermark: false,
+                cameraFixed: settings.seedance?.cameraFixed === true,
+                seed: (typeof settings.seedance?.seed === 'number' ? settings.seedance?.seed : undefined) as number | undefined,
+              }}
+              disabled={disabled || isStreaming}
+              onChange={(v) => setSettings({ seedance: { ...(settings.seedance || {}), ...(v as any) } })}
               open={undefined}
               onOpenChange={undefined}
             />
@@ -1020,6 +1039,137 @@ function SeedreamSettingsPopover({
             </div>
           </div>
           {/* 水印固定为关闭，隐藏交互 */}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SeedanceSettingsPopover({
+  value,
+  disabled,
+  onChange,
+  open,
+  onOpenChange,
+}: {
+  value: { ratio: '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9'; resolution: '480p' | '720p' | '1080p'; duration: number; fps: 24; cameraFixed: boolean; seed?: number };
+  disabled?: boolean;
+  onChange: (v: Partial<{ ratio: '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9'; resolution: '480p' | '720p' | '1080p'; duration: number; fps: 24; cameraFixed: boolean; seed?: number }>) => void;
+  open?: boolean;
+  onOpenChange?: (o: boolean) => void;
+}) {
+  const [innerOpen, setInnerOpen] = useState(false);
+  const isControlled = typeof open === 'boolean';
+  const isOpen = isControlled ? (open as boolean) : innerOpen;
+  const toggle = () => (onOpenChange ? onOpenChange(!isOpen) : setInnerOpen((o) => !o));
+  const summary = `${value.ratio} · ${value.resolution} · ${value.duration}s`;
+  const setRatio = (r: '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | '21:9') => onChange({ ratio: r });
+  const setRes = (r: '480p' | '720p' | '1080p') => onChange({ resolution: r });
+  const setDur = (d: number) => onChange({ duration: d });
+  const setFps = (f: 24) => onChange({ fps: f });
+  const setCf = (c: boolean) => onChange({ cameraFixed: c });
+  const setSeed = (s?: number) => onChange({ seed: s });
+  const durationOptions = [3,4,5,6,7,8,9,10,11,12] as const;
+  const ratioOptions = ['16:9','4:3','1:1','3:4','9:16','21:9'] as const;
+  const resOptions = ['480p','720p','1080p'] as const;
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={toggle}
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] hover:bg-accent hover:text-accent-foreground",
+          "disabled:pointer-events-none disabled:opacity-50"
+        )}
+        title="Seedance 设置"
+      >
+        <Film className="h-3.5 w-3.5" />
+        <span>{summary}</span>
+        <ChevronDown className="h-3 w-3" />
+      </button>
+      {isOpen && (
+        <div className="absolute bottom-full left-0 mb-2 z-10 w-[300px] rounded-md border bg-background p-2 text-xs shadow">
+          <div className="mb-2">
+            <div className="mb-1 text-[11px] text-muted-foreground">宽高比</div>
+            <div className="grid grid-cols-3 gap-1">
+              {ratioOptions.map((ar) => (
+                <button
+                  key={ar}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setRatio(ar)}
+                  className={cn(
+                    "rounded-md border px-2 py-1",
+                    value.ratio === ar ? "bg-accent text-accent-foreground border-transparent" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  {ar}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mb-2">
+            <div className="mb-1 text-[11px] text-muted-foreground">分辨率</div>
+            <div className="grid grid-cols-3 gap-1">
+              {resOptions.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setRes(r)}
+                  className={cn(
+                    "rounded-md border px-2 py-1",
+                    value.resolution === r ? "bg-accent text-accent-foreground border-transparent" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mb-2">
+            <div className="mb-1 text-[11px] text-muted-foreground">时长（秒）</div>
+            <div className="grid grid-cols-5 gap-1">
+              {durationOptions.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setDur(d)}
+                  className={cn(
+                    "rounded-md border px-2 py-1",
+                    value.duration === d ? "bg-accent text-accent-foreground border-transparent" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  {d}s
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mb-2 grid grid-cols-2 gap-2">
+            <label className="flex items-center justify-between rounded-md border px-2 py-1">
+              <span>固定镜头</span>
+              <input type="checkbox" className="accent-primary" disabled={disabled} checked={value.cameraFixed} onChange={(e) => setCf(e.target.checked)} />
+            </label>
+          </div>
+          <div className="mb-1 text-[11px] text-muted-foreground">随机种子（可选）</div>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              inputMode="numeric"
+              className="w-full rounded-md border px-2 py-1 text-xs bg-transparent"
+              placeholder="留空为随机"
+              disabled={disabled}
+              value={typeof value.seed === 'number' ? value.seed : ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === '' || v === undefined || v === null) { setSeed(undefined); return; }
+                const n = Number(v);
+                if (!Number.isNaN(n)) setSeed(n);
+              }}
+            />
+          </div>
         </div>
       )}
     </div>
