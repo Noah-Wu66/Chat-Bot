@@ -157,17 +157,16 @@ export async function POST(req: Request) {
     return contents;
   };
 
-  // 统一使用非流式 Gemini 原生接口，前端按 JSON 路径处理
-
-  // 非流式
+  // 构建 payload 与配置
   const contentsPayload = buildGeminiContents(input);
   try { console.log('[GeminiPro] payload preview', JSON.stringify({ modelToUse, hasHistory: !!historyText, parts0: contentsPayload?.[0]?.parts?.length || 0 })); } catch {}
   const generationConfig: any = {
     response_mime_type: 'text/plain',
   };
-  // 思考过程输出：与前端设置松耦合，默认关闭；当用户提高推理努力时开启
+  // 思考过程输出（2.5 Pro 可显示思考过程；仅在高推理努力时启用）
+  let includeThoughts = false;
   try {
-    const includeThoughts = String(settings?.reasoning?.effort || '').toLowerCase() === 'high';
+    includeThoughts = String(settings?.reasoning?.effort || '').toLowerCase() === 'high';
     if (includeThoughts) {
       generationConfig.thinking_config = { include_thoughts: true };
     }
@@ -184,6 +183,175 @@ export async function POST(req: Request) {
     }
   } catch {}
 
+  // 流式：SSE 转发
+  if (stream) {
+    const encoder = new TextEncoder();
+    const streamBody = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        try {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ type: 'start', requestId, route: 'gemini.generate_content', model: modelToUse })}\n\n`)
+          );
+
+          const url = `${GEMINI_BASE_URL}/models/${modelToUse}:streamGenerateContent?alt=sse`;
+          try { console.log('[GeminiPro][stream] POST', url); } catch {}
+          const resp = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'x-api-key': apiKey,
+              'x-goog-api-key': apiKey,
+              'Content-Type': 'application/json',
+              'Accept': 'text/event-stream',
+            },
+            body: JSON.stringify({
+              model: modelToUse,
+              contents: contentsPayload,
+              // 与 google-genai 的 config 对齐（AiHubMix 兼容）
+              config: generationConfig,
+              // 兼容部分实现使用的 generationConfig 命名
+              generationConfig,
+              // 兼容顶层 thinking 配置
+              ...(includeThoughts ? { thinking_config: { include_thoughts: true }, thinkingConfig: { includeThoughts: true } } : {}),
+              // 兼容顶层系统指令
+              system_instruction: generationConfig.system_instruction,
+              systemInstruction: generationConfig.system_instruction,
+            }),
+          });
+
+          if (!resp.ok) {
+            const errText = await resp.text();
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ type: 'error', error: errText || `Gemini 流式请求失败 (${resp.status})` })}\n\n`)
+            );
+            controller.close();
+            return;
+          }
+
+          const reader = resp.body?.getReader();
+          const decoder = new TextDecoder();
+          if (!reader) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', error: '无法读取 Gemini 流' })}\n\n`));
+            controller.close();
+            return;
+          }
+
+          let sseBuffer = '';
+          let answerAccum = '';
+          let thoughtAccum = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            // 统一换行
+            sseBuffer += chunk.replace(/\r\n/g, '\n');
+
+            while (true) {
+              const sepIndex = sseBuffer.indexOf('\n\n');
+              if (sepIndex === -1) break;
+              const block = sseBuffer.slice(0, sepIndex);
+              sseBuffer = sseBuffer.slice(sepIndex + 2);
+
+              try {
+                const dataLines = block
+                  .split('\n')
+                  .filter((l) => l.startsWith('data:'))
+                  .map((l) => {
+                    const after = l.slice(5);
+                    return after.startsWith(' ') ? after.slice(1) : after;
+                  });
+                if (dataLines.length === 0) continue;
+                const payload = dataLines.join('\n');
+                if (payload === '[DONE]' || payload === 'DONE') continue;
+                const data = JSON.parse(payload);
+
+                const parts = (data?.candidates?.[0]?.content?.parts || []) as any[];
+                if (Array.isArray(parts) && parts.length > 0) {
+                  let currThought = '';
+                  let currAnswer = '';
+                  for (const p of parts) {
+                    const t = typeof p?.text === 'string' ? p.text : '';
+                    if (!t) continue;
+                    if (p?.thought) currThought += t; else currAnswer += t;
+                  }
+                  // reasoning 增量
+                  if (currThought && currThought.length >= thoughtAccum.length) {
+                    const delta = currThought.startsWith(thoughtAccum) ? currThought.slice(thoughtAccum.length) : currThought;
+                    if (delta) {
+                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'reasoning', content: delta })}\n\n`));
+                    }
+                    thoughtAccum = currThought;
+                  }
+                  // content 增量
+                  if (currAnswer && currAnswer.length >= answerAccum.length) {
+                    const delta = currAnswer.startsWith(answerAccum) ? currAnswer.slice(answerAccum.length) : currAnswer;
+                    if (delta) {
+                      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'content', content: delta })}\n\n`));
+                    }
+                    answerAccum = currAnswer;
+                  }
+                }
+
+                // usage 元数据（最后一个 chunk 才完整）
+                if (data?.usageMetadata) {
+                  try {
+                    controller.enqueue(
+                      encoder.encode(`data: ${JSON.stringify({ type: 'debug', usage: data.usageMetadata })}\n\n`)
+                    );
+                  } catch {}
+                }
+              } catch (parseErr) {
+                try { console.debug('[GeminiPro][stream] parse error', parseErr); } catch {}
+              }
+            }
+          }
+
+          // 写入对话与收尾
+          try {
+            await Conversation.updateOne(
+              { id: conversationId, userId: user.sub },
+              {
+                $push: {
+                  messages: {
+                    id: Date.now().toString(36),
+                    role: 'assistant',
+                    content: answerAccum,
+                    timestamp: new Date(),
+                    model: modelToUse,
+                    metadata: thoughtAccum ? { reasoning: thoughtAccum } : undefined,
+                  },
+                },
+                $set: { updatedAt: new Date() },
+              }
+            );
+          } catch {}
+
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+          controller.close();
+        } catch (e: any) {
+          try { console.error('[GeminiPro][stream] failed', e?.message || String(e)); } catch {}
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e?.message || 'Gemini 流式请求失败' })}\n\n`)
+          );
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(streamBody, {
+      headers: {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no',
+        'X-Request-Id': requestId,
+        'X-Model': modelToUse,
+      },
+    });
+  }
+
+  // 非流式
   let content = '';
   try {
     const url = `${GEMINI_BASE_URL}/models/${modelToUse}:generateContent`;
@@ -201,6 +369,10 @@ export async function POST(req: Request) {
         model: modelToUse,
         contents: contentsPayload,
         config: generationConfig,
+        generationConfig,
+        ...(includeThoughts ? { thinking_config: { include_thoughts: true }, thinkingConfig: { includeThoughts: true } } : {}),
+        system_instruction: generationConfig.system_instruction,
+        systemInstruction: generationConfig.system_instruction,
       }),
     });
     if (!resp.ok) {

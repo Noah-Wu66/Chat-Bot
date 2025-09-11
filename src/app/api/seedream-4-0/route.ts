@@ -127,7 +127,7 @@ export async function POST(req: Request) {
     : '1:1';
   const seqGen: 'auto' | 'on' | 'off' = 'auto';
   const maxImages: number = typeof sd?.maxImages === 'number' && sd.maxImages > 0 ? sd.maxImages : 1;
-  const responseFormat: 'url' | 'b64_json' = 'b64_json';
+  const responseFormat: 'url' | 'b64_json' = 'url';
   const watermark: boolean = false;
 
   // 宽高比到像素尺寸映射
@@ -152,7 +152,8 @@ export async function POST(req: Request) {
     response_format: responseFormat,
     // 提交像素尺寸（与文档对齐，使用字符串 WIDTHxHEIGHT 形式）
     size: `${imageSize.width}x${imageSize.height}`,
-    stream: true,
+    // 统一非流式从 Ark 拉取，由路由转发为 SSE
+    stream: false,
     watermark,
   };
   if (Array.isArray(imageUrls) && imageUrls.length > 0) {
@@ -187,6 +188,7 @@ export async function POST(req: Request) {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'Accept': 'application/json',
               'Authorization': `Bearer ${arkKey}`,
             },
             body: JSON.stringify(arkPayload),
@@ -224,7 +226,13 @@ export async function POST(req: Request) {
             return;
           }
 
-          try { console.log('[Seedream][route] send images event', { requestId, count: images.length }); } catch {}
+          try { console.log('[Seedream][route] send images event', { requestId, count: images.length, first: images[0] }); } catch {}
+          // 兼容 Ark 官方流式事件：逐张发出 partial 事件以改善前端体验
+          for (let i = 0; i < images.length; i++) {
+            const partial = { type: 'image_generation.partial_succeeded', image_index: i, url: images[i] };
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(partial)}\n\n`));
+          }
+          // 同时下发聚合 images 事件，便于前端一次性渲染
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'images', images })}\n\n`));
 
           try {
@@ -289,6 +297,7 @@ export async function POST(req: Request) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
       'Authorization': `Bearer ${arkKey}`,
     },
     body: JSON.stringify(arkPayload),
