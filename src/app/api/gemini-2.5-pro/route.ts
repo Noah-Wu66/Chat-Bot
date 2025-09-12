@@ -318,8 +318,8 @@ export async function POST(req: Request) {
             })}\n\n`)
           );
 
-          // 构建请求 URL
-          const url = `${GEMINI_BASE_URL}/v1beta/models/${MODEL_NAME}:streamGenerateContent?alt=sse`;
+          // 构建请求 URL（追加 key 参数）
+          const url = `${GEMINI_BASE_URL}/v1beta/models/${MODEL_NAME}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`;
           
           // 构建请求体
           const requestBody = {
@@ -514,7 +514,7 @@ export async function POST(req: Request) {
 
   // 非流式响应处理
   try {
-    const url = `${GEMINI_BASE_URL}/v1beta/models/${MODEL_NAME}:generateContent`;
+    const url = `${GEMINI_BASE_URL}/v1beta/models/${MODEL_NAME}:generateContent?key=${encodeURIComponent(apiKey)}`;
     console.log('[Gemini 2.5 Pro] non-stream request', JSON.stringify({ requestId, url }));
 
     const requestBody = {
