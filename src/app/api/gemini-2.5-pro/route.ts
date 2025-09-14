@@ -3,6 +3,7 @@ import { getConversationModel } from '@/lib/models/Conversation';
 import { cookies } from 'next/headers';
 import { verifyJWT } from '@/lib/auth';
 import { getUserModel } from '@/lib/models/User';
+import { performWebSearchSummary } from '@/lib/router';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -190,13 +191,14 @@ export async function POST(req: Request) {
     });
   }
 
-  const { conversationId, input, model, settings, stream, regenerate } = body as {
+  const { conversationId, input, model, settings, stream, regenerate, webSearch } = body as {
     conversationId: string;
     input: string | any[];
     model: string;
     settings: any;
     stream?: boolean;
     regenerate?: boolean;
+    webSearch?: boolean;
   };
 
   const apiKey = process.env.AIHUBMIX_API_KEY;
@@ -259,8 +261,32 @@ export async function POST(req: Request) {
   const historyText = buildHistoryText(historyWithoutCurrent);
 
   // 构建请求内容
-  const contents = buildGeminiContents(input, historyText);
-  
+  let contents = buildGeminiContents(input, historyText);
+
+  // 可选：联网搜索（与 GPT-5 对齐：注入一条带有 Markdown 的前置“用户材料”消息，并记录 sources）
+  let searchUsed = false;
+  let searchSources: any[] | null = null;
+  if (webSearch) {
+    const currText = Array.isArray(input)
+      ? (() => {
+          const first = input.find((i: any) => Array.isArray(i?.content));
+          const contentArr = Array.isArray(first?.content) ? first.content : [];
+          const textItem = contentArr.find((c: any) => c?.type === 'input_text');
+          return textItem?.text || '';
+        })()
+      : String(input ?? '');
+    const webSize = (typeof settings?.web?.size === 'number' ? settings.web.size : 10) as number;
+    const { markdown, used, sources } = await performWebSearchSummary(currText, webSize);
+    if (used && markdown) {
+      contents.unshift({
+        role: 'user',
+        parts: [createTextPart(`以下为联网搜索到的材料（供参考，不保证准确）：\n\n${markdown}`)],
+      });
+      searchUsed = true;
+      searchSources = Array.isArray(sources) ? sources : null;
+    }
+  }
+
   // 构建生成配置（遵循官方指南的结构）
   const generationConfig: GenerateContentConfig = {};
   const systemInstruction: Content = {
@@ -345,9 +371,19 @@ export async function POST(req: Request) {
                     return;
                   }
 
+          // 与 GPT-5 一致：在开始读取流前告知前端本次使用了搜索及来源列表
+          if (searchUsed) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'search', used: true })}\n\n`));
+            if (Array.isArray(searchSources) && searchSources.length > 0) {
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ type: 'search_sources', sources: searchSources })}\n\n`)
+              );
+            }
+          }
+
           const reader = response.body?.getReader();
           const decoder = new TextDecoder();
-          
+
           if (!reader) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ 
@@ -454,7 +490,12 @@ export async function POST(req: Request) {
                     content: answerAccum,
                     timestamp: new Date(),
                   model: MODEL_NAME,
-                    metadata: thoughtAccum ? { reasoning: thoughtAccum } : undefined,
+                    metadata: (thoughtAccum || searchUsed)
+                      ? {
+                          ...(thoughtAccum ? { reasoning: thoughtAccum } : {}),
+                          ...(searchUsed ? { searchUsed: true, sources: searchSources || undefined } : {}),
+                        }
+                      : undefined,
                   },
                 },
                 $set: { updatedAt: new Date() },
@@ -573,7 +614,12 @@ export async function POST(req: Request) {
           content,
           timestamp: new Date(),
             model: MODEL_NAME,
-            metadata: reasoning ? { reasoning } : undefined,
+            metadata: (reasoning || searchUsed)
+              ? {
+                  ...(reasoning ? { reasoning } : {}),
+                  ...(searchUsed ? { searchUsed: true, sources: searchSources || undefined } : {}),
+                }
+              : undefined,
           },
       },
       $set: { updatedAt: new Date() },
