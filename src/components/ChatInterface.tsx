@@ -315,7 +315,7 @@ export default function ChatInterface() {
           // 兼容 CRLF：统一归一化为 \n，避免无法按空行切块
           const normalized = chunk.replace(/\r\n/g, '\n');
           sseBuffer += normalized;
-          try { console.log('[Chat][SSE][gemini-2.5-pro] chunk', { size: chunk.length, chunkCount, contentType }); } catch {}
+          try { console.log(`[Chat][SSE][${routedModel || currentModel}] chunk`, { size: chunk.length, chunkCount, contentType }); } catch {}
 
           // 使用空行分隔的事件块解析（兼容大数据量，例如 base64 图片）
           while (true) {
@@ -336,7 +336,7 @@ export default function ChatInterface() {
               const payload = dataLines.join('\n');
               const data = JSON.parse(payload);
               eventSeq++;
-              try { console.log('[Chat][SSE][gemini-2.5-pro] event', { n: eventSeq, type: data?.type, hasImages: Array.isArray(data?.images) && data.images.length > 0, len: typeof data?.content === 'string' ? data.content.length : undefined }); } catch {}
+              try { console.log(`[Chat][SSE][${routedModel || currentModel}] event`, { n: eventSeq, type: data?.type, hasImages: Array.isArray(data?.images) && data.images.length > 0, len: typeof data?.content === 'string' ? data.content.length : undefined }); } catch {}
               // 记录事件类型以便排障
               try {
                 // 保持与其它模型区分的标签
@@ -348,14 +348,14 @@ export default function ChatInterface() {
                   assistantContent += data.content;
                   setStreamingContent(assistantContent);
                   if (data.content) {
-                    console.debug('[Chat][SSE][gemini-2.5-pro] content delta', { length: String(data.content).length });
+                    console.debug(`[Chat][SSE][${routedModel || currentModel}] content delta`, { length: String(data.content).length });
                   }
                   break;
                 case 'images':
                   if (Array.isArray(data.images)) {
                     assistantImages = data.images.filter((u: any) => typeof u === 'string' && u);
                   }
-                  console.log('[Chat][SSE][gemini-2.5-pro] images', {
+                  console.log(`[Chat][SSE][${routedModel || currentModel}] images`, {
                     count: Array.isArray(data.images) ? data.images.length : 0,
                     sample: Array.isArray(data.images) && data.images.length > 0 ? data.images[0]?.slice?.(0, 64) : undefined,
                   });
@@ -374,15 +374,15 @@ export default function ChatInterface() {
                   }
                   break;
                 case 'debug':
-                  console.log('[Chat][SSE][gemini-2.5-pro][debug]', data);
+                  console.log(`[Chat][SSE][${routedModel || currentModel}][debug]`, data);
                   break;
                 case 'reasoning':
                   reasoning += data.content;
                   setReasoningContent(reasoning);
                   break;
                 case 'error': {
-                  try { console.error('[Chat][SSE][gemini-2.5-pro] error', { error: data?.error, status: data?.status }); } catch {}
-                  setError(typeof data?.error === 'string' ? data.error : 'Gemini 返回错误');
+                  try { console.error(`[Chat][SSE][${routedModel || currentModel}] error`, { error: data?.error, status: data?.status }); } catch {}
+                  setError(typeof data?.error === 'string' ? data.error : `${routedModel || currentModel || '模型'} 返回错误`);
                   try {
                     const ctl = abortRef.current;
                     if (ctl && !ctl.signal.aborted) ctl.abort();
@@ -391,6 +391,8 @@ export default function ChatInterface() {
                   return;
                 }
                 case 'start':
+                  if (data?.model && typeof data.model === 'string') { routedModel = data.model; }
+                  break;
                 case 'tool_call_start':
                   break;
                 case 'function_result':
@@ -415,7 +417,7 @@ export default function ChatInterface() {
                     },
                   };
                   addMessage(assistantMessage);
-                  console.log('[Chat][SSE][gemini-2.5-pro] done', {
+                  console.log(`[Chat][SSE][${routedModel || currentModel}] done`, {
                     textLength: assistantContent.length,
                     images: assistantImages?.length || 0,
                   });
@@ -430,7 +432,7 @@ export default function ChatInterface() {
                   // ignore
               }
             } catch (parseError) {
-              console.debug('[Chat][SSE][gemini-2.5-pro] parse error', parseError);
+              console.debug(`[Chat][SSE][${routedModel || currentModel}] parse error`, parseError);
             }
           }
         }
