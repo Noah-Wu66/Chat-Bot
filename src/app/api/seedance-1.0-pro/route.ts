@@ -99,6 +99,7 @@ export async function POST(req: Request) {
   // Ark Content Generation API
   const BASE = 'https://ark.cn-beijing.volces.com/api/v3';
   const createEndpoints = [
+    `${BASE}/contents/generations/tasks`,
     `${BASE}/content-generation/tasks`,
     `${BASE}/content_generation/tasks`,
   ];
@@ -217,6 +218,7 @@ export async function POST(req: Request) {
 
         // 2) 轮询任务状态
         const getEndpoints = [
+          `${BASE}/contents/generations/tasks/${encodeURIComponent(taskId)}`,
           `${BASE}/content-generation/tasks/${encodeURIComponent(taskId)}`,
           `${BASE}/content_generation/tasks/${encodeURIComponent(taskId)}`,
         ];
