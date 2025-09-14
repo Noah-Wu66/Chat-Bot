@@ -49,10 +49,7 @@ interface ThinkingConfig {
 
 interface GenerateContentConfig {
   temperature?: number;
-  max_output_tokens?: number;
-  system_instruction?: string;
-  thinking_config?: ThinkingConfig;
-  media_resolution?: string;
+  maxOutputTokens?: number;
 }
 
 // 解析 data URL
@@ -265,41 +262,32 @@ export async function POST(req: Request) {
   const contents = buildGeminiContents(input, historyText);
   
   // 构建生成配置（遵循官方指南的结构）
-  const generationConfig: GenerateContentConfig = {
-    system_instruction: '总是用中文回复',
+  const generationConfig: GenerateContentConfig = {};
+  const systemInstruction: Content = {
+    role: 'user',
+    parts: [createTextPart('总是用中文回复')],
   };
-  
+
   // 设置参数
   if (typeof settings?.maxTokens === 'number') {
-    generationConfig.max_output_tokens = settings.maxTokens;
+    generationConfig.maxOutputTokens = settings.maxTokens;
   }
-  
+
   if (typeof settings?.temperature === 'number') {
     generationConfig.temperature = settings.temperature;
   }
   
-  // 2.5 Pro 是纯推理模型，可以启用思考过程输出
-  const includeThoughts = String(settings?.reasoning?.effort || '').toLowerCase() === 'high';
-  if (includeThoughts) {
-    generationConfig.thinking_config = {
-      include_thoughts: true,
-    };
-  }
-  
-  // 检查是否包含多媒体内容，设置分辨率
-  const hasInlineData = contents.some(content => 
+
+  // 检查是否包含多媒体内容
+  const hasInlineData = contents.some(content =>
     content.parts.some(part => part.inlineData)
   );
-    if (hasInlineData) {
-      generationConfig.media_resolution = 'MEDIA_RESOLUTION_MEDIUM';
-    }
 
-  console.log('[Gemini 2.5 Pro] config', JSON.stringify({ 
-    requestId, 
-    hasHistory: !!historyText, 
+  console.log('[Gemini 2.5 Pro] config', JSON.stringify({
+    requestId,
+    hasHistory: !!historyText,
     turns: contents.length,
-    includeThoughts,
-    hasInlineData 
+    hasInlineData
   }));
 
   // 流式响应处理
@@ -321,13 +309,11 @@ export async function POST(req: Request) {
           // 构建请求 URL（追加 key 参数）
           const url = `${GEMINI_BASE_URL}/v1beta/models/${MODEL_NAME}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`;
           
-          // 构建请求体
+          // 构建请求体（使用 camelCase 字段名，符合 Gemini v1beta REST 规范）
           const requestBody = {
-            model: MODEL_NAME,
             contents,
             generationConfig,
-            ...(includeThoughts ? { thinking_config: generationConfig.thinking_config } : {}),
-            system_instruction: generationConfig.system_instruction,
+            systemInstruction,
           };
 
           // 发送请求
@@ -518,11 +504,9 @@ export async function POST(req: Request) {
     console.log('[Gemini 2.5 Pro] non-stream request', JSON.stringify({ requestId, url }));
 
     const requestBody = {
-      model: MODEL_NAME,
       contents,
       generationConfig,
-      ...(includeThoughts ? { thinking_config: generationConfig.thinking_config } : {}),
-      system_instruction: generationConfig.system_instruction,
+      systemInstruction,
     };
 
     const response = await fetch(url, {
