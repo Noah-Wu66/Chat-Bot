@@ -16,12 +16,6 @@ const nextConfig = {
     };
     return config;
   },
-  async rewrites() {
-    return [
-      // 兼容部分平台对路径中点号的处理差异
-      { source: '/api/gemini-2.5-pro', destination: '/api/gemini-2_5-pro' },
-    ];
-  },
   // Zeabur 部署配置
   // 环境变量
   env: {

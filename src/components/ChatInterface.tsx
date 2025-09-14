@@ -138,7 +138,7 @@ export default function ChatInterface() {
       } else if (currentModel === 'seedance-1.0-pro') {
         apiEndpoint = '/api/seedance-1.0-pro';
       } else if (currentModel === 'gemini-2.5-pro') {
-        apiEndpoint = '/api/gemini';
+        apiEndpoint = '/api/gemini-2.5-pro';
       }
 
       // Responses API 入参：文本或图文
@@ -628,7 +628,7 @@ export default function ChatInterface() {
                       ? '/api/seedream-4-0'
                       : (currentModel === 'seedance-1.0-pro'
                         ? '/api/seedance-1.0-pro'
-                        : (currentModel === 'gemini-2.5-pro' ? '/api/gemini' : '/api/gpt-5'))));
+                        : (currentModel === 'gemini-2.5-pro' ? '/api/gemini-2.5-pro' : '/api/gpt-5'))));
 
                 const toImageItem = (img: string) => ({ type: 'input_image', image_url: img } as any);
                 let input: string | any[];
