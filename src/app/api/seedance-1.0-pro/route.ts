@@ -8,8 +8,10 @@ export const runtime = 'nodejs';
 function getArkKey(): string | null {
   try {
     const p: any = (globalThis as any)?.process;
-    const v = p?.env?.ARK_API_KEY;
-    return (typeof v === 'string' && v) ? v : null;
+    const raw = p?.env?.ARK_API_KEY ?? p?.env?.ARK_KEY ?? p?.env?.VOLC_ARK_API_KEY;
+    if (typeof raw !== 'string') return null;
+    const v = raw.trim();
+    return v ? v : null;
   } catch {
     return null;
   }
@@ -186,15 +188,14 @@ export async function POST(req: Request) {
         let chosenCreateEp = '';
         let chosenHeaderIdx = -1;
         for (const ep of createEndpoints) {
-          for (const hv of headerVariantsPost) {
+          for (let i = 0; i < headerVariantsPost.length; i++) {
+            const hv = headerVariantsPost[i];
             const r = await fetch(ep, { method: 'POST', headers: hv, body: JSON.stringify(createPayload) });
-            if (r.ok) { createResp = r; createStatus = r.status; break; }
+            if (r.ok) { createResp = r; createStatus = r.status; chosenCreateEp = ep; chosenHeaderIdx = i; break; }
             createStatus = r.status;
             createErrText = await r.text().catch(() => '');
-            chosenHeaderIdx++;
           }
           if (createResp) break;
-          if (!createResp) { chosenHeaderIdx = -1; }
         }
         if (createResp) {
           try {
@@ -204,7 +205,8 @@ export async function POST(req: Request) {
         }
         if (!createResp) {
           const bodyPreview = (createErrText || '').slice(0, 400);
-          const msg = `Ark 创建任务失败${createStatus ? ` (${createStatus})` : ''}${bodyPreview ? `: ${bodyPreview}` : ''}`;
+          const extraHint = createStatus === 401 ? ' 认证失败：请检查 ARK_API_KEY 是否正确、未包含多余空格/换行，并确认已为 doubao-seedance-1-0-pro 开通服务（区域 cn-beijing，Ark v3）。' : '';
+          const msg = `Ark 创建任务失败${createStatus ? ` (${createStatus})` : ''}${bodyPreview ? `: ${bodyPreview}` : ''}${extraHint}`;
           send({ type: 'error', error: msg });
           controller.close();
           return;
