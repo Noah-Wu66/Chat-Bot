@@ -96,25 +96,19 @@ export async function POST(req: Request) {
     } catch {}
   }
 
-  // Ark Content Generation API
+  // Ark Content Generation API（精简为单一端点与头部）
   const BASE = 'https://ark.cn-beijing.volces.com/api/v3';
-  const createEndpoints = [
-    `${BASE}/contents/generations/tasks`,
-    `${BASE}/content-generation/tasks`,
-    `${BASE}/content_generation/tasks`,
-  ];
-  const headerVariantsPost: Array<Record<string, string>> = [
-    { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': `Bearer ${arkKey}` },
-    { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': `${arkKey}` },
-    { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-API-KEY': `${arkKey}` },
-    { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Api-Key': `${arkKey}` },
-  ];
-  const headerVariantsGet: Array<Record<string, string>> = [
-    { 'Accept': 'application/json', 'Authorization': `Bearer ${arkKey}` },
-    { 'Accept': 'application/json', 'Authorization': `${arkKey}` },
-    { 'Accept': 'application/json', 'X-API-KEY': `${arkKey}` },
-    { 'Accept': 'application/json', 'X-Api-Key': `${arkKey}` },
-  ];
+  const CREATE_ENDPOINT = `${BASE}/contents/generations/tasks`;
+  const GET_ENDPOINT = (taskId: string) => `${BASE}/contents/generations/tasks/${encodeURIComponent(taskId)}`;
+  const headersPost: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Authorization': `Bearer ${arkKey}`,
+  };
+  const headersGet: Record<string, string> = {
+    'Accept': 'application/json',
+    'Authorization': `Bearer ${arkKey}`,
+  };
 
   const { text: prompt, imageUrl } = extractTextAndFirstHttpImage(input);
   // 从设置组装文本后缀命令（--rt/--dur/--fps/--rs/--wm/--cf/--seed）
@@ -155,21 +149,13 @@ export async function POST(req: Request) {
   } as const;
 
   if (!stream) {
-    // 简化：非流式仅返回任务创建结果（前端目前仅走流式）
-    let createResp: Response | null = null;
-    let lastErrText = '';
-    for (const ep of createEndpoints) {
-      for (const hv of headerVariantsPost) {
-        const r = await fetch(ep, { method: 'POST', headers: hv, body: JSON.stringify(createPayload) });
-        if (r.ok) { createResp = r; break; }
-        lastErrText = await r.text().catch(() => '');
-      }
-      if (createResp) break;
+    // 非流式：直接创建任务并返回结果
+    const r = await fetch(CREATE_ENDPOINT, { method: 'POST', headers: headersPost, body: JSON.stringify(createPayload) });
+    if (!r.ok) {
+      const errText = await r.text().catch(() => '');
+      return new Response(JSON.stringify({ error: errText || 'Ark 请求失败' }), { status: r.status || 500 });
     }
-    if (!createResp) {
-      return new Response(JSON.stringify({ error: lastErrText || 'Ark 请求失败' }), { status: 500 });
-    }
-    const json = await createResp.json();
+    const json = await r.json();
     return Response.json({ task: json, requestId }, { headers: { 'X-Request-Id': requestId, 'X-Model': modelToUse } });
   }
 
@@ -182,32 +168,12 @@ export async function POST(req: Request) {
       try {
         send({ type: 'start', requestId, route: 'ark.content_generation', model: modelToUse });
 
-        // 1) 创建任务
-        let createResp: Response | null = null;
-        let createStatus = 0;
-        let createErrText = '';
-        let chosenCreateEp = '';
-        let chosenHeaderIdx = -1;
-        for (const ep of createEndpoints) {
-          for (let i = 0; i < headerVariantsPost.length; i++) {
-            const hv = headerVariantsPost[i];
-            const r = await fetch(ep, { method: 'POST', headers: hv, body: JSON.stringify(createPayload) });
-            if (r.ok) { createResp = r; createStatus = r.status; chosenCreateEp = ep; chosenHeaderIdx = i; break; }
-            createStatus = r.status;
-            createErrText = await r.text().catch(() => '');
-          }
-          if (createResp) break;
-        }
-        if (createResp) {
-          try {
-            // 记录成功使用的 endpoint 与头部变体索引（不泄露密钥）
-            send({ type: 'debug', phase: 'create', endpoint: chosenCreateEp || 'auto', headerVariant: chosenHeaderIdx });
-          } catch {}
-        }
-        if (!createResp) {
-          const bodyPreview = (createErrText || '').slice(0, 400);
-          const extraHint = createStatus === 401 ? ' 认证失败：请检查 ARK_API_KEY 是否正确、未包含多余空格/换行，并确认已为 doubao-seedance-1-0-pro 开通服务（区域 cn-beijing，Ark v3）。' : '';
-          const msg = `Ark 创建任务失败${createStatus ? ` (${createStatus})` : ''}${bodyPreview ? `: ${bodyPreview}` : ''}${extraHint}`;
+        // 1) 创建任务（使用单一端点与头部，无回退/重试）
+        const createResp = await fetch(CREATE_ENDPOINT, { method: 'POST', headers: headersPost, body: JSON.stringify(createPayload) });
+        const createStatus = createResp.status;
+        if (!createResp.ok) {
+          const bodyPreview = (await createResp.text().catch(() => '')).slice(0, 400);
+          const msg = `Ark 创建任务失败${createStatus ? ` (${createStatus})` : ''}${bodyPreview ? `: ${bodyPreview}` : ''}`;
           send({ type: 'error', error: msg });
           controller.close();
           return;
@@ -216,32 +182,18 @@ export async function POST(req: Request) {
         const taskId: string | undefined = createJson?.id || createJson?.data?.id || createJson?.task_id;
         if (!taskId) throw new Error('未获取到任务 ID');
 
-        // 2) 轮询任务状态
-        const getEndpoints = [
-          `${BASE}/contents/generations/tasks/${encodeURIComponent(taskId)}`,
-          `${BASE}/content-generation/tasks/${encodeURIComponent(taskId)}`,
-          `${BASE}/content_generation/tasks/${encodeURIComponent(taskId)}`,
-        ];
+        // 2) 轮询任务状态（使用单一端点与头部，无回退/重试）
         let loops = 0;
         let sentVideo = false;
         while (true) {
           loops++;
-          let getResp: Response | null = null;
-          let getStatus = 0;
-          let getErrText = '';
-          for (const gep of getEndpoints) {
-            for (const hv of headerVariantsGet) {
-              const r = await fetch(gep, { headers: hv });
-              if (r.ok) { getResp = r; getStatus = r.status; break; }
-              getStatus = r.status;
-              getErrText = await r.text().catch(() => '');
-            }
-            if (getResp) break;
-          }
-          if (!getResp) {
-            send({ type: 'debug', status: 'poll_failed', http: getStatus, body: (getErrText || '').slice(0, 200) });
-            await new Promise((r) => setTimeout(r, 10000));
-            continue;
+          const getResp = await fetch(GET_ENDPOINT(taskId), { headers: headersGet });
+          const getStatus = getResp.status;
+          if (!getResp.ok) {
+            const errText = await getResp.text().catch(() => '');
+            send({ type: 'error', error: `Ark 轮询失败${getStatus ? ` (${getStatus})` : ''}${errText ? `: ${errText.slice(0, 200)}` : ''}` });
+            controller.close();
+            return;
           }
           try { send({ type: 'debug', phase: 'poll', http: getStatus }); } catch {}
           const getJson: any = await getResp.json();
