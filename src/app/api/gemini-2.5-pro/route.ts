@@ -169,10 +169,7 @@ function buildGeminiContents(input: string | any[], historyText: string): Conten
 }
 
 export async function POST(req: Request) {
-  try {
-    console.log('[Gemini 2.5 Pro] route hit');
-  } catch {}
-  
+
   const user = await getCurrentUser();
   if (!user) {
     return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
@@ -209,13 +206,6 @@ export async function POST(req: Request) {
   const Conversation = await getConversationModel();
   const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
   
-  try {
-    const inputType = Array.isArray(input) ? 'array' : typeof input;
-    const inputInfo = Array.isArray(input)
-      ? { turns: input.length, firstTurnParts: (Array.isArray(input?.[0]?.content) ? input[0].content.length : 0) }
-      : { textLen: String(input ?? '').length };
-    console.log('[Gemini 2.5 Pro] request', JSON.stringify({ requestId, stream: !!stream, regenerate: !!regenerate, model, inputType, inputInfo }));
-  } catch {}
 
   // 提取用户消息文本（用于记录）
   let userContent = '';
@@ -309,12 +299,6 @@ export async function POST(req: Request) {
     content.parts.some(part => part.inlineData)
   );
 
-  console.log('[Gemini 2.5 Pro] config', JSON.stringify({
-    requestId,
-    hasHistory: !!historyText,
-    turns: contents.length,
-    hasInlineData
-  }));
 
   // 流式响应处理
   if (stream) {
@@ -461,21 +445,7 @@ export async function POST(req: Request) {
                 }
 
                 // 使用情况元数据
-                if (data?.usageMetadata) {
-                  controller.enqueue(
-                    encoder.encode(`data: ${JSON.stringify({ 
-                      type: 'debug', 
-                      usage: data.usageMetadata 
-                    })}\n\n`)
-                  );
-                  console.log('[Gemini 2.5 Pro] usage', JSON.stringify({ 
-                    requestId, 
-                    usage: data.usageMetadata 
-                  }));
-                }
-              } catch (parseErr) {
-                console.debug('[Gemini 2.5 Pro] parse error', parseErr);
-              }
+              } catch {}
             }
           }
 
@@ -502,12 +472,6 @@ export async function POST(req: Request) {
               }
             );
 
-          console.log('[Gemini 2.5 Pro] stream done', JSON.stringify({ 
-            requestId, 
-            totalContentLen: answerAccum.length, 
-            totalReasoningLen: thoughtAccum.length,
-            events: eventCount 
-          }));
 
           // 发送完成事件
           controller.enqueue(
@@ -542,7 +506,7 @@ export async function POST(req: Request) {
   // 非流式响应处理
   try {
     const url = `${GEMINI_BASE_URL}/v1beta/models/${MODEL_NAME}:generateContent?key=${encodeURIComponent(apiKey)}`;
-    console.log('[Gemini 2.5 Pro] non-stream request', JSON.stringify({ requestId, url }));
+
 
     const requestBody = {
       contents,
@@ -596,12 +560,6 @@ export async function POST(req: Request) {
       }
     }
 
-    console.log('[Gemini 2.5 Pro] extracted', JSON.stringify({ 
-      requestId, 
-      contentLen: content.length, 
-      reasoningLen: reasoning.length,
-      preview: content.slice(0, 120) 
-    }));
 
     // 保存助手消息
   await Conversation.updateOne(

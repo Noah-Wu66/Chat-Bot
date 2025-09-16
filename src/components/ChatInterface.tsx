@@ -227,22 +227,9 @@ export default function ChatInterface() {
         ...(MODELS[currentModel]?.supportsSearch ? { webSearch: webSearchEnabled } : {}),
       };
 
-      // 调试：请求概览（不含敏感信息）
-      try {
-        const inputType = Array.isArray(input) ? 'array' : 'string';
-        const imgCount = Array.isArray(images) ? images.length : 0;
-        console.log('[Chat] sending request', {
-          endpoint: apiEndpoint,
-          model: currentModel,
-          inputType,
-          hasImages: imgCount > 0,
-          imagesCount: imgCount,
-          stream: true,
-          webSearch: MODELS[currentModel]?.supportsSearch ? webSearchEnabled : undefined,
-        });
-      } catch {}
 
-      try { console.log('[Chat][diag] origin', window.location.origin, 'path', window.location.pathname); } catch {}
+
+
       let response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -274,14 +261,7 @@ export default function ChatInterface() {
       const headerModel = response.headers.get('X-Model');
       const canStream = contentType.includes('text/event-stream');
 
-      // 调试：响应头
-      try {
-        console.log('[Chat] response headers', {
-          contentType,
-          xModel: response.headers.get('X-Model'),
-          xRequestId: response.headers.get('X-Request-Id'),
-        });
-      } catch {}
+
 
       if (canStream) {
         // 处理流式响应
@@ -315,7 +295,7 @@ export default function ChatInterface() {
           // 兼容 CRLF：统一归一化为 \n，避免无法按空行切块
           const normalized = chunk.replace(/\r\n/g, '\n');
           sseBuffer += normalized;
-          try { console.log(`[Chat][SSE][${routedModel || currentModel}] chunk`, { size: chunk.length, chunkCount, contentType }); } catch {}
+
 
           // 使用空行分隔的事件块解析（兼容大数据量，例如 base64 图片）
           while (true) {
@@ -336,29 +316,21 @@ export default function ChatInterface() {
               const payload = dataLines.join('\n');
               const data = JSON.parse(payload);
               eventSeq++;
-              try { console.log(`[Chat][SSE][${routedModel || currentModel}] event`, { n: eventSeq, type: data?.type, hasImages: Array.isArray(data?.images) && data.images.length > 0, len: typeof data?.content === 'string' ? data.content.length : undefined }); } catch {}
-              // 记录事件类型以便排障
-              try {
-                // 保持与其它模型区分的标签
-                // 这里不再打印 seedream 标签，统一用 gemini-2.5-pro 标签
-              } catch {}
+
 
               switch (data.type) {
                 case 'content':
                   assistantContent += data.content;
                   setStreamingContent(assistantContent);
                   if (data.content) {
-                    console.debug(`[Chat][SSE][${routedModel || currentModel}] content delta`, { length: String(data.content).length });
+
                   }
                   break;
                 case 'images':
                   if (Array.isArray(data.images)) {
                     assistantImages = data.images.filter((u: any) => typeof u === 'string' && u);
                   }
-                  console.log(`[Chat][SSE][${routedModel || currentModel}] images`, {
-                    count: Array.isArray(data.images) ? data.images.length : 0,
-                    sample: Array.isArray(data.images) && data.images.length > 0 ? data.images[0]?.slice?.(0, 64) : undefined,
-                  });
+
                   break;
                 case 'video':
                   if (data.url && typeof data.url === 'string') {
@@ -373,9 +345,7 @@ export default function ChatInterface() {
                     latestSources = data.sources;
                   }
                   break;
-                case 'debug':
-                  console.log(`[Chat][SSE][${routedModel || currentModel}][debug]`, data);
-                  break;
+
                 case 'reasoning':
                   reasoning += data.content;
                   setReasoningContent(reasoning);
@@ -417,10 +387,7 @@ export default function ChatInterface() {
                     },
                   };
                   addMessage(assistantMessage);
-                  console.log(`[Chat][SSE][${routedModel || currentModel}] done`, {
-                    textLength: assistantContent.length,
-                    images: assistantImages?.length || 0,
-                  });
+
                   assistantAdded = true;
                   setStreamingContent('');
                   setReasoningContent('');
@@ -431,9 +398,7 @@ export default function ChatInterface() {
                 default:
                   // ignore
               }
-            } catch (parseError) {
-              console.debug(`[Chat][SSE][${routedModel || currentModel}] parse error`, parseError);
-            }
+            } catch {}
           }
         }
         // 循环结束：若未收到 done，但已积累文本或媒体，则补写一条完整消息
@@ -458,10 +423,7 @@ export default function ChatInterface() {
         const data = await response.json();
 
         if (data.message) {
-          console.log('[HTTP] non-stream message', {
-            hasImages: Array.isArray(data?.message?.images) && data.message.images.length > 0,
-            imagesCount: Array.isArray(data?.message?.images) ? data.message.images.length : 0,
-          });
+
           addMessage({
             ...data.message,
             id: generateId(),
@@ -640,7 +602,7 @@ export default function ChatInterface() {
                   input = userMsg.content;
                 }
 
-                try { console.log('[Chat][diag][regenerate] origin', window.location.origin, 'path', window.location.pathname); } catch {}
+
                 let response = await fetch(apiEndpoint, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },

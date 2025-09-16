@@ -99,17 +99,7 @@ export default function MessageList({
   // 自动滚动到底部
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    // 调试：记录最新一条助手消息的文本与图片数量
-    try {
-      const last = messages[messages.length - 1];
-      if (last && last.role === 'assistant') {
-        console.log('[UI] assistant message arrived', {
-          textLength: (last.content || '').length,
-          images: Array.isArray(last.images) ? last.images.length : 0,
-          sample: Array.isArray(last.images) && last.images.length > 0 ? last.images[0]?.slice?.(0, 64) : undefined,
-        });
-      }
-    } catch {}
+
   }, [messages, streamingContent]);
 
   // 控制中心弹窗时禁止背景滚动
