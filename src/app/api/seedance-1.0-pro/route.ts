@@ -61,7 +61,7 @@ export async function POST(req: Request) {
   if (!arkKey) return new Response(JSON.stringify({ error: '缺少 ARK_API_KEY' }), { status: 500 });
 
   const body = await req.json();
-  const { conversationId, input, model, settings, stream = true, regenerate } = body as {
+  const { conversationId, input, model, settings, stream, regenerate } = body as {
     conversationId: string;
     input: string | any[];
     model: string;
@@ -69,6 +69,9 @@ export async function POST(req: Request) {
     stream?: boolean;
     regenerate?: boolean;
   };
+  if (typeof stream !== 'boolean') {
+    return new Response(JSON.stringify({ error: '\u7f3a\u5c11\u6216\u975e\u6cd5\u53c2\u6570\uff1astream' }), { status: 400 });
+  }
 
   const Conversation = await getConversationModel();
   const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);

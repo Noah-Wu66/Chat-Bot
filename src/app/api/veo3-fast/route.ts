@@ -90,36 +90,51 @@ export async function POST(req: Request) {
     );
   }
 
-  // FAL 请求体
-  const veo = settings?.veo3 || {};
-  const aspect_ratio = veo?.aspectRatio || '16:9';
-  const duration = veo?.duration || '8s';
-  const resolution = veo?.resolution || '720p';
-  const generate_audio = typeof veo?.generateAudio === 'boolean' ? veo.generateAudio : false;
-  const enhance_prompt = typeof veo?.enhancePrompt === 'boolean' ? veo.enhancePrompt : true;
-  const auto_fix = typeof veo?.autoFix === 'boolean' ? veo.autoFix : true;
+  // FAL 请求体（严格按前端设置使用，不做兜底）
+  const veo = settings?.veo3;
+  if (!veo || typeof veo !== 'object') {
+    return new Response(JSON.stringify({ error: '缺少 settings.veo3' }), { status: 400 });
+  }
 
   const endpoint = imageUrl
     ? 'https://fal.run/fal-ai/veo3/fast/image-to-video'
     : 'https://fal.run/fal-ai/veo3/fast';
 
-  const payload: any = imageUrl
-    ? {
-        prompt: textPrompt || 'Animate this image',
-        image_url: imageUrl,
-        duration,
-        generate_audio,
-        resolution,
-      }
-    : {
-        prompt: textPrompt,
-        aspect_ratio,
-        duration,
-        enhance_prompt,
-        auto_fix,
-        resolution,
-        generate_audio,
-      };
+  let payload: any;
+  if (imageUrl) {
+    if (typeof (veo as any).duration !== 'string' || !(veo as any).duration) {
+      return new Response(JSON.stringify({ error: '缺少或非法参数：veo3.duration' }), { status: 400 });
+    }
+    if (typeof (veo as any).resolution !== 'string' || !['480p','720p','1080p'].includes((veo as any).resolution)) {
+      return new Response(JSON.stringify({ error: '缺少或非法参数：veo3.resolution' }), { status: 400 });
+    }
+    payload = {
+      prompt: textPrompt,
+      image_url: imageUrl,
+      duration: (veo as any).duration,
+      resolution: (veo as any).resolution,
+    };
+    if (typeof (veo as any).generateAudio === 'boolean') payload.generate_audio = (veo as any).generateAudio;
+  } else {
+    if (!['16:9','9:16','1:1','4:3','3:4','21:9','3:2','2:3'].includes((veo as any).aspectRatio)) {
+      return new Response(JSON.stringify({ error: '缺少或非法参数：veo3.aspectRatio' }), { status: 400 });
+    }
+    if (typeof (veo as any).duration !== 'string' || !(veo as any).duration) {
+      return new Response(JSON.stringify({ error: '缺少或非法参数：veo3.duration' }), { status: 400 });
+    }
+    if (typeof (veo as any).resolution !== 'string' || !['480p','720p','1080p'].includes((veo as any).resolution)) {
+      return new Response(JSON.stringify({ error: '缺少或非法参数：veo3.resolution' }), { status: 400 });
+    }
+    payload = {
+      prompt: textPrompt,
+      aspect_ratio: (veo as any).aspectRatio,
+      duration: (veo as any).duration,
+      resolution: (veo as any).resolution,
+    };
+    if (typeof (veo as any).enhancePrompt === 'boolean') payload.enhance_prompt = (veo as any).enhancePrompt;
+    if (typeof (veo as any).autoFix === 'boolean') payload.auto_fix = (veo as any).autoFix;
+    if (typeof (veo as any).generateAudio === 'boolean') payload.generate_audio = (veo as any).generateAudio;
+  }
 
   if (stream) {
     const encoder = new TextEncoder();

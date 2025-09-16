@@ -113,8 +113,10 @@ export async function POST(req: Request) {
           return textItem?.text || '';
         })()
       : String(input ?? '');
-    const webSize = (typeof settings?.web?.size === 'number' ? settings.web.size : 10) as number;
-    const { markdown, used, sources } = await performWebSearchSummary(currText, webSize);
+    if (typeof settings?.web?.size !== 'number') {
+      return new Response(JSON.stringify({ error: '\u7f3a\u5c11\u6216\u975e\u6cd5\u53c2\u6570\uff1aweb.size' }), { status: 400 });
+    }
+    const { markdown, used, sources } = await performWebSearchSummary(currText, settings.web.size);
     if (used && markdown) {
       injectedHistoryMsg = { role: 'system', content: [{ type: 'input_text', text: `以下为联网搜索到的材料（供参考，不保证准确）：\n\n${markdown}` }] } as any;
       searchUsed = true;
@@ -133,11 +135,9 @@ export async function POST(req: Request) {
 
           // 构建 Responses 请求
           const finalSettings: any = {};
-          const selectedEffort = (settings?.reasoning?.effort || 'high') as any;
-          finalSettings.reasoning = {
-            ...(settings?.reasoning || {}),
-            effort: selectedEffort,
-          };
+          if (settings?.reasoning && typeof settings.reasoning === 'object') {
+            finalSettings.reasoning = { ...settings.reasoning } as any;
+          }
           if (typeof settings?.text?.verbosity === 'string') {
             finalSettings.verbosity = settings.text.verbosity;
           }

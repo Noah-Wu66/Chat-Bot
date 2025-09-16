@@ -100,7 +100,7 @@ const defaultSettings: ConversationSettings = {
     size: '2K',
     sequentialImageGeneration: 'auto',
     maxImages: 1,
-    responseFormat: 'b64_json',
+    responseFormat: 'url',
     watermark: false,
   },
   seedance: {
@@ -198,7 +198,7 @@ export const useChatStore = create<ChatState>()(
             size: '2K',
             sequentialImageGeneration: 'auto',
             maxImages: 1,
-            responseFormat: 'b64_json',
+            responseFormat: 'url',
             watermark: false,
           };
         }

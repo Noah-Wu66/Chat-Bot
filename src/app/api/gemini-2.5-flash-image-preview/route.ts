@@ -343,8 +343,10 @@ export async function POST(req: Request) {
           return textItem?.text || '';
         })()
       : String(input ?? '');
-    const webSize = (typeof settings?.web?.size === 'number' ? settings.web.size : 10) as number;
-    const { markdown, used, sources } = await performWebSearchSummary(currText, webSize);
+    if (typeof settings?.web?.size !== 'number') {
+      return new Response(JSON.stringify({ error: '\u7f3a\u5c11\u6216\u975e\u6cd5\u53c2\u6570\uff1aweb.size' }), { status: 400 });
+    }
+    const { markdown, used, sources } = await performWebSearchSummary(currText, settings.web.size);
     if (used && markdown) {
       injectedHistoryMsg = { role: 'system', content: [{ type: 'input_text', text: `以下为联网搜索到的材料（供参考，不保证准确）：\n\n${markdown}` }] } as any;
       searchUsed = true;
@@ -374,14 +376,14 @@ export async function POST(req: Request) {
             else messages.unshift(injected);
           }
 
-          const temperature = typeof settings?.temperature === 'number' ? settings.temperature : 0.7;
-
-          const resp: any = await (ai as any).chat.completions.create({
+          const req: any = {
             model: modelToUse,
             messages,
             modalities: ['image'],
-            temperature,
-          });
+          };
+          if (typeof settings?.temperature === 'number') req.temperature = settings.temperature;
+
+          const resp: any = await (ai as any).chat.completions.create(req);
 
           if (searchUsed) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'search', used: true })}\n\n`));
@@ -471,16 +473,16 @@ export async function POST(req: Request) {
     if (sysIdx >= 0) messages.splice(sysIdx + 1, 0, injected);
     else messages.unshift(injected);
   }
-  const temperature = typeof settings?.temperature === 'number' ? settings.temperature : 0.7;
   let content = '';
   let imagesNonStream: string[] = [];
   try {
-    const resp: any = await (ai as any).chat.completions.create({
+    const req: any = {
       model: modelToUse,
       messages,
       modalities: ['image'],
-      temperature,
-    });
+    };
+    if (typeof settings?.temperature === 'number') req.temperature = settings.temperature;
+    const resp: any = await (ai as any).chat.completions.create(req);
     const choice = resp?.choices?.[0];
     const msg = choice?.message || {};
     const result = extractTextAndImagesFromMessage(msg);

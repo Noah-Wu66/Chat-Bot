@@ -325,13 +325,13 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
               value={{
                 aspectRatio: ((settings.seedream?.aspectRatio as any) || '1:1') as '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '3:2' | '2:3' | '21:9',
                 size: (settings.seedream?.size as any) || '2K',
-                sequentialImageGeneration: 'auto',
+                sequentialImageGeneration: ((settings.seedream?.sequentialImageGeneration as any) || 'auto') as 'auto' | 'on' | 'off',
                 maxImages: (typeof settings.seedream?.maxImages === 'number' ? settings.seedream?.maxImages : 1) as number,
-                responseFormat: 'b64_json',
-                watermark: false,
+                responseFormat: ((settings.seedream?.responseFormat as any) || 'url') as 'url' | 'b64_json',
+                watermark: settings.seedream?.watermark === true,
               }}
               disabled={disabled || isStreaming}
-              onChange={(v) => setSettings({ seedream: { ...(settings.seedream || {}), ...(v as any), sequentialImageGeneration: 'auto', responseFormat: 'b64_json', watermark: false } })}
+              onChange={(v) => setSettings({ seedream: { ...(settings.seedream || {}), ...(v as any) } })}
               open={undefined}
               onOpenChange={undefined}
             />
@@ -972,17 +972,18 @@ function SeedreamSettingsPopover({
   const isControlled = typeof open === 'boolean';
   const isOpen = isControlled ? (open as boolean) : innerOpen;
   const toggle = () => (onOpenChange ? onOpenChange(!isOpen) : setInnerOpen((o) => !o));
-  const summary = `${value.aspectRatio} · 连续:auto · Base64`;
+  const summary = `${value.aspectRatio} · 连续:${value.sequentialImageGeneration} · ${value.responseFormat === 'url' ? 'URL' : 'Base64'}`;
 
   const aspectOptions: Array<'16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '3:2' | '2:3' | '21:9'> = ['1:1','4:3','3:4','16:9','9:16','3:2','2:3','21:9'];
-  const seqOptions: Array<'auto'|'on'|'off'> = ['auto'];
-  const fmtOptions: Array<'url'|'b64_json'> = ['b64_json'];
+  const seqOptions: Array<'auto'|'on'|'off'> = ['auto','on','off'];
+  const fmtOptions: Array<'url'|'b64_json'> = ['url','b64_json'];
 
   const setAspect = (ar: '16:9' | '9:16' | '1:1' | '4:3' | '3:4' | '3:2' | '2:3' | '21:9') => onChange({ aspectRatio: ar });
   const setSeq = (s: 'auto'|'on'|'off') => onChange({ sequentialImageGeneration: s });
   const setFmt = (f: 'url'|'b64_json') => onChange({ responseFormat: f });
   const setMax = (n: number) => onChange({ maxImages: Math.max(1, Math.min(10, Math.floor(n || 1))) });
   const setWatermark = (w: boolean) => onChange({ watermark: w });
+  const setSize = (s: string) => onChange({ size: s });
 
   return (
     <div className="relative">
@@ -1021,8 +1022,67 @@ function SeedreamSettingsPopover({
               ))}
             </div>
           </div>
-          {/* 连续生成固定为 auto，隐藏交互 */}
-          {/* 返回格式固定为 b64_json，隐藏交互 */}
+          <div className="mb-2">
+            <div className="mb-1 text-[11px] text-muted-foreground">顺序出图</div>
+            <div className="grid grid-cols-3 gap-1">
+              {seqOptions.map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setSeq(opt)}
+                  className={cn(
+                    "rounded-md border px-2 py-1",
+                    value.sequentialImageGeneration === opt ? "bg-accent text-accent-foreground border-transparent" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mb-2">
+            <div className="mb-1 text-[11px] text-muted-foreground">返回格式</div>
+            <div className="grid grid-cols-2 gap-1">
+              {fmtOptions.map((fmt) => (
+                <button
+                  key={fmt}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setFmt(fmt)}
+                  className={cn(
+                    "rounded-md border px-2 py-1",
+                    value.responseFormat === fmt ? "bg-accent text-accent-foreground border-transparent" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  )}
+                >
+                  {fmt === 'url' ? 'URL' : 'Base64'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mb-2">
+            <div className="mb-1 text-[11px] text-muted-foreground">尺寸标记</div>
+            <input
+              type="text"
+              value={value.size || ''}
+              onChange={(e) => setSize(e.target.value)}
+              disabled={disabled}
+              className="w-full rounded-md border px-2 py-1 bg-background"
+              placeholder="例如：2K"
+            />
+          </div>
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-[11px] text-muted-foreground">水印</div>
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={!!value.watermark}
+                onChange={(e) => setWatermark(e.target.checked)}
+                disabled={disabled}
+              />
+              <span className="text-[12px]">{value.watermark ? '开启' : '关闭'}</span>
+            </label>
+          </div>
           <div className="mb-2">
             <div className="mb-1 text-[11px] text-muted-foreground">最大生成张数</div>
             <div className="flex items-center gap-2">
@@ -1038,7 +1098,6 @@ function SeedreamSettingsPopover({
               <span className="text-[11px] text-muted-foreground">1-10</span>
             </div>
           </div>
-          {/* 水印固定为关闭，隐藏交互 */}
         </div>
       )}
     </div>

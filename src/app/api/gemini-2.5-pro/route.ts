@@ -265,8 +265,10 @@ export async function POST(req: Request) {
           return textItem?.text || '';
         })()
       : String(input ?? '');
-    const webSize = (typeof settings?.web?.size === 'number' ? settings.web.size : 10) as number;
-    const { markdown, used, sources } = await performWebSearchSummary(currText, webSize);
+    if (typeof settings?.web?.size !== 'number') {
+      return new Response(JSON.stringify({ error: '\u7f3a\u5c11\u6216\u975e\u6cd5\u53c2\u6570\uff1aweb.size' }), { status: 400 });
+    }
+    const { markdown, used, sources } = await performWebSearchSummary(currText, settings.web.size);
     if (used && markdown) {
       contents.unshift({
         role: 'user',

@@ -121,14 +121,27 @@ export async function POST(req: Request) {
 
   // 组装 Ark 请求体
   const { text: prompt, imageUrls } = extractTextAndImageUrls(input);
-  const sd = settings?.seedream || {};
-  const aspect: '1:1' | '4:3' | '3:4' | '16:9' | '9:16' | '3:2' | '2:3' | '21:9' = (['1:1','4:3','3:4','16:9','9:16','3:2','2:3','21:9'] as const).includes(sd?.aspectRatio)
-    ? sd.aspectRatio
-    : '1:1';
-  const seqGen: 'auto' | 'on' | 'off' = 'auto';
-  const maxImages: number = typeof sd?.maxImages === 'number' && sd.maxImages > 0 ? sd.maxImages : 1;
-  const responseFormat: 'url' | 'b64_json' = 'url';
-  const watermark: boolean = false;
+  const sd = settings?.seedream;
+  if (!sd || typeof sd !== 'object') {
+    return new Response(JSON.stringify({ error: '缺少 settings.seedream' }), { status: 400 });
+  }
+  if (!(['1:1','4:3','3:4','16:9','9:16','3:2','2:3','21:9'] as const).includes((sd as any).aspectRatio)) {
+    return new Response(JSON.stringify({ error: '缺少或非法参数：seedream.aspectRatio' }), { status: 400 });
+  }
+  const aspect: '1:1' | '4:3' | '3:4' | '16:9' | '9:16' | '3:2' | '2:3' | '21:9' = sd.aspectRatio as any;
+  if (!(['auto','on','off'] as const).includes((sd as any).sequentialImageGeneration)) {
+    return new Response(JSON.stringify({ error: '缺少或非法参数：seedream.sequentialImageGeneration' }), { status: 400 });
+  }
+  const seqGen: 'auto' | 'on' | 'off' = sd.sequentialImageGeneration as any;
+  if (!(typeof (sd as any).maxImages === 'number' && (sd as any).maxImages > 0)) {
+    return new Response(JSON.stringify({ error: '缺少或非法参数：seedream.maxImages' }), { status: 400 });
+  }
+  const maxImages: number = Math.floor((sd as any).maxImages);
+  if (!(['url','b64_json'] as const).includes((sd as any).responseFormat)) {
+    return new Response(JSON.stringify({ error: '缺少或非法参数：seedream.responseFormat' }), { status: 400 });
+  }
+  const responseFormat: 'url' | 'b64_json' = sd.responseFormat as any;
+  const hasWatermark = typeof (sd as any).watermark === 'boolean';
 
   // 宽高比到像素尺寸映射
   const aspectToSize: Record<typeof aspect, { width: number; height: number }> = {
@@ -142,6 +155,27 @@ export async function POST(req: Request) {
     '21:9':  { width: 3024, height: 1296 },
   } as const;
   const imageSize = aspectToSize[aspect];
+  // 要求前端显式提供 size，支持两种形式：
+  // 1) "WIDTHxHEIGHT" 明确像素；2) "1K/2K/4K/...K" 基于宽高比的基准像素等比缩放
+  const sizeRaw = typeof (sd as any).size === 'string' ? (sd as any).size.trim() : '';
+  if (!sizeRaw) {
+    return new Response(JSON.stringify({ error: '缺少参数：seedream.size' }), { status: 400 });
+  }
+  let sizeString: string = '';
+  if (/^\d{2,5}x\d{2,5}$/i.test(sizeRaw)) {
+    sizeString = sizeRaw;
+  } else {
+    const m = sizeRaw.toLowerCase().match(/^(\d+)k$/);
+    if (!m) {
+      return new Response(JSON.stringify({ error: '非法参数：seedream.size（需为 WIDTHxHEIGHT 或 N K）' }), { status: 400 });
+    }
+    const k = parseInt(m[1], 10);
+    const base = { w: imageSize.width, h: imageSize.height };
+    const factor = k / 2; // 2K 作为 1x 基准，则 N K => (N/2)x
+    const w = Math.max(64, Math.round(base.w * factor));
+    const h = Math.max(64, Math.round(base.h * factor));
+    sizeString = `${w}x${h}`;
+  }
 
   const arkPayload: any = {
     model: 'doubao-seedream-4-0-250828',
@@ -151,13 +185,15 @@ export async function POST(req: Request) {
     sequential_image_generation_options: { max_images: maxImages },
     response_format: responseFormat,
     // 提交像素尺寸（与文档对齐，使用字符串 WIDTHxHEIGHT 形式）
-    size: `${imageSize.width}x${imageSize.height}`,
+    size: sizeString,
     // 统一非流式从 Ark 拉取，由路由转发为 SSE
     stream: false,
-    watermark,
   };
   if (Array.isArray(imageUrls) && imageUrls.length > 0) {
     arkPayload.image = imageUrls;
+  }
+  if (hasWatermark) {
+    arkPayload.watermark = (sd as any).watermark;
   }
 
   const arkEndpoint = 'https://ark.cn-beijing.volces.com/api/v3/images/generations';
@@ -175,7 +211,7 @@ export async function POST(req: Request) {
               requestId,
               endpoint: arkEndpoint,
               aspect,
-              size: `${imageSize.width}x${imageSize.height}`,
+              size: sizeString,
               responseFormat,
               seqGen,
               maxImages,
@@ -285,7 +321,7 @@ export async function POST(req: Request) {
       requestId,
       endpoint: arkEndpoint,
       aspect,
-      size: `${imageSize.width}x${imageSize.height}`,
+      size: sizeString,
       responseFormat,
       seqGen,
       maxImages,
