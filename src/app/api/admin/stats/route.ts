@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 import { getConversationModel } from '@/lib/models/Conversation';
+import { getUserModel } from '@/lib/models/User';
 import { verifyJWT } from '@/lib/auth';
 
 export const runtime = 'nodejs';
@@ -11,7 +12,14 @@ async function requireSuperAdmin(): Promise<true | Response> {
   if (!token) return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
   const payload = verifyJWT(token);
   if (!payload) return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
-  if (!payload.isSuperAdmin) return new Response(JSON.stringify({ error: '无权限' }), { status: 403 });
+  try {
+    const User = await getUserModel();
+    const u = await User.findOne({ id: payload.sub }).lean();
+    if (!u) return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
+    if (!(u as any).isSuperAdmin) return new Response(JSON.stringify({ error: '无权限' }), { status: 403 });
+  } catch {
+    if (!payload.isSuperAdmin) return new Response(JSON.stringify({ error: '无权限' }), { status: 403 });
+  }
   return true;
 }
 

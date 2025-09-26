@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
       const User = await getUserModel();
       const u = await User.findOne({ id: payload.sub }).lean();
       if (!u) return new Response(JSON.stringify({ error: '未登录' }), { status: 401 });
-      const merged = { ...payload, isSuperAdmin: Boolean((u as any).isSuperAdmin), isBanned: Boolean((u as any).isBanned) };
+      const merged = { ...payload, isSuperAdmin: Boolean((u as any).isSuperAdmin), isBanned: Boolean((u as any).isBanned), needsPasswordReset: Boolean((u as any).needsPasswordReset) };
       return Response.json({ user: merged });
     } catch {
       return Response.json({ user: payload });

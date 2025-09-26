@@ -23,6 +23,7 @@ export default function AdminPage() {
   const [operating, setOperating] = useState<string | null>(null);
   const [confirmingUser, setConfirmingUser] = useState<{ id: string; username: string } | null>(null);
   const [deletingUser, setDeletingUser] = useState(false);
+  const [resetResult, setResetResult] = useState<{ username: string; password: string } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -136,11 +137,35 @@ export default function AdminPage() {
                     )
                   )}
                   {!u.isSuperAdmin && (
-                    <button
-                      disabled={operating === u.id}
-                      onClick={() => setConfirmingUser({ id: u.id, username: u.username })}
-                      className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90 touch-manipulation"
-                    >删除</button>
+                    <>
+                      <button
+                        disabled={operating === u.id}
+                        onClick={async () => {
+                          try {
+                            setOperating(u.id);
+                            const resp = await fetch('/api/admin/users', {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              credentials: 'include',
+                              body: JSON.stringify({ userId: u.id, action: 'reset-password' }),
+                            });
+                            const data = await resp.json();
+                            if (!resp.ok || !data?.ok) throw new Error(data?.error || '重置失败');
+                            setResetResult({ username: u.username, password: data.password });
+                          } catch (e) {
+                            // TODO: toast
+                          } finally {
+                            setOperating(null);
+                          }
+                        }}
+                        className="rounded-md border px-3 py-1.5 text-xs hover:bg-accent touch-manipulation"
+                      >重置密码</button>
+                      <button
+                        disabled={operating === u.id}
+                        onClick={() => setConfirmingUser({ id: u.id, username: u.username })}
+                        className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90 touch-manipulation"
+                      >删除</button>
+                    </>
                   )}
                 </div>
               </div>
@@ -188,6 +213,64 @@ export default function AdminPage() {
                         method: 'DELETE',
                         credentials: 'include',
                       });
+                      if (!resp.ok) throw new Error('删除失败');
+                      setUsers(list => list.filter(it => it.id !== confirmingUser.id));
+                      setConfirmingUser(null);
+                    } catch (e) {
+                      // ignore
+                    } finally {
+                      setDeletingUser(false);
+                      setOperating(null);
+                    }
+                  }}
+                  className="rounded-md bg-destructive px-3 py-1.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 touch-manipulation"
+                >
+                  确认删除
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {resetResult && (
+        <div className="fixed inset-0 z-50">
+          <div className="fixed inset-0 bg-black/40" />
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <div className="w-full max-w-sm rounded-xl border border-border bg-background shadow-lg overflow-hidden">
+              <div className="flex items-center justify-between border-b border-border p-3 sm:p-4">
+                <h2 className="text-base sm:text-lg font-semibold">密码已重置</h2>
+                <button
+                  onClick={() => setResetResult(null)}
+                  className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground touch-manipulation"
+                  aria-label="关闭"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="p-3 sm:p-4 space-y-2">
+                <p className="text-sm">用户 “{resetResult.username}” 的临时密码如下，请妥善告知用户并提示其登录后立即修改：</p>
+                <div className="mt-2 rounded-md border p-2 font-mono text-sm select-all break-all">{resetResult.password}</div>
+                <div className="text-xs text-muted-foreground">出于安全考虑，页面关闭后将无法再次查看该密码。</div>
+              </div>
+              <div className="flex items-center justify-end gap-2 border-t p-3 sm:p-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(resetResult.password).catch(() => {});
+                  }}
+                  className="rounded-md border px-3 py-1.5 text-sm hover:bg-accent touch-manipulation"
+                >复制</button>
+                <button
+                  type="button"
+                  onClick={() => setResetResult(null)}
+                  className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 touch-manipulation"
+                >完成</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
                       if (!resp.ok) throw new Error('删除失败');
                       setUsers(list => list.filter(it => it.id !== confirmingUser.id));
                       setConfirmingUser(null);

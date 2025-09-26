@@ -1,15 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useChatStore } from '@/store/chatStore';
 import Sidebar from '@/components/Sidebar';
 import ChatInterface from '@/components/ChatInterface';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { AlertCircle, WifiOff, Plus, MessageSquare, User } from 'lucide-react';
 
+const LazyForceChangePassword = dynamic(() => import('@/components/ForceChangePasswordModal'), { ssr: false });
+
 export default function HomePage() {
   const { error, setError } = useChatStore();
   const [isOnline, setIsOnline] = useState(true);
+  const [forceResetOpen, setForceResetOpen] = useState(false);
 
   // 监听网络状态
   useEffect(() => {
@@ -23,6 +27,20 @@ export default function HomePage() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
+  }, []);
+
+  // 登录后强制修改密码检测
+  useEffect(() => {
+    (async () => {
+      try {
+        const resp = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (data?.user?.needsPasswordReset) {
+          setForceResetOpen(true);
+        }
+      } catch {}
+    })();
   }, []);
 
   // 错误提示组件
@@ -74,6 +92,10 @@ export default function HomePage() {
         {/* 全局提示 */}
         <ErrorAlert />
         <NetworkStatus />
+        {forceResetOpen && (
+          // 强制修改密码弹窗
+          <LazyForceChangePassword onClose={() => setForceResetOpen(false)} />
+        )}
       </div>
     </ErrorBoundary>
   );
