@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, ArrowLeft } from 'lucide-react';
 
 interface AdminUser {
   id: string;
@@ -68,111 +68,133 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="p-4 space-y-4">
-      <h1 className="text-lg font-semibold">系统管理</h1>
-      <div className="rounded-lg border">
-        <div className="p-3 border-b text-sm font-medium">注册用户</div>
-        <div className="divide-y">
-          {users.map((u) => {
-            const models = userIdToStats.get(u.id) || [];
-            return (
-              <div key={u.id} className="p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <div className="font-medium truncate">
-                    {u.username}
-                    {u.isSuperAdmin ? <span className="ml-2 text-xs text-emerald-600">(超级管理员)</span> : null}
-                    {u.isBanned ? <span className="ml-2 text-xs text-red-600">(已封禁)</span> : null}
-                  </div>
-                  <div className="text-xs text-muted-foreground truncate">{u.email}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    模型使用：{models.length === 0 ? '—' : models.map(m => `${m.model}×${m.count}`).join('，')}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {!u.isSuperAdmin && (
-                    u.isBanned ? (
-                      <button
-                        disabled={operating === u.id}
-                        onClick={async () => {
-                          try {
-                            setOperating(u.id);
-                            const resp = await fetch('/api/admin/users', {
-                              method: 'PATCH',
-                              headers: { 'Content-Type': 'application/json' },
-                              credentials: 'include',
-                              body: JSON.stringify({ userId: u.id, action: 'unban' }),
-                            });
-                            if (!resp.ok) throw new Error('解封失败');
-                            setUsers(list => list.map(it => it.id === u.id ? { ...it, isBanned: false } : it));
-                          } catch (e) {
-                            // ignore error toast for brevity
-                          } finally {
-                            setOperating(null);
-                          }
-                        }}
-                        className="rounded-md border px-3 py-1.5 text-xs hover:bg-accent touch-manipulation"
-                      >解封</button>
-                    ) : (
-                      <button
-                        disabled={operating === u.id}
-                        onClick={async () => {
-                          try {
-                            setOperating(u.id);
-                            const resp = await fetch('/api/admin/users', {
-                              method: 'PATCH',
-                              headers: { 'Content-Type': 'application/json' },
-                              credentials: 'include',
-                              body: JSON.stringify({ userId: u.id, action: 'ban' }),
-                            });
-                            if (!resp.ok) throw new Error('封禁失败');
-                            setUsers(list => list.map(it => it.id === u.id ? { ...it, isBanned: true } : it));
-                          } catch (e) {
-                            // ignore
-                          } finally {
-                            setOperating(null);
-                          }
-                        }}
-                        className="rounded-md border px-3 py-1.5 text-xs hover:bg-accent touch-manipulation"
-                      >封禁</button>
-                    )
-                  )}
-                  {!u.isSuperAdmin && (
-                    <>
-                      <button
-                        disabled={operating === u.id}
-                        onClick={async () => {
-                          try {
-                            setOperating(u.id);
-                            const resp = await fetch('/api/admin/users', {
-                              method: 'PATCH',
-                              headers: { 'Content-Type': 'application/json' },
-                              credentials: 'include',
-                              body: JSON.stringify({ userId: u.id, action: 'reset-password' }),
-                            });
-                            const data = await resp.json();
-                            if (!resp.ok || !data?.ok) throw new Error(data?.error || '重置失败');
-                            setResetResult({ username: u.username, password: data.password });
-                          } catch (e) {
-                            // TODO: toast
-                          } finally {
-                            setOperating(null);
-                          }
-                        }}
-                        className="rounded-md border px-3 py-1.5 text-xs hover:bg-accent touch-manipulation"
-                      >重置密码</button>
-                      <button
-                        disabled={operating === u.id}
-                        onClick={() => setConfirmingUser({ id: u.id, username: u.username })}
-                        className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90 touch-manipulation"
-                      >删除</button>
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+    <div className="flex h-full flex-col">
+      {/* 顶部栏：返回上一页/主页 */}
+      <div className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-30">
+        <div className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-3">
+          <button
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                if (window.history.length > 1) window.history.back();
+                else window.location.href = '/';
+              }
+            }}
+            className="rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground touch-manipulation"
+            aria-label="返回"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <h1 className="text-base sm:text-lg font-semibold">系统管理</h1>
         </div>
       </div>
+
+      {/* 内容区域 */}
+      <div className="p-4 space-y-4 max-w-5xl mx-auto w-full">
+        <div className="rounded-lg border bg-card">
+          <div className="p-3 border-b text-sm font-medium">注册用户</div>
+          <div className="divide-y">
+            {users.map((u) => {
+              const models = userIdToStats.get(u.id) || [];
+              return (
+                <div key={u.id} className="p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">
+                      {u.username}
+                      {u.isSuperAdmin ? <span className="ml-2 text-xs text-emerald-600">(超级管理员)</span> : null}
+                      {u.isBanned ? <span className="ml-2 text-xs text-red-600">(已封禁)</span> : null}
+                    </div>
+                    <div className="text-xs text-muted-foreground truncate">{u.email}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      模型使用：{models.length === 0 ? '—' : models.map(m => `${m.model}×${m.count}`).join('，')}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!u.isSuperAdmin && (
+                      u.isBanned ? (
+                        <button
+                          disabled={operating === u.id}
+                          onClick={async () => {
+                            try {
+                              setOperating(u.id);
+                              const resp = await fetch('/api/admin/users', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({ userId: u.id, action: 'unban' }),
+                              });
+                              if (!resp.ok) throw new Error('解封失败');
+                              setUsers(list => list.map(it => it.id === u.id ? { ...it, isBanned: false } : it));
+                            } catch (e) {
+                              // ignore error toast for brevity
+                            } finally {
+                              setOperating(null);
+                            }
+                          }}
+                          className="rounded-md border px-3 py-1.5 text-xs hover:bg-accent touch-manipulation"
+                        >解封</button>
+                      ) : (
+                        <button
+                          disabled={operating === u.id}
+                          onClick={async () => {
+                            try {
+                              setOperating(u.id);
+                              const resp = await fetch('/api/admin/users', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({ userId: u.id, action: 'ban' }),
+                              });
+                              if (!resp.ok) throw new Error('封禁失败');
+                              setUsers(list => list.map(it => it.id === u.id ? { ...it, isBanned: true } : it));
+                            } catch (e) {
+                              // ignore
+                            } finally {
+                              setOperating(null);
+                            }
+                          }}
+                          className="rounded-md border px-3 py-1.5 text-xs hover:bg-accent touch-manipulation"
+                        >封禁</button>
+                      )
+                    )}
+                    {!u.isSuperAdmin && (
+                      <>
+                        <button
+                          disabled={operating === u.id}
+                          onClick={async () => {
+                            try {
+                              setOperating(u.id);
+                              const resp = await fetch('/api/admin/users', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                credentials: 'include',
+                                body: JSON.stringify({ userId: u.id, action: 'reset-password' }),
+                              });
+                              const data = await resp.json();
+                              if (!resp.ok || !data?.ok) throw new Error(data?.error || '重置失败');
+                              setResetResult({ username: u.username, password: data.password });
+                            } catch (e) {
+                              // TODO: toast
+                            } finally {
+                              setOperating(null);
+                            }
+                          }}
+                          className="rounded-md border px-3 py-1.5 text-xs hover:bg-accent touch-manipulation"
+                        >重置密码</button>
+                        <button
+                          disabled={operating === u.id}
+                          onClick={() => setConfirmingUser({ id: u.id, username: u.username })}
+                          className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:bg-destructive/90 touch-manipulation"
+                        >删除</button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       {confirmingUser && (
         <div className="fixed inset-0 z-50">
           <div className="fixed inset-0 bg-black/40" onClick={() => deletingUser ? null : setConfirmingUser(null)} />
