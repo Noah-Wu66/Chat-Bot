@@ -210,6 +210,7 @@ export default function MessageList({
                     }}
                     title="点击预览大图"
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={image}
                       alt={`消息图片 ${imgIndex + 1}`}

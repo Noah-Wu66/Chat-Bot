@@ -477,6 +477,8 @@ export default function ChatInterface() {
     setCurrentConversation,
     addConversation,
     addMessage,
+    updateConversation,
+    webSearchEnabled,
     setStreaming,
     setError,
     editingMessageId,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Plus,
   MessageSquare,
@@ -35,6 +35,29 @@ export default function Sidebar() {
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [confirmingDeleteTitle, setConfirmingDeleteTitle] = useState<string>('');
   const [deleting, setDeleting] = useState(false);
+
+
+  const loadConversations = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/conversations', {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const list = Array.isArray(data) ? data : [];
+        // 仅保留包含消息的会话（无消息的不展示）
+        setConversations(list.filter((c: any) => Array.isArray(c?.messages) && c.messages.length > 0));
+      } else {
+        setConversations([]);
+      }
+    } catch (error) {
+      // 忽略错误
+      setConversations([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [setConversations, setLoading]);
 
   // 加载对话列表
   useEffect(() => {
@@ -71,29 +94,7 @@ export default function Sidebar() {
         setSuperExists(true);
       }
     })();
-  }, []);
-
-  const loadConversations = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/conversations', {
-        credentials: 'include',
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const list = Array.isArray(data) ? data : [];
-        // 仅保留包含消息的会话（无消息的不展示）
-        setConversations(list.filter((c: any) => Array.isArray(c?.messages) && c.messages.length > 0));
-      } else {
-        setConversations([]);
-      }
-    } catch (error) {
-      // 忽略错误
-      setConversations([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [loadConversations]);
 
   // 搜索对话
   const searchConversations = async (query: string) => {

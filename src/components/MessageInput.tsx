@@ -370,6 +370,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
         <div className="mb-3 flex flex-wrap gap-2">
           {images.map((image, index) => (
             <div key={`img-${index}`} className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={image}
                 alt={`上传的图片 ${index + 1}`}
