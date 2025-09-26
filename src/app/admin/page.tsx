@@ -271,27 +271,10 @@ export default function AdminPage() {
           </div>
         </div>
       )}
-                      if (!resp.ok) throw new Error('删除失败');
-                      setUsers(list => list.filter(it => it.id !== confirmingUser.id));
-                      setConfirmingUser(null);
-                    } catch (e) {
-                      // ignore
-                    } finally {
-                      setDeletingUser(false);
-                      setOperating(null);
-                    }
-                  }}
-                  className="rounded-md bg-destructive px-3 py-1.5 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 touch-manipulation disabled:opacity-60"
-                >
-                  {deletingUser ? '正在删除...' : '删除'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
+
 
 
