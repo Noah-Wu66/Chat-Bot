@@ -31,148 +31,13 @@ async function getCurrentUser() {
 // OpenRouter 模型映射
 const MODEL_NAME = 'google/gemini-2.5-pro';
 
-// Types 定义（模拟官方 SDK 的类型结构）
-interface Part {
-  text?: string;
-  inlineData?: {
-    mimeType: string;
-    data: string;
-  };
-}
 
-interface Content {
-  role: 'user' | 'model';
-  parts: Part[];
-}
 
-interface ThinkingConfig {
-  include_thoughts?: boolean;
-}
 
-interface GenerateContentConfig {
-  temperature?: number;
-  maxOutputTokens?: number;
-}
 
-// 解析 data URL
-function parseDataUrl(dataUrl: string): { mimeType: string; data: string } | null {
-  try {
-    const match = dataUrl.match(/^data:([^;]+);base64,(.*)$/);
-    if (!match) return null;
-    return { mimeType: match[1], data: match[2] };
-  } catch {
-    return null;
-  }
-}
 
-// 创建 Part 对象（模拟官方 SDK 的 types.Part）
-function createTextPart(text: string): Part {
-  return { text };
-}
-
-function createInlineDataPart(data: string, mimeType: string): Part {
-  return {
-    inlineData: {
-      mimeType,
-      data,
-    },
-  };
-}
-
-// 转换输入为 Gemini Part
-function toGeminiPart(item: any): Part | null {
-  if (!item || typeof item !== 'object') return null;
-
-  // 文本
-  if (item.type === 'input_text' && typeof item.text === 'string') {
-    return createTextPart(item.text);
-  }
-
-  // 图片
-  if (item.type === 'input_image') {
-    if (typeof item.image_url === 'string') {
-      const parsed = parseDataUrl(item.image_url);
-      if (parsed) {
-        return createInlineDataPart(parsed.data, parsed.mimeType);
-      }
-      // 远程 URL 作为文本处理
-      return createTextPart(item.image_url);
-    }
-    if (typeof item.image_data === 'string' && item.mime_type) {
-      return createInlineDataPart(item.image_data, item.mime_type);
-    }
-  }
-
-  // 音频
-  if (item.type === 'input_audio') {
-    const inlineData = item.inline_data;
-    if (inlineData && typeof inlineData.data === 'string' && typeof inlineData.mime_type === 'string') {
-      const parsed = parseDataUrl(inlineData.data);
-      if (parsed) {
-        return createInlineDataPart(parsed.data, parsed.mimeType);
-      }
-      return createInlineDataPart(inlineData.data, inlineData.mime_type);
-    }
-  }
-
-  // 视频
-  if (item.type === 'input_video') {
-    const inlineData = item.inline_data;
-    if (inlineData && typeof inlineData.data === 'string' && typeof inlineData.mime_type === 'string') {
-      const parsed = parseDataUrl(inlineData.data);
-      if (parsed) {
-        return createInlineDataPart(parsed.data, parsed.mimeType);
-      }
-      return createInlineDataPart(inlineData.data, inlineData.mime_type);
-    }
-  }
-
-  return null;
-}
-
-// 构建 Gemini Contents（模拟官方 SDK 的结构）
-function buildGeminiContents(input: string | any[], historyText: string): Content[] {
-  const contents: Content[] = [];
-
-  // 添加历史上下文
-  if (historyText) {
-    contents.push({
-      role: 'user',
-      parts: [createTextPart(`以下是对话历史（供参考）：\n${historyText}`)],
-    });
-  }
-
-  // 处理输入
-  if (Array.isArray(input)) {
-    for (const turn of input) {
-      const role = turn?.role === 'assistant' ? 'model' : 'user';
-      const parts: Part[] = [];
-
-      if (Array.isArray(turn?.content)) {
-        for (const item of turn.content) {
-          const part = toGeminiPart(item);
-          if (part) parts.push(part);
-        }
-      }
-
-      if (parts.length > 0) {
-        contents.push({ role, parts });
-      }
-    }
-  } else {
-    contents.push({
-      role: 'user',
-      parts: [createTextPart(String(input ?? ''))],
-    });
-  }
-
-  return contents;
-}
 
 export async function POST(req: Request) {
-// 标记部分工具函数为已使用，避免构建时未使用警告（不影响运行）
-void [createTextPart, createInlineDataPart, toGeminiPart, buildGeminiContents];
-
 
   const user = await getCurrentUser();
   if (!user) {
@@ -249,12 +114,12 @@ void [createTextPart, createInlineDataPart, toGeminiPart, buildGeminiContents];
 
   const historyText = buildHistoryText(historyWithoutCurrent);
 
-  // 构建请求内容（保留调用以兼容旧逻辑，无副作用）
-  void buildGeminiContents(input, historyText);
 
   // 可选：联网搜索（与 GPT-5 对齐：注入一条带有 Markdown 的前置“用户材料”消息，并记录 sources）
   let searchUsed = false;
   let searchSources: any[] | null = null;
+  let searchMarkdown: string | null = null;
+
   if (webSearch) {
     const currText = Array.isArray(input)
       ? (() => {
@@ -269,21 +134,13 @@ void [createTextPart, createInlineDataPart, toGeminiPart, buildGeminiContents];
     }
     const { markdown, used, sources } = await performWebSearchSummary(currText, settings.web.size);
     if (used && markdown) {
-      contents.unshift({
-        role: 'user',
-        parts: [createTextPart(`以下为联网搜索到的材料（供参考，不保证准确）：\n\n${markdown}`)],
-      });
       searchUsed = true;
       searchSources = Array.isArray(sources) ? sources : null;
+      searchMarkdown = markdown;
     }
   }
 
 
-
-  // 检查是否包含多媒体内容
-  const hasInlineData = contents.some(content =>
-    content.parts.some(part => part.inlineData)
-  );
 
 
   // 流式响应处理（OpenRouter Chat Completions）
@@ -343,6 +200,11 @@ void [createTextPart, createInlineDataPart, toGeminiPart, buildGeminiContents];
           };
 
           let messages = buildMessages(input);
+
+
+          if (searchUsed && searchMarkdown) {
+            messages.splice(1, 0, { role: 'user', content: [{ type: 'text', text: `以下为联网搜索到的材料（供参考，不保证准确）：\n\n${searchMarkdown}` }] as any } as any);
+          }
 
           const streamResp: any = await (ai as any).chat.completions.create({
             model: MODEL_NAME,
@@ -441,10 +303,17 @@ void [createTextPart, createInlineDataPart, toGeminiPart, buildGeminiContents];
       } else {
         msgs.push({ role: 'user', content: [{ type: 'text', text: String(src ?? '') }] as CCPart[] });
       }
+
+
       return msgs;
     };
 
     let messages = buildMessages(input);
+
+    if (searchUsed && searchMarkdown) {
+      messages.splice(1, 0, { role: 'user', content: [{ type: 'text', text: `以下为联网搜索到的材料（供参考，不保证准确）：\n\n${searchMarkdown}` }] as any } as any);
+    }
+
 
     const resp: any = await (ai as any).chat.completions.create({
       model: MODEL_NAME,
