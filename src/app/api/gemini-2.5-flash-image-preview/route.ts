@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   const ai = getAIClient();
   const Conversation = await getConversationModel();
   const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
-  const modelToUse = 'gemini-2.5-flash-image-preview' as const;
+  const modelToUse = 'google/gemini-2.5-flash-image-preview' as const;
 
   // 记录用户消息（仅文本摘要记录）
   let userContent = '';
@@ -379,7 +379,6 @@ export async function POST(req: Request) {
           const req: any = {
             model: modelToUse,
             messages,
-            modalities: ['image'],
           };
           if (typeof settings?.temperature === 'number') req.temperature = settings.temperature;
 
@@ -479,7 +478,6 @@ export async function POST(req: Request) {
     const req: any = {
       model: modelToUse,
       messages,
-      modalities: ['image'],
     };
     if (typeof settings?.temperature === 'number') req.temperature = settings.temperature;
     const resp: any = await (ai as any).chat.completions.create(req);

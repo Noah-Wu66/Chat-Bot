@@ -119,7 +119,7 @@ export const useChatStore = create<ChatState>()(
       // 初始状态
       currentConversation: null,
       conversations: [],
-      currentModel: 'gpt-5',
+      currentModel: 'openai/gpt-5',
       settings: defaultSettings,
       isLoading: false,
       isStreaming: false,
@@ -318,7 +318,7 @@ export const useChatStore = create<ChatState>()(
         set({
           currentConversation: null,
           conversations: [],
-          currentModel: 'gpt-5',
+          currentModel: 'openai/gpt-5',
           settings: defaultSettings,
           isLoading: false,
           isStreaming: false,

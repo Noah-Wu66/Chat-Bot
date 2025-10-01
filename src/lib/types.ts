@@ -93,8 +93,8 @@ export interface ConversationSettings {
 
 // 支持的模型列表（仅保留 Gemini 2.5 Flash 图像生成）
 export const MODELS: Record<string, ModelConfig> = {
-  // GPT-5（面向 Responses API 的推理模型）
-  'gpt-5': {
+  // OpenRouter: GPT-5（使用 Chat Completions 调用）
+  'openai/gpt-5': {
     name: 'GPT-5',
     description: '最新的推理模型，支持深度思考',
     type: 'responses',
@@ -106,8 +106,8 @@ export const MODELS: Record<string, ModelConfig> = {
     supportsTemperature: false,
     maxTokens: 8192,
   },
-  // Gemini 2.5 Pro（原生联网搜索，多模态对话）
-  'gemini-2.5-pro': {
+  // OpenRouter: Gemini 2.5 Pro（原生联网搜索，多模态对话）
+  'google/gemini-2.5-pro': {
     name: 'Gemini 2.5 Pro',
     description: '原生联网搜索，文本/图像多模态对话',
     type: 'chat',
@@ -119,8 +119,8 @@ export const MODELS: Record<string, ModelConfig> = {
     supportsTemperature: true,
     maxTokens: 8192,
   },
-  // Gemini 2.5 Flash 图像生成（图文多模态）
-  'gemini-2.5-flash-image-preview': {
+  // OpenRouter: Gemini 2.5 Flash 图像生成（图文多模态）
+  'google/gemini-2.5-flash-image-preview': {
     name: 'Nano Banana',
     description: '图文多模态生成，文本更精准，图像更清晰',
     type: 'chat',
@@ -204,7 +204,7 @@ export interface ModelConfig {
 export function getModelConfig(model: ModelId | string): ModelConfig {
   const config = MODELS[model as ModelId];
   if (config) return config;
-  const fallbackModel = 'gpt-5' as ModelId;
+  const fallbackModel = 'openai/gpt-5' as ModelId;
   return MODELS[fallbackModel];
 }
 

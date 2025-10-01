@@ -35,7 +35,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
 
   const { currentModel, isStreaming, setLoginOpen, webSearchEnabled, setWebSearchEnabled, settings, setSettings, presetInputImages, setPresetInputImages } = useChatStore();
   const modelConfig = MODELS[currentModel];
-  const isGeminiPro = currentModel === 'gemini-2.5-pro';
+  const isGeminiPro = currentModel === 'google/gemini-2.5-pro';
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   // 各组件自行管理打开状态，避免跨模型互相干扰
@@ -282,7 +282,7 @@ export default function MessageInput({ onSendMessage, disabled, variant = 'defau
           <ModelSelector variant="ghost" />
 
           {/* GPT-5 设置合并弹窗 */}
-          {currentModel === 'gpt-5' && (
+          {currentModel === 'openai/gpt-5' && (
             <Gpt5SettingsPopover
               value={{
                 web: !!webSearchEnabled,

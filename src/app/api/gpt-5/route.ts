@@ -45,8 +45,8 @@ export async function POST(req: Request) {
   const ai = getAIClient();
   const Conversation = await getConversationModel();
   const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
-  // GPT-5 Responses API
-  const modelToUse: 'gpt-5' = 'gpt-5';
+  // OpenRouter: GPT-5 via Chat Completions
+  const modelToUse: 'openai/gpt-5' = 'openai/gpt-5';
 
   // 记录用户消息（仅文本摘要记录）
   let userContent = '';
@@ -98,8 +98,6 @@ export async function POST(req: Request) {
     return [dev, ...(historyMsg ? [historyMsg] : []), ...current];
   };
 
-  // Responses 固定为 gpt-5
-  const apiModelStream = 'gpt-5';
   // 可选：联网搜索（仅由用户开关决定）
   let searchUsed = false;
   let injectedHistoryMsg: any | null = null;
@@ -130,38 +128,8 @@ export async function POST(req: Request) {
       async start(controller) {
         try {
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ type: 'start', requestId, route: 'responses', model: modelToUse })}\n\n`)
+            encoder.encode(`data: ${JSON.stringify({ type: 'start', requestId, route: 'chat.completions', model: modelToUse })}\n\n`)
           );
-
-          // 构建 Responses 请求
-          const finalSettings: any = {};
-          if (settings?.reasoning && typeof settings.reasoning === 'object') {
-            finalSettings.reasoning = { ...settings.reasoning } as any;
-          }
-          if (typeof settings?.text?.verbosity === 'string') {
-            finalSettings.verbosity = settings.text.verbosity;
-          }
-          if (typeof settings?.verbosity === 'string') {
-            finalSettings.verbosity = settings.verbosity;
-          }
-
-          let inputPayload = buildResponsesInputWithHistory(input);
-          if (injectedHistoryMsg) {
-            const dev = inputPayload.shift();
-            inputPayload = [dev, injectedHistoryMsg, ...inputPayload];
-          }
-          const maxOutputTokens = typeof settings?.maxTokens === 'number' ? settings.maxTokens : undefined;
-
-          const reqPayloadStream: any = {
-            model: apiModelStream,
-            input: inputPayload,
-            stream: true,
-            ...(typeof maxOutputTokens === 'number' ? { max_output_tokens: maxOutputTokens } : {}),
-            reasoning: finalSettings.reasoning,
-            ...(finalSettings.verbosity ? { text: { verbosity: finalSettings.verbosity } } : {}),
-          };
-
-          const response = await (ai as any).responses.create(reqPayloadStream);
 
           if (searchUsed) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'search', used: true })}\n\n`));
@@ -171,43 +139,81 @@ export async function POST(req: Request) {
               );
             }
           }
-          let fullContent = '';
-          for await (const event of response) {
-            if (event.type === 'response.refusal.delta') continue;
-            if (event.type === 'response.output_text.delta') {
-              fullContent += event.delta || '';
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ type: 'content', content: event.delta })}\n\n`)
-              );
-            } else if (event.type === 'response.reasoning.delta') {
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ type: 'reasoning', content: event.delta })}\n\n`)
-              );
-            } else if (event.type === 'response.completed') {
-              try {
-                await Conversation.updateOne(
-                  { id: conversationId, userId: user.sub },
-                  {
-                    $push: {
-                      messages: {
-                        id: Date.now().toString(36),
-                        role: 'assistant',
-                        content: fullContent,
-                        timestamp: new Date(),
-                        model: modelToUse,
-                        metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined,
-                      },
-                    },
-                    $set: { updatedAt: new Date() },
-                  }
-                );
-              } catch {}
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
-              controller.close();
+
+          // 构建 OpenRouter Chat Completions 消息
+          type CCPart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+          type CCMessage = { role: 'system' | 'user' | 'assistant'; content: CCPart[] | string };
+          const toCCPart = (item: any): CCPart | null => {
+            if (!item || typeof item !== 'object') return null;
+            if (item.type === 'input_text' && typeof item.text === 'string') return { type: 'text', text: item.text };
+            if (item.type === 'input_image') {
+              if (typeof item.image_url === 'string' && item.image_url) return { type: 'image_url', image_url: { url: item.image_url } };
+              const mime = typeof item.mime_type === 'string' && item.mime_type ? item.mime_type : 'image/png';
+              if (typeof item.image_data === 'string' && item.image_data) return { type: 'image_url', image_url: { url: `data:${mime};base64,${item.image_data}` } };
             }
+            return null;
+          };
+          const buildMessages = (src: string | any[]): CCMessage[] => {
+            const msgs: CCMessage[] = [];
+            msgs.push({ role: 'system', content: [{ type: 'text', text: '总是用中文回复' }] as CCPart[] });
+            if (historyText) msgs.push({ role: 'user', content: [{ type: 'text', text: `以下是对话历史（供参考）：\n${historyText}` }] as CCPart[] });
+            if (Array.isArray(src)) {
+              for (const turn of src) {
+                const role = turn?.role === 'assistant' ? 'assistant' : 'user';
+                const parts = Array.isArray(turn?.content) ? turn.content.map(toCCPart).filter(Boolean) as CCPart[] : [];
+                if (parts.length > 0) msgs.push({ role, content: parts });
+              }
+            } else {
+              msgs.push({ role: 'user', content: [{ type: 'text', text: String(src ?? '') }] as CCPart[] });
+            }
+            return msgs;
+          };
+
+          let messages = buildMessages(input);
+
+          const streamResp: any = await (ai as any).chat.completions.create({
+            model: modelToUse,
+            messages,
+            stream: true,
+            ...(typeof settings?.temperature === 'number' ? { temperature: settings.temperature } : {}),
+            ...(typeof settings?.maxTokens === 'number' ? { max_tokens: settings.maxTokens } : {}),
+          });
+
+          let fullContent = '';
+          for await (const chunk of streamResp) {
+            try {
+              const delta = chunk?.choices?.[0]?.delta?.content;
+              if (delta) {
+                fullContent += delta;
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ type: 'content', content: delta })}\n\n`)
+                );
+              }
+            } catch {}
           }
+
+          try {
+            await Conversation.updateOne(
+              { id: conversationId, userId: user.sub },
+              {
+                $push: {
+                  messages: {
+                    id: Date.now().toString(36),
+                    role: 'assistant',
+                    content: fullContent,
+                    timestamp: new Date(),
+                    model: modelToUse,
+                    metadata: searchUsed ? { searchUsed: true, sources: searchSources || undefined } : undefined,
+                  },
+                },
+                $set: { updatedAt: new Date() },
+              }
+            );
+          } catch {}
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+          controller.close();
         } catch (e: any) {
-          console.error('[GPT-5] 流式请求失败:', e?.message || String(e));
+          console.error('[GPT-5][OpenRouter] 流式请求失败:', e?.message || String(e));
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e?.message || String(e) })}\n\n`)
           );

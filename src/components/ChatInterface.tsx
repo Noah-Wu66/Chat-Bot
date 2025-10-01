@@ -129,7 +129,7 @@ export default function ChatInterface() {
 
       // 按模型选择 API 路由（Gemini 统一到 /api/gemini）
       let apiEndpoint = '/api/gpt-5';
-      if (currentModel === 'gemini-2.5-flash-image-preview') {
+      if (currentModel === 'google/gemini-2.5-flash-image-preview') {
         apiEndpoint = '/api/gemini-2.5-flash-image-preview';
       } else if (currentModel === 'veo3-fast') {
         apiEndpoint = '/api/veo3-fast';
@@ -137,7 +137,7 @@ export default function ChatInterface() {
         apiEndpoint = '/api/seedream-4-0';
       } else if (currentModel === 'seedance-1.0-pro') {
         apiEndpoint = '/api/seedance-1.0-pro';
-      } else if (currentModel === 'gemini-2.5-pro') {
+      } else if (currentModel === 'google/gemini-2.5-pro') {
         apiEndpoint = '/api/gemini-2.5-pro';
       }
 
@@ -586,7 +586,7 @@ export default function ChatInterface() {
                 setCurrentConversation({ ...currentConversation, messages: kept } as any);
 
                 // 重新发送该用户消息（regenerate 模式：不重复写入用户消息，只让模型重答）
-                const apiEndpoint = currentModel === 'gemini-2.5-flash-image-preview'
+                const apiEndpoint = currentModel === 'google/gemini-2.5-flash-image-preview'
                   ? '/api/gemini-2.5-flash-image-preview'
                   : (currentModel === 'veo3-fast'
                     ? '/api/veo3-fast'
@@ -594,7 +594,7 @@ export default function ChatInterface() {
                       ? '/api/seedream-4-0'
                       : (currentModel === 'seedance-1.0-pro'
                         ? '/api/seedance-1.0-pro'
-                        : (currentModel === 'gemini-2.5-pro' ? '/api/gemini-2.5-pro' : '/api/gpt-5'))));
+                        : (currentModel === 'google/gemini-2.5-pro' ? '/api/gemini-2.5-pro' : '/api/gpt-5'))));
 
                 const toImageItem = (img: string) => ({ type: 'input_image', image_url: img } as any);
                 let input: string | any[];

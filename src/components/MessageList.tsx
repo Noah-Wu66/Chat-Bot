@@ -94,7 +94,7 @@ export default function MessageList({
   const [pendingVideoImage, setPendingVideoImage] = useState<string | null>(null);
   const [processingVideo, setProcessingVideo] = useState(false);
   const { currentModel, setCurrentModel, setPresetInputImages, settings, setCurrentConversation, addConversation } = useChatStore();
-  const isGeneratingModel = currentModel === 'veo3-fast' || currentModel === 'gemini-2.5-flash-image-preview';
+  const isGeneratingModel = currentModel === 'veo3-fast' || currentModel === 'google/gemini-2.5-flash-image-preview';
 
   // 自动滚动到底部
   useEffect(() => {
@@ -218,7 +218,7 @@ export default function MessageList({
                     />
                   </button>
                   {/* Gemini 图片下方：移除复制按钮，新增播放按钮 */}
-                  {message.model === 'gemini-2.5-flash-image-preview' && (
+                  {message.model === 'google/gemini-2.5-flash-image-preview' && (
                     <div className="mt-1 flex items-center gap-2">
                       <button
                         type="button"

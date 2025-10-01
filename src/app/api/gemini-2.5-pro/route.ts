@@ -1,4 +1,6 @@
 // Gemini 2.5 Pro Chat API Route (基于官方指南结构)
+import { getAIClient } from '@/lib/ai';
+
 import { getConversationModel } from '@/lib/models/Conversation';
 import { cookies } from 'next/headers';
 import { verifyJWT } from '@/lib/auth';
@@ -26,9 +28,8 @@ async function getCurrentUser() {
   }
 }
 
-// Gemini API 配置
-const GEMINI_BASE_URL = 'https://aihubmix.com/gemini';
-const MODEL_NAME = 'gemini-2.5-pro'; // 使用官方指南中的模型名
+// OpenRouter 模型映射
+const MODEL_NAME = 'google/gemini-2.5-pro';
 
 // Types 定义（模拟官方 SDK 的类型结构）
 interface Part {
@@ -81,12 +82,12 @@ function createInlineDataPart(data: string, mimeType: string): Part {
 // 转换输入为 Gemini Part
 function toGeminiPart(item: any): Part | null {
   if (!item || typeof item !== 'object') return null;
-  
+
   // 文本
   if (item.type === 'input_text' && typeof item.text === 'string') {
     return createTextPart(item.text);
   }
-  
+
   // 图片
   if (item.type === 'input_image') {
     if (typeof item.image_url === 'string') {
@@ -101,7 +102,7 @@ function toGeminiPart(item: any): Part | null {
       return createInlineDataPart(item.image_data, item.mime_type);
     }
   }
-  
+
   // 音频
   if (item.type === 'input_audio') {
     const inlineData = item.inline_data;
@@ -113,7 +114,7 @@ function toGeminiPart(item: any): Part | null {
       return createInlineDataPart(inlineData.data, inlineData.mime_type);
     }
   }
-  
+
   // 视频
   if (item.type === 'input_video') {
     const inlineData = item.inline_data;
@@ -125,14 +126,14 @@ function toGeminiPart(item: any): Part | null {
       return createInlineDataPart(inlineData.data, inlineData.mime_type);
     }
   }
-  
+
   return null;
 }
 
 // 构建 Gemini Contents（模拟官方 SDK 的结构）
 function buildGeminiContents(input: string | any[], historyText: string): Content[] {
   const contents: Content[] = [];
-  
+
   // 添加历史上下文
   if (historyText) {
     contents.push({
@@ -140,20 +141,20 @@ function buildGeminiContents(input: string | any[], historyText: string): Conten
       parts: [createTextPart(`以下是对话历史（供参考）：\n${historyText}`)],
     });
   }
-  
+
   // 处理输入
   if (Array.isArray(input)) {
     for (const turn of input) {
       const role = turn?.role === 'assistant' ? 'model' : 'user';
       const parts: Part[] = [];
-      
+
       if (Array.isArray(turn?.content)) {
         for (const item of turn.content) {
           const part = toGeminiPart(item);
           if (part) parts.push(part);
         }
       }
-      
+
       if (parts.length > 0) {
         contents.push({ role, parts });
       }
@@ -164,11 +165,14 @@ function buildGeminiContents(input: string | any[], historyText: string): Conten
       parts: [createTextPart(String(input ?? ''))],
     });
   }
-  
+
   return contents;
 }
 
 export async function POST(req: Request) {
+// 标记部分工具函数为已使用，避免构建时未使用警告（不影响运行）
+void [createTextPart, createInlineDataPart, toGeminiPart, buildGeminiContents];
+
 
   const user = await getCurrentUser();
   if (!user) {
@@ -182,9 +186,9 @@ export async function POST(req: Request) {
   try {
     body = await req.json();
   } catch (e: any) {
-    return new Response(JSON.stringify({ error: '请求体解析失败' }), { 
-      status: 400, 
-      headers: { 'Content-Type': 'application/json' } 
+    return new Response(JSON.stringify({ error: '请求体解析失败' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' }
     });
   }
 
@@ -198,14 +202,9 @@ export async function POST(req: Request) {
     webSearch?: boolean;
   };
 
-  const apiKey = process.env.AIHUBMIX_API_KEY;
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'Missing AIHUBMIX_API_KEY' }), { status: 500 });
-  }
-
   const Conversation = await getConversationModel();
   const requestId = Date.now().toString(36) + Math.random().toString(36).slice(2);
-  
+
 
   // 提取用户消息文本（用于记录）
   let userContent = '';
@@ -242,16 +241,16 @@ export async function POST(req: Request) {
   const doc = await Conversation.findOne({ id: conversationId, userId: user.sub }, { messages: 1 }).lean();
   const fullHistory: any[] = Array.isArray((doc as any)?.messages) ? (doc as any).messages : [];
   const historyWithoutCurrent = regenerate ? fullHistory : (fullHistory.length > 0 ? fullHistory.slice(0, -1) : []);
-  
+
   const buildHistoryText = (list: any[]): string => {
     const items = list.slice(-MAX_HISTORY).filter((m: any) => m && (m.role === 'user' || m.role === 'assistant'));
     return items.map((m: any) => `${m.role === 'user' ? '用户' : '助手'}: ${String(m.content ?? '')}`).join('\n');
   };
-  
+
   const historyText = buildHistoryText(historyWithoutCurrent);
 
-  // 构建请求内容
-  let contents = buildGeminiContents(input, historyText);
+  // 构建请求内容（保留调用以兼容旧逻辑，无副作用）
+  void buildGeminiContents(input, historyText);
 
   // 可选：联网搜索（与 GPT-5 对齐：注入一条带有 Markdown 的前置“用户材料”消息，并记录 sources）
   let searchUsed = false;
@@ -279,22 +278,7 @@ export async function POST(req: Request) {
     }
   }
 
-  // 构建生成配置（遵循官方指南的结构）
-  const generationConfig: GenerateContentConfig = {};
-  const systemInstruction: Content = {
-    role: 'user',
-    parts: [createTextPart('总是用中文回复')],
-  };
 
-  // 设置参数
-  if (typeof settings?.maxTokens === 'number') {
-    generationConfig.maxOutputTokens = settings.maxTokens;
-  }
-
-  if (typeof settings?.temperature === 'number') {
-    generationConfig.temperature = settings.temperature;
-  }
-  
 
   // 检查是否包含多媒体内容
   const hasInlineData = contents.some(content =>
@@ -302,60 +286,20 @@ export async function POST(req: Request) {
   );
 
 
-  // 流式响应处理
+  // 流式响应处理（OpenRouter Chat Completions）
   if (stream) {
     const encoder = new TextEncoder();
     const streamBody = new ReadableStream<Uint8Array>({
       async start(controller) {
         try {
-          // 发送开始事件
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ 
-              type: 'start', 
-              requestId, 
-              route: 'gemini.generate_content', 
-              model: MODEL_NAME 
+            encoder.encode(`data: ${JSON.stringify({
+              type: 'start',
+              requestId,
+              route: 'chat.completions',
+              model: MODEL_NAME
             })}\n\n`)
           );
-
-          // 构建请求 URL（追加 key 参数）
-          const url = `${GEMINI_BASE_URL}/v1beta/models/${MODEL_NAME}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`;
-          
-          // 构建请求体（使用 camelCase 字段名，符合 Gemini v1beta REST 规范）
-          const requestBody = {
-            contents,
-            generationConfig,
-            systemInstruction,
-          };
-
-          // 发送请求
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'x-api-key': apiKey,
-              'Content-Type': 'application/json',
-              'Accept': 'text/event-stream',
-            },
-            body: JSON.stringify(requestBody),
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('[Gemini 2.5 Pro] stream error', JSON.stringify({ 
-              requestId, 
-              status: response.status, 
-              error: errorText 
-            }));
-            
-                      controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ 
-                type: 'error', 
-                error: errorText || `Gemini 请求失败 (${response.status})` 
-              })}\n\n`)
-                    );
-                    controller.close();
-                    return;
-                  }
 
           // 与 GPT-5 一致：在开始读取流前告知前端本次使用了搜索及来源列表
           if (searchUsed) {
@@ -367,126 +311,88 @@ export async function POST(req: Request) {
             }
           }
 
-          const reader = response.body?.getReader();
-          const decoder = new TextDecoder();
+          const ai = getAIClient();
 
-          if (!reader) {
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ 
-                type: 'error', 
-                error: '无法读取响应流' 
-              })}\n\n`)
-            );
-            controller.close();
-            return;
-          }
-
-          let sseBuffer = '';
-          let answerAccum = '';
-          let thoughtAccum = '';
-          let eventCount = 0;
-
-          // 处理流式响应
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            const chunk = decoder.decode(value, { stream: true });
-            sseBuffer += chunk.replace(/\r\n/g, '\n');
-
-            // 解析 SSE 事件
-            while (true) {
-              const sepIndex = sseBuffer.indexOf('\n\n');
-              if (sepIndex === -1) break;
-              
-              const block = sseBuffer.slice(0, sepIndex);
-              sseBuffer = sseBuffer.slice(sepIndex + 2);
-
-              try {
-                const dataLines = block
-                  .split('\n')
-                  .filter(l => l.startsWith('data:'))
-                  .map(l => l.slice(5).trimStart());
-                
-                if (dataLines.length === 0) continue;
-                
-                const payload = dataLines.join('\n');
-                if (payload === '[DONE]' || payload === 'DONE') continue;
-                
-                const data = JSON.parse(payload);
-                eventCount++;
-
-                // 处理响应内容
-                const parts = data?.candidates?.[0]?.content?.parts || [];
-                if (Array.isArray(parts) && parts.length > 0) {
-                  for (const part of parts) {
-                    if (typeof part?.text === 'string') {
-                      if (part.thought) {
-                        // 思考过程
-                        const delta = part.text;
-                        controller.enqueue(
-                          encoder.encode(`data: ${JSON.stringify({ 
-                            type: 'reasoning', 
-                            content: delta 
-                          })}\n\n`)
-                        );
-                        thoughtAccum += delta;
-                      } else {
-                        // 正常内容
-                        const delta = part.text;
-                        controller.enqueue(
-                          encoder.encode(`data: ${JSON.stringify({ 
-                            type: 'content', 
-                            content: delta 
-                          })}\n\n`)
-                        );
-                        answerAccum += delta;
-                      }
-                    }
-                  }
-                }
-
-                // 使用情况元数据
-              } catch {}
+          // 将 input/history 转换为 OpenRouter Chat messages
+          type CCPart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+          type CCMessage = { role: 'system' | 'user' | 'assistant'; content: CCPart[] | string };
+          const toCCPart = (item: any): CCPart | null => {
+            if (!item || typeof item !== 'object') return null;
+            if (item.type === 'input_text' && typeof item.text === 'string') return { type: 'text', text: item.text };
+            if (item.type === 'input_image') {
+              if (typeof item.image_url === 'string' && item.image_url) return { type: 'image_url', image_url: { url: item.image_url } };
+              const mime = typeof item.mime_type === 'string' && item.mime_type ? item.mime_type : 'image/png';
+              if (typeof item.image_data === 'string' && item.image_data) return { type: 'image_url', image_url: { url: `data:${mime};base64,${item.image_data}` } };
             }
+            return null;
+          };
+          const buildMessages = (src: string | any[]): CCMessage[] => {
+            const msgs: CCMessage[] = [];
+            msgs.push({ role: 'system', content: [{ type: 'text', text: '总是用中文回复' }] as CCPart[] });
+            if (historyText) msgs.push({ role: 'user', content: [{ type: 'text', text: `以下是对话历史（供参考）：\n${historyText}` }] as CCPart[] });
+            if (Array.isArray(src)) {
+              for (const turn of src) {
+                const role = turn?.role === 'assistant' ? 'assistant' : 'user';
+                const parts = Array.isArray(turn?.content) ? turn.content.map(toCCPart).filter(Boolean) as CCPart[] : [];
+                if (parts.length > 0) msgs.push({ role, content: parts });
+              }
+            } else {
+              msgs.push({ role: 'user', content: [{ type: 'text', text: String(src ?? '') }] as CCPart[] });
+            }
+            return msgs;
+          };
+
+          let messages = buildMessages(input);
+
+          const streamResp: any = await (ai as any).chat.completions.create({
+            model: MODEL_NAME,
+            messages,
+            stream: true,
+            ...(typeof settings?.temperature === 'number' ? { temperature: settings.temperature } : {}),
+            ...(typeof settings?.maxTokens === 'number' ? { max_tokens: settings.maxTokens } : {}),
+          });
+
+          let answerAccum = '';
+          for await (const chunk of streamResp) {
+            try {
+              const delta = chunk?.choices?.[0]?.delta?.content;
+              if (delta) {
+                answerAccum += delta;
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ type: 'content', content: delta })}\n\n`)
+                );
+              }
+            } catch {}
           }
 
           // 保存助手消息
-            await Conversation.updateOne(
-              { id: conversationId, userId: user.sub },
-              {
-                $push: {
-                  messages: {
-                    id: Date.now().toString(36),
-                    role: 'assistant',
-                    content: answerAccum,
-                    timestamp: new Date(),
+          await Conversation.updateOne(
+            { id: conversationId, userId: user.sub },
+            {
+              $push: {
+                messages: {
+                  id: Date.now().toString(36),
+                  role: 'assistant',
+                  content: answerAccum,
+                  timestamp: new Date(),
                   model: MODEL_NAME,
-                    metadata: (thoughtAccum || searchUsed)
-                      ? {
-                          ...(thoughtAccum ? { reasoning: thoughtAccum } : {}),
-                          ...(searchUsed ? { searchUsed: true, sources: searchSources || undefined } : {}),
-                        }
-                      : undefined,
-                  },
+                  metadata: (searchUsed)
+                    ? { searchUsed: true, sources: searchSources || undefined }
+                    : undefined,
                 },
-                $set: { updatedAt: new Date() },
-              }
-            );
+              },
+              $set: { updatedAt: new Date() },
+            }
+          );
 
-
-          // 发送完成事件
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`)
           );
           controller.close();
         } catch (e: any) {
-          console.error('[Gemini 2.5 Pro] stream failed', e?.message || String(e));
+          console.error('[Gemini 2.5 Pro][OpenRouter] stream failed', e?.message || String(e));
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ 
-              type: 'error', 
-              error: e?.message || 'Gemini 流式请求失败' 
-            })}\n\n`)
+            encoder.encode(`data: ${JSON.stringify({ type: 'error', error: e?.message || '流式请求失败' })}\n\n`)
           );
           controller.close();
         }
@@ -505,110 +411,82 @@ export async function POST(req: Request) {
     });
   }
 
-  // 非流式响应处理
+  // 非流式响应处理（OpenRouter Chat Completions）
   try {
-    const url = `${GEMINI_BASE_URL}/v1beta/models/${MODEL_NAME}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const ai = getAIClient();
 
-
-    const requestBody = {
-      contents,
-      generationConfig,
-      systemInstruction,
+    // 构建 messages
+    type CCPart = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+    type CCMessage = { role: 'system' | 'user' | 'assistant'; content: CCPart[] | string };
+    const toCCPart = (item: any): CCPart | null => {
+      if (!item || typeof item !== 'object') return null;
+      if (item.type === 'input_text' && typeof item.text === 'string') return { type: 'text', text: item.text };
+      if (item.type === 'input_image') {
+        if (typeof item.image_url === 'string' && item.image_url) return { type: 'image_url', image_url: { url: item.image_url } };
+        const mime = typeof item.mime_type === 'string' && item.mime_type ? item.mime_type : 'image/png';
+        if (typeof item.image_data === 'string' && item.image_data) return { type: 'image_url', image_url: { url: `data:${mime};base64,${item.image_data}` } };
+      }
+      return null;
+    };
+    const buildMessages = (src: string | any[]): CCMessage[] => {
+      const msgs: CCMessage[] = [];
+      msgs.push({ role: 'system', content: [{ type: 'text', text: '总是用中文回复' }] as CCPart[] });
+      if (historyText) msgs.push({ role: 'user', content: [{ type: 'text', text: `以下是对话历史（供参考）：\n${historyText}` }] as CCPart[] });
+      if (Array.isArray(src)) {
+        for (const turn of src) {
+          const role = turn?.role === 'assistant' ? 'assistant' : 'user';
+          const parts = Array.isArray(turn?.content) ? turn.content.map(toCCPart).filter(Boolean) as CCPart[] : [];
+          if (parts.length > 0) msgs.push({ role, content: parts });
+        }
+      } else {
+        msgs.push({ role: 'user', content: [{ type: 'text', text: String(src ?? '') }] as CCPart[] });
+      }
+      return msgs;
     };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
+    let messages = buildMessages(input);
+
+    const resp: any = await (ai as any).chat.completions.create({
+      model: MODEL_NAME,
+      messages,
+      ...(typeof settings?.temperature === 'number' ? { temperature: settings.temperature } : {}),
+      ...(typeof settings?.maxTokens === 'number' ? { max_tokens: settings.maxTokens } : {}),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[Gemini 2.5 Pro] non-stream error', JSON.stringify({ 
-        requestId, 
-        status: response.status, 
-        error: errorText 
-      }));
-      
-      return new Response(
-        JSON.stringify({ error: errorText || `Gemini 请求失败 (${response.status})` }),
-        { status: response.status, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    const choice = resp?.choices?.[0];
+    const msg = choice?.message || {};
+    const content: string = typeof msg?.content === 'string' ? msg.content : '';
 
-    const data = await response.json();
-    
-    // 提取响应内容
-    let content = '';
-    let reasoning = '';
-    
-    // 尝试直接获取文本
-    if (data?.text) {
-      content = data.text;
-    } else if (data?.candidates?.[0]?.content?.parts) {
-      // 从 parts 中提取
-      for (const part of data.candidates[0].content.parts) {
-        if (typeof part?.text === 'string') {
-          if (part.thought) {
-            reasoning += part.text;
-          } else {
-            content += part.text;
-          }
-        }
-      }
-    }
-
-
-    // 保存助手消息
-  await Conversation.updateOne(
-    { id: conversationId, userId: user.sub },
-    {
-      $push: {
-        messages: {
-          id: Date.now().toString(36),
-          role: 'assistant',
-          content,
-          timestamp: new Date(),
+    await Conversation.updateOne(
+      { id: conversationId, userId: user.sub },
+      {
+        $push: {
+          messages: {
+            id: Date.now().toString(36),
+            role: 'assistant',
+            content,
+            timestamp: new Date(),
             model: MODEL_NAME,
-            metadata: (reasoning || searchUsed)
-              ? {
-                  ...(reasoning ? { reasoning } : {}),
-                  ...(searchUsed ? { searchUsed: true, sources: searchSources || undefined } : {}),
-                }
-              : undefined,
+            metadata: (searchUsed) ? { searchUsed: true, sources: searchSources || undefined } : undefined,
           },
-      },
-      $set: { updatedAt: new Date() },
-    }
-  );
-
-  return Response.json(
-    {
-        message: { 
-          role: 'assistant', 
-          content, 
-          model: MODEL_NAME,
-          ...(reasoning ? { reasoning } : {})
         },
-      requestId,
-        usage: data?.usageMetadata,
-      },
-      { 
-        headers: { 
-          'X-Request-Id': requestId, 
-          'X-Model': MODEL_NAME 
-        } 
+        $set: { updatedAt: new Date() },
       }
     );
+
+    return Response.json(
+      {
+        message: { role: 'assistant', content, model: MODEL_NAME },
+        requestId,
+      },
+      { headers: { 'X-Request-Id': requestId, 'X-Model': MODEL_NAME } }
+    );
   } catch (e: any) {
-    console.error('[Gemini 2.5 Pro] 请求失败:', e?.message || String(e));
+    console.error('[Gemini 2.5 Pro][OpenRouter] 请求失败:', e?.message || String(e));
     return new Response(
-      JSON.stringify({ error: e?.message || 'Gemini 请求失败' }),
+      JSON.stringify({ error: e?.message || '请求失败' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 }
+
